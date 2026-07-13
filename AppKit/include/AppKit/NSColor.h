@@ -223,6 +223,10 @@ typedef NSString *NSColorSpaceName;
                          green: (CGFloat) green
                           blue: (CGFloat) blue
                          alpha: (CGFloat) alpha;
++ (NSColor *) colorWithDisplayP3Red: (CGFloat) red
+                              green: (CGFloat) green
+                               blue: (CGFloat) blue
+                              alpha: (CGFloat) alpha;
 + (NSColor *) colorWithDeviceHue: (CGFloat) hue
                       saturation: (CGFloat) saturation
                       brightness: (CGFloat) brightness
