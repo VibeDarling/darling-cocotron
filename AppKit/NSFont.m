@@ -573,6 +573,11 @@ static NSLock *_cacheLock = nil;
     return _name;
 }
 
+// Lets CoreText draw an NSFont passed as a CTFontRef.
+- (CGFontRef) cgFont {
+    return _cgFont;
+}
+
 - (const CGFloat *) matrix {
     return _matrix;
 }
