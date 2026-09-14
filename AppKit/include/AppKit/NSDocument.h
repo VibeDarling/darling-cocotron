@@ -285,3 +285,11 @@ completionHandler: (void (^)(NSError *errorOrNil)) completionHandler;
 - (void) invalidateRestorableState;
 
 @end
+
+@interface NSDocument (NSDocumentViewingAndSaveType)
+// Always NO: there are no document versions to view.
+- (BOOL) isInViewingMode;
+// Private AppKit action of the save panel's file format pop-up. Does nothing:
+// Cocotron's save panel has no such pop-up.
+- (void) changeSaveType: (id) sender;
+@end
