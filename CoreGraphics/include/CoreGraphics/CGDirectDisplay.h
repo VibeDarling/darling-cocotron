@@ -74,3 +74,9 @@ COREGRAPHICS_EXPORT CGError CGDisplaySwitchToMode(CGDirectDisplayID display,
                                                   CFDictionaryRef mode);
 COREGRAPHICS_EXPORT size_t CGDisplayModeGetPixelWidth(CGDisplayModeRef mode);
 COREGRAPHICS_EXPORT CGSize CGDisplayScreenSize(CGDirectDisplayID display);
+COREGRAPHICS_EXPORT CFUUIDRef CGDisplayCreateUUIDFromDisplayID(CGDirectDisplayID display);
+COREGRAPHICS_EXPORT CGDirectDisplayID CGDisplayGetDisplayIDFromUUID(CFUUIDRef uuid);
+COREGRAPHICS_EXPORT boolean_t CGDisplayIsActive(CGDirectDisplayID display);
+COREGRAPHICS_EXPORT boolean_t CGDisplayIsBuiltin(CGDirectDisplayID display);
+COREGRAPHICS_EXPORT int32_t CGDisplayRotation(CGDirectDisplayID display);
+
