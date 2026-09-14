@@ -31,6 +31,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     NSGraphicsContext *_context;
     NSRect _insideRect;
     NSMutableData *_mutableData;
+    NSString *_path;
     int _type;
     BOOL _showsPrintProgressPanel;
 }
@@ -46,6 +47,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 + (NSPrintOperation *) PDFOperationWithView: (NSView *) view
                                  insideRect: (NSRect) rect
                                      toData: (NSMutableData *) data
+                                  printInfo: (NSPrintInfo *) printInfo;
++ (NSPrintOperation *) PDFOperationWithView: (NSView *) view
+                                 insideRect: (NSRect) rect
+                                     toPath: (NSString *) path
                                   printInfo: (NSPrintInfo *) printInfo;
 + (NSPrintOperation *) EPSOperationWithView: (NSView *) view
                                  insideRect: (NSRect) rect
