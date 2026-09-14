@@ -30,6 +30,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 @class NSView, NSEvent, NSColor, NSColorSpace, NSCursor, NSImage, NSScreen,
         NSText, NSTextView, CGWindow, NSPasteboard, NSSheetContext,
+        NSTitlebarAccessoryViewController,
         NSUndoManager, NSButton, NSButtonCell, NSDrawer, NSDockTile, NSToolbar,
         NSWindowAnimationContext, NSTrackingArea, NSThemeFrame,
         NSWindowController, NSMenuItem, CARenderer;
@@ -86,6 +87,14 @@ typedef NS_ENUM(NSUInteger, NSWindowBackingLocation) {
     NSWindowBackingLocationDefault = 0x00,
     NSWindowBackingLocationVideoMemory = 0x01,
     NSWindowBackingLocationMainMemory = 0x02
+};
+
+typedef NS_ENUM(NSInteger, NSWindowToolbarStyle) {
+    NSWindowToolbarStyleAutomatic,
+    NSWindowToolbarStyleExpanded,
+    NSWindowToolbarStylePreference,
+    NSWindowToolbarStyleUnified,
+    NSWindowToolbarStyleUnifiedCompact,
 };
 
 enum {
@@ -248,6 +257,9 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification;
 
     BOOL _isAccessible;
     Class _restorationClass;
+
+    NSMutableArray *_titlebarAccessoryViewControllers;
+    NSWindowToolbarStyle _toolbarStyle;
 }
 
 @property(class) BOOL allowsAutomaticWindowTabbing;
@@ -623,6 +635,15 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification;
 
 - (CGSubWindow *) _createSubWindowWithFrame: (CGRect) frame;
 
+@end
+
+@interface NSWindow (NSWindowTitlebarAccessories)
+// Stored only: accessories aren't shown and the toolbar style doesn't change
+// drawing.
+@property(readonly, copy) NSArray *titlebarAccessoryViewControllers;
+- (void) addTitlebarAccessoryViewController:
+        (NSTitlebarAccessoryViewController *) controller;
+@property NSWindowToolbarStyle toolbarStyle;
 @end
 
 @interface NSWindow (Darling)
