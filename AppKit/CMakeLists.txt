@@ -564,8 +564,14 @@ reexport(AppKit ApplicationServices ${CMAKE_BINARY_DIR}/src/frameworks/Applicati
 # Since macOS 14 the AppKit Swift overlay is part of AppKit.framework, so apps bind symbols such as
 # $sSo6CGRectV6AppKitE4fill5usingySo22NSCompositingOperationV_tF to AppKit. Re-export the overlay from
 # src/external/swift (installed as /usr/lib/swift/libswiftAppKit.dylib) so those binds resolve.
+# arm64 only: the x86_64 slice of the overlay is Apple's full overlay, which hard-links libswiftFoundation,
+# CoreData, IOKit, QuartzCore and more, so re-exporting it would make every x86_64 AppKit client load them.
+# A build tree targets one 64-bit arch (APPLE_ARCH_64BIT), so on arm64 this AppKit target is the arm64 slice.
+set(SWIFT_APPKIT_OVERLAY "${CMAKE_SOURCE_DIR}/src/external/swift/libswiftAppKit.dylib")
+if (APPLE_ARCH_64BIT STREQUAL "arm64" AND EXISTS "${SWIFT_APPKIT_OVERLAY}")
 set_property(TARGET AppKit APPEND_STRING PROPERTY
-	LINK_FLAGS " -Wl,-reexport_library,${CMAKE_SOURCE_DIR}/src/external/swift/libswiftAppKit.dylib ")
+	LINK_FLAGS " -Wl,-reexport_library,${SWIFT_APPKIT_OVERLAY} ")
+endif ()
 
 target_include_directories(AppKit PRIVATE
 	private-include
