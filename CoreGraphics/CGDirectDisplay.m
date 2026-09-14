@@ -20,6 +20,7 @@
 #import <AppKit/NSDisplay.h>
 #import <AppKit/NSScreen.h>
 #import <CoreGraphics/CGDirectDisplay.h>
+#import <CoreGraphics/CGColorSpace.h>
 #import <CoreGraphics/CGError.h>
 #import <IOKit/graphics/IOGraphicsLib.h>
 #import <IOKit/graphics/IOGraphicsTypes.h>
@@ -541,6 +542,10 @@ boolean_t CGDisplayIsActive(CGDirectDisplayID display) {
 
 boolean_t CGDisplayIsBuiltin(CGDirectDisplayID display) {
     return (display == CGMainDisplayID());
+}
+
+CGColorSpaceRef CGDisplayCopyColorSpace(CGDirectDisplayID display) {
+    return CGColorSpaceCreateDeviceRGB();
 }
 
 int32_t CGDisplayRotation(CGDirectDisplayID display) {

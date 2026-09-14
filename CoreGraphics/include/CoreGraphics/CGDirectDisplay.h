@@ -1,6 +1,7 @@
 
 #import <CoreGraphics/CGError.h>
 #import <CoreGraphics/CGGeometry.h>
+#import <CoreGraphics/CGColorSpace.h>
 #import <CoreGraphics/CoreGraphicsExport.h>
 #import <mach/boolean.h>
 
@@ -79,4 +80,5 @@ COREGRAPHICS_EXPORT CGDirectDisplayID CGDisplayGetDisplayIDFromUUID(CFUUIDRef uu
 COREGRAPHICS_EXPORT boolean_t CGDisplayIsActive(CGDirectDisplayID display);
 COREGRAPHICS_EXPORT boolean_t CGDisplayIsBuiltin(CGDirectDisplayID display);
 COREGRAPHICS_EXPORT int32_t CGDisplayRotation(CGDirectDisplayID display);
+COREGRAPHICS_EXPORT CGColorSpaceRef CGDisplayCopyColorSpace(CGDirectDisplayID display);
 
