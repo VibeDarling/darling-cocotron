@@ -1321,7 +1321,11 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
                                  checkForAppDeactivation: NO];
             lastFocusedWindow = nil;
         }
+        if (window != nil)
+            window->_receivingFocus = YES;
         [delegate platformWindowActivated: window displayIfNeeded: YES];
+        if (window != nil)
+            window->_receivingFocus = NO;
         lastFocusedWindow = delegate;
         if (window != nil)
             XSetICFocus(window->_xic);
@@ -1385,6 +1389,7 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
 
     case MapNotify:
         NSLog(@"MapNotify");
+        [window mapNotified];
         break;
 
     case MapRequest:
