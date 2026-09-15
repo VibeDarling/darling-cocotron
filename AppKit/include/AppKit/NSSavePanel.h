@@ -48,6 +48,9 @@ enum {
     NSArray *_allowedContentTypes;
     NSTextField *_nameField;
     BOOL _allowsOtherFileTypes;
+    BOOL _runsAsSheet;
+    NSUInteger _styleMaskBeforeSheet;
+    id _sheetCompletionHandler;
 }
 
 @property (copy) NSString *nameFieldStringValue;
@@ -59,6 +62,8 @@ enum {
 - (NSString *) filename;
 
 - (void) beginWithCompletionHandler: (void (^)(NSModalResponse result)) handler;
+- (void) beginSheetModalForWindow: (NSWindow *) window
+                completionHandler: (void (^)(NSModalResponse result)) handler;
 
 - (NSInteger) runModalForDirectory: (NSString *) directory
                               file: (NSString *) file;
