@@ -81,6 +81,7 @@ static NSPrintOperation *_currentOperation = nil;
     [_printPanel release];
     [_context release];
     [_mutableData release];
+    [_jobTitle release];
     [super dealloc];
 }
 
@@ -438,6 +439,20 @@ static NSPrintOperation *_currentOperation = nil;
     _currentOperation = nil;
 
     return YES;
+}
+
+@end
+
+@implementation NSPrintOperation (NSJobTitle)
+
+- (NSString *) jobTitle {
+    return _jobTitle;
+}
+
+- (void) setJobTitle: (NSString *) title {
+    title = [title copy];
+    [_jobTitle release];
+    _jobTitle = title;
 }
 
 @end
