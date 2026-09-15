@@ -240,7 +240,78 @@ NSString *const kCAContentsFormatGray8Uint = @"Gray8";
     [_animations release];
     [_minificationFilter release];
     [_magnificationFilter release];
+    if (_backgroundColor)
+        CGColorRelease(_backgroundColor);
+    if (_borderColor)
+        CGColorRelease(_borderColor);
+    [_textureContents release];
     [super dealloc];
+}
+
+static void replaceColor(CGColorRef *slot, CGColorRef value) {
+    if (*slot == value)
+        return;
+    if (value)
+        CGColorRetain(value);
+    if (*slot)
+        CGColorRelease(*slot);
+    *slot = value;
+}
+
+- (CGColorRef) backgroundColor {
+    return _backgroundColor;
+}
+
+// Appearance changes need a new frame even when no view is redisplayed: the
+// context's timer renders and presents one, then stops again once idle.
+- (void) setBackgroundColor: (CGColorRef) value {
+    replaceColor(&_backgroundColor, value);
+    [_context startTimerIfNeeded];
+}
+
+- (CGColorRef) borderColor {
+    return _borderColor;
+}
+
+- (void) setBorderColor: (CGColorRef) value {
+    replaceColor(&_borderColor, value);
+    [_context startTimerIfNeeded];
+}
+
+- (CGFloat) borderWidth {
+    return _borderWidth;
+}
+
+- (void) setBorderWidth: (CGFloat) value {
+    _borderWidth = value;
+    [_context startTimerIfNeeded];
+}
+
+- (CGFloat) cornerRadius {
+    return _cornerRadius;
+}
+
+- (void) setCornerRadius: (CGFloat) value {
+    _cornerRadius = value;
+    [_context startTimerIfNeeded];
+}
+
+- (BOOL) masksToBounds {
+    return _masksToBounds;
+}
+
+- (void) setMasksToBounds: (BOOL) value {
+    _masksToBounds = value;
+    [_context startTimerIfNeeded];
+}
+
+- (BOOL) isHidden {
+    return _hidden;
+}
+
+- (void) setHidden: (BOOL) value {
+    _hidden = value;
+    [_context startTimerIfNeeded];
 }
 
 - (void) _setSuperLayer: (CALayer *) parent {
@@ -362,6 +433,16 @@ NSString *const kCAContentsFormatGray8Uint = @"Gray8";
     value = [value copy];
     [_textureId release];
     _textureId = value;
+}
+
+- (id) _textureContents {
+    return _textureContents;
+}
+
+- (void) _setTextureContents: (id) value {
+    value = [value retain];
+    [_textureContents release];
+    _textureContents = value;
 }
 
 @end
