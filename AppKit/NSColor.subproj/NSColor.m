@@ -690,6 +690,33 @@ NSNotificationName const NSSystemColorsDidChangeNotification = @"NSSystemColorsD
                                        colorName: colorName];
 }
 
++ (NSColor *) colorNamed: (NSColorName) name {
+    return [self colorNamed: name bundle: nil];
+}
+
+// Looks a color up by name. Asset catalogs (Assets.car) aren't supported, so only NSColor's own
+// colors resolve: names of an argument-less NSColor class method such as +textColor, +labelColor or
+// +redColor. The method is called rather than looking the name up in the display's color table,
+// which only knows system colors and logs "missing color" and returns red for anything else (for
+// example redColor or clearColor). Like macOS, an unknown name returns nil.
++ (NSColor *) colorNamed: (NSColorName) name bundle: (NSBundle *) bundle {
+    if (name == nil || ![name hasSuffix: @"Color"] || [name hasPrefix: @"_"] ||
+        [name rangeOfString: @":"].location != NSNotFound)
+        return nil;
+
+    SEL selector = NSSelectorFromString(name);
+    if (![NSColor respondsToSelector: selector])
+        return nil;
+
+    NSMethodSignature *signature = [NSColor methodSignatureForSelector: selector];
+    if (signature == nil || [signature numberOfArguments] != 2 ||
+        [signature methodReturnType][0] != '@')
+        return nil;
+
+    id color = [NSColor performSelector: selector];
+    return [color isKindOfClass: [NSColor class]] ? color : nil;
+}
+
 + (NSColor *) colorWithGenericGamma22White: (CGFloat) white
                                      alpha: (CGFloat) alpha
 {
