@@ -40,6 +40,7 @@ NSTouchBarItemIdentifier const NSTouchBarItemIdentifierCharacterPicker =
 @end
 
 @implementation NSTouchBarItem
+@synthesize identifier = _identifier;
 
 - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
 {
