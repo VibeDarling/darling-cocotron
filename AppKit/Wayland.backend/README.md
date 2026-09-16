@@ -219,3 +219,5 @@ redraw, drawable replacement across windows, invalidated never-mapped parents,
 and background-presentation rejection. GL readback checks and compositor pixel
 captures are separate evidence; a successful swap alone is not a rendering pass.
 See `tests/EGL-VALIDATION.md` for reproducible setup and exact limits.
+
+Cursor image callback lifetime and stale-presentation regression: [validation](tests/CURSOR-CALLBACK-VALIDATION.md).
