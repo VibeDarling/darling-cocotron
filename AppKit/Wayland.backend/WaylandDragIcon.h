@@ -16,29 +16,24 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE. */
 
-#import <AppKit/NSDraggingManager.h>
 #import "WaylandDisplay.h"
-
-@class WaylandDragIcon;
-@interface WaylandDraggingManager : NSDraggingManager {
-    WaylandDisplay *_display; // Display owns manager.
-    WaylandWindow *_origin;
-    WaylandDragIcon *_icon;
-    id _localSource;
-    struct wl_proxy *_source;
-    NSDictionary *_snapshot;
-    BOOL _busy, _finished, _dropped;
-    uint32_t _action;
-    double _dropDeadline;
-    BOOL _localCopyAllowed;
+@class WaylandCursor;
+@interface WaylandDragIcon : NSObject {
+    WaylandDisplay *_display;
+    WaylandCursor *_image;
+    NSMutableSet *_outputs;
+    struct wl_proxy *_surface, *_buffer;
+    NSPoint _offset;
+    int32_t _scale;
+    BOOL _shown, _positioned, _rendering, _scaleDirty, _scaleQueued;
 }
-- (id) initWithDisplay: (WaylandDisplay *) display;
-- (BOOL) localCopyAllowed;
-- (void) cancel;
-- (void) outputRemoved: (struct wl_proxy *) output;
-- (void) outputsChanged;
+- (id) initWithImage: (NSImage *) image display: (WaylandDisplay *) display
+              scale: (int32_t) scale offset: (NSPoint) offset;
+- (struct wl_proxy *) surface;
+- (void) show;
 - (void) invalidate;
-- (void) windowUnmapped: (WaylandWindow *) window;
+- (void) outputRemoved: (struct wl_proxy *) output;
+- (void) scheduleScaleUpdate;
 - (void) handleEvent: (uint32_t) opcode kind: (WaylandObjectKind) kind
               proxy: (struct wl_proxy *) proxy arguments: (union wl_argument *) args;
 @end

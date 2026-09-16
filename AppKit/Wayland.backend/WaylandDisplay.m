@@ -511,6 +511,7 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
         if (output->_globalName == name) {
             for (CFIndex i = 0; i < CFArrayGetCount(_windows); i++)
                 [(WaylandWindow *) CFArrayGetValueAtIndex(_windows, i) outputRemoved: output->_proxy];
+            [_draggingManager outputRemoved: output->_proxy];
             WL.wl_proxy_destroy(output->_proxy);
             [_outputs removeObject: output];
             [self invalidateScreens];
@@ -562,6 +563,7 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
         break;
     case WP_OUTPUT_EV_DONE:
         [self invalidateScreens];
+        [_draggingManager outputsChanged];
         for (CFIndex i = 0; i < CFArrayGetCount(_windows); i++)
             [(WaylandWindow *) CFArrayGetValueAtIndex(_windows, i) scheduleScaleUpdate];
         break;
@@ -1391,6 +1393,19 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
     if (pixels == nil)
         return NULL;
 
+    NSSize dimensions = [_cursor size];
+    dimensions.width *= scale; dimensions.height *= scale;
+    _imageCursorBuffer = [self newARGBBuffer: pixels pixelSize: dimensions];
+    _imageCursorBufferScale = scale;
+    return _imageCursorBuffer;
+}
+
+- (struct wl_proxy *) newARGBBuffer: (NSData *) pixels pixelSize: (NSSize) dimensions {
+    double width = dimensions.width, height = dimensions.height;
+    if (!isfinite(width) || !isfinite(height) || width < 1 || height < 1 ||
+        width != floor(width) || height != floor(height) ||
+        width > INT32_MAX / 4 || height > INT32_MAX / (width * 4) ||
+        [pixels length] != (NSUInteger) (width * height * 4)) return NULL;
     size_t size = [pixels length];
     int fd = WaylandCreateAnonymousFile(size);
     if (fd < 0)
@@ -1408,18 +1423,14 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
     struct wl_proxy *pool = WaylandCreateObject(_shm, WP_SHM_CREATE_POOL,
                                                 &wl_shm_pool_interface, poolArgs, 0, nil);
     close(fd);
-    NSSize dimensions = [_cursor size];
-    dimensions.width *= scale;
-    dimensions.height *= scale;
     union wl_argument bufferArgs[6] = {{.o = NULL}, {.i = 0},
-        {.i = (int32_t) dimensions.width}, {.i = (int32_t) dimensions.height},
-        {.i = (int32_t) dimensions.width * 4}, {.u = WP_SHM_FORMAT_ARGB8888}};
-    _imageCursorBuffer = WaylandCreateObject(pool, WP_SHM_POOL_CREATE_BUFFER,
+        {.i = (int32_t) width}, {.i = (int32_t) height},
+        {.i = (int32_t) width * 4}, {.u = WP_SHM_FORMAT_ARGB8888}};
+    struct wl_proxy *buffer = WaylandCreateObject(pool, WP_SHM_POOL_CREATE_BUFFER,
             &wl_buffer_interface, bufferArgs, 0, nil);
-    _imageCursorBufferScale = scale;
     union wl_argument none[1] = {{.o = NULL}};
     WaylandMarshal(pool, WP_SHM_POOL_DESTROY, NULL, WL_MARSHAL_FLAG_DESTROY, none);
-    return _imageCursorBuffer;
+    return buffer;
 }
 
 - (void) applyCursor {

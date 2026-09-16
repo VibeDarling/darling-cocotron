@@ -35,7 +35,8 @@ For same-app tests, move the GTK control away rather than overlapping targets.
 - Completion is immutable and emitted once outside native dispatch, after active
   state clears. Incoming same-app sessions retain the original source and local
   operation permission.
-- No drag icon or slide-back animation yet. Local-only sources are safely refused.
+- Drag icons are covered in DRAG-ICON-VALIDATION.md. No slide-back animation.
+  Local-only sources are safely refused.
   Other actions, file/promise conversion and modern dragging-session APIs remain
   follow-ups. Core Wayland provides no global drop coordinates; endedAt currently
   uses the original virtual location. This is not full drag-and-drop parity.
