@@ -4,6 +4,7 @@
 #import <QuartzCore/CARenderer.h>
 #import "CALayerInternal.h"
 #import <OpenGL/CGLInternal.h>
+#include <math.h>
 
 @class CAMetalLayerInternal;
 
@@ -78,6 +79,10 @@
     CGSubWindow* oldSubwindow = _subwindow;
 
     if (_cglWindow) {
+        // EGL defers destruction of a current surface. Unbind before releasing
+        // its native window so Mesa cannot retain a dangling wl_egl_window.
+        if (CGLGetCurrentContext() == _glContext && CGLSetCurrentContext(NULL) != kCGLNoError)
+            return;
         CGLDestroyWindow(_cglWindow);
     }
 
@@ -108,15 +113,32 @@
 }
 
 - (void) renderLayer: (CALayer *) layer {
-    CGLContextMakeCurrentAndAttachToWindow(_glContext, _cglWindow);
+    _rendered = NO;
+    if ([_subwindow respondsToSelector: @selector(requiresMainThreadPresentation)] &&
+        [_subwindow requiresMainThreadPresentation] && ![NSThread isMainThread]) {
+        NSLog(@"This window backend requires OpenGL rendering on the main thread");
+        return;
+    }
+    CGLError error = CGLContextMakeCurrentAndAttachToWindow(_glContext, _cglWindow);
+    if (error != kCGLNoError) {
+        NSLog(@"Layer drawable attachment failed with CGL error %d", error);
+        return;
+    }
 
     glEnable(GL_DEPTH_TEST);
     glShadeModel(GL_SMOOTH);
 
-    GLint width = _frame.size.width;
-    GLint height = _frame.size.height;
+    CGFloat width = _frame.size.width;
+    CGFloat height = _frame.size.height;
+    if (!isfinite(width) || !isfinite(height) || width <= 0 || height <= 0 ||
+        width > 16384 || height > 16384) return;
 
-    glViewport(0, 0, width, height);
+    // Older/native backends may still implement the original subwindow API.
+    CGFloat scale = [_subwindow respondsToSelector: @selector(backingScaleFactor)]
+        ? [_subwindow backingScaleFactor] : 1.0;
+    if (!isfinite(scale) || scale <= 0 ||
+        ceil(width) * scale > 16384 || ceil(height) * scale > 16384) return;
+    glViewport(0, 0, (GLsizei)(ceil(width) * scale), (GLsizei)(ceil(height) * scale));
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glOrtho(0, width, 0, height, -1, 1);
@@ -141,6 +163,7 @@
     }
 
     [_renderer render];
+    _rendered = YES;
 }
 
 - (void) render {
@@ -189,7 +212,20 @@ static BOOL layerTreeHasAnimations(CALayer *layer) {
 }
 
 - (void) flush {
-    CGLFlushDrawable(_glContext);
+    // Wayland geometry, EGL swap and parent commit must be one UI-thread
+    // transaction. Do not swap first then dispatch only presentation to main.
+    if ([_subwindow respondsToSelector: @selector(requiresMainThreadPresentation)] &&
+        [_subwindow requiresMainThreadPresentation] && ![NSThread isMainThread]) {
+        static int warned;
+        if (!__sync_lock_test_and_set(&warned, 1))
+            NSLog(@"This window backend requires OpenGL presentation on the main thread");
+        return;
+    }
+    if (!_rendered) return;
+    _rendered = NO;
+    if (CGLFlushDrawable(_glContext) == kCGLNoError &&
+        [_subwindow respondsToSelector: @selector(flush)])
+        [_subwindow flush];
 }
 
 @end
