@@ -73,9 +73,36 @@ The half-point stripe is exactly one physical pixel at 2x. Image-cursor colors
 at 2x currently differ by up to two channel values from the 1x reference.
 Multiple physical outputs and fractional scales have not been validated.
 
+## Clipboard
+
+The general pasteboard uses `wl_data_device`. UTF-8 text maps to
+`text/plain;charset=utf-8`, `text/plain` and `UTF8_STRING`; other pasteboard types
+are exposed under their own names. Other named pasteboards are process-local.
+Publishing requires keyboard focus and an input serial; writes made beforehand
+remain local until input is available. Providers are materialized outside native
+Wayland dispatch, and each published source uses an immutable snapshot.
+
+Transfers are limited to 16 MiB and five seconds. A dedicated writer keeps a slow
+reader off the UI thread and handles broken pipes without changing process-wide
+SIGPIPE behavior. Synchronous reads service compositor events while waiting and
+return nil on timeout, oversize or ownership replacement, never truncated data.
+
+Build `tests/clipboardtest.m` like the window fixture. Set `CLIPBOARD_INPUT` and
+`CLIPBOARD_RESULT` to dedicated guest-accessible scratch files. With its window
+focused, `c` copies input bytes as UTF-8 text, `l` declares a lazy provider, `p`
+writes received text bytes to the result file, `u` checks an unsupported type,
+`e` clears, `r` checks a failing bounded read, and `q` exits. Native `wl-copy` and
+`wl-paste` can exercise both directions on the same private compositor.
+
+Validated: Unicode both ways, 2.1 MB transfers, lazy providers, replacement after
+clear, early reader closure, a 5.03-second stalled-owner timeout, 17 MiB rejection
+and natural fixture exit0. This is fixture coverage, not real Apple-app coverage.
+
 ## Remaining milestones
 
-M3: clipboard and drag/drop. M4: EGL/OpenGL subwindows.
+M3 drag/drop and M4 EGL/OpenGL subwindows remain. Primary-selection protocols,
+clipboard-manager persistence after app exit and rich-format conversion are not
+implemented.
 
 All native calls use fixed-arity functions; requests use
 `wl_proxy_marshal_array_flags`, and events use a dispatcher to avoid the

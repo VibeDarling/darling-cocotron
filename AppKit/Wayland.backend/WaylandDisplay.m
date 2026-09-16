@@ -20,6 +20,7 @@
 #import "CarbonKeys.h"
 #import "NSEvent_mouse.h"
 #import "WaylandCursor.h"
+#import "WaylandPasteboard.h"
 #import "WaylandLibrary.h"
 #import "WaylandProtocol.h"
 #import "WaylandWindow.h"
@@ -99,6 +100,12 @@ int WaylandDispatch(const void *kind, void *proxy, uint32_t opcode,
                                                  kind: objectKind
                                                 proxy: proxy
                                             arguments: args];
+                break;
+            case WaylandObjectDataDevice:
+            case WaylandObjectDataOffer:
+            case WaylandObjectDataSource:
+                [(WaylandPasteboard *) object handleEvent: opcode kind: objectKind
+                                                     proxy: proxy arguments: args];
                 break;
             case WaylandObjectOutput:
                 [((WaylandOutput *) object)->_display handleEvent: opcode
@@ -197,6 +204,7 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
     _outputs = [NSMutableArray new];
     _afterDispatch = [NSMutableArray new];
     _windows = CFArrayCreateMutable(NULL, 0, NULL);
+    _namedPasteboards = [NSMutableDictionary new];
     _repeatRate = 25;
     _repeatDelay = 600;
 
@@ -235,6 +243,9 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
         [self release];
         return nil;
     }
+
+    _generalPasteboard = [[WaylandPasteboard alloc] initWithName: NSGeneralPboard display: self
+                                                      manager: _dataDeviceManager seat: _seat];
 
     _xkbContext = WL.xkb_context_new(XKB_CONTEXT_NO_FLAGS);
     if (_xkbContext == NULL)
@@ -286,6 +297,11 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
 }
 
 - (void) dealloc {
+    [_generalPasteboard invalidate];
+    [_generalPasteboard release];
+    for (WaylandPasteboard *pasteboard in [_namedPasteboards allValues])
+        [pasteboard invalidate];
+    [_namedPasteboards release];
     [self stopKeyRepeat];
 
     if (_wlSource != NULL) {
@@ -308,7 +324,7 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
     if (_wlDisplay != NULL) {
         // wl_display_disconnect() doesn't free proxies.
         struct wl_proxy *proxies[] = {_imageCursorBuffer, _cursorSurface, _pointer, _keyboard,
-                                      _seat, _decorationManager, _wmBase,
+                                      _seat, _decorationManager, _dataDeviceManager, _wmBase,
                                       _shm, _compositor, _registry};
         for (size_t i = 0; i < sizeof(proxies) / sizeof(proxies[0]); i++)
             if (proxies[i] != NULL)
@@ -438,6 +454,9 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
                                version: _compositorVersion
                                   kind: 0
                                 object: nil];
+    } else if (strcmp(interface, "wl_data_device_manager") == 0 && _dataDeviceManager == NULL) {
+        _dataDeviceManager = [self bindGlobal: name interface: &wl_data_device_manager_interface
+                                    version: MIN(version, 3) kind: 0 object: nil];
     } else if (strcmp(interface, "wl_shm") == 0 && _shm == NULL) {
         _shm = [self bindGlobal: name
                       interface: &wl_shm_interface
@@ -677,6 +696,7 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
             break;
         if (args[3].u == WP_POINTER_BUTTON_STATE_PRESSED) {
             _inputSerial = args[0].u;
+            [_generalPasteboard inputAvailable];
             [_inputEvent release];
             _inputEvent = nil;
             _inputWindow = nil;
@@ -851,6 +871,7 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
         BOOL pressed = args[3].u == WP_KEYBOARD_KEY_STATE_PRESSED;
         if (pressed) {
             _inputSerial = args[0].u;
+            [_generalPasteboard inputAvailable];
             [_inputEvent release];
             _inputEvent = nil;
             _inputWindow = nil;
@@ -1532,9 +1553,21 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
 
 #pragma mark - Unsupported or X11-only
 
+- (uint32_t) clipboardSerial {
+    return _keyboardWindow != nil ? _inputSerial : 0;
+}
+
 - (NSPasteboard *) pasteboardWithName: (NSString *) name {
-    // The clipboard isn't implemented yet.
-    return nil;
+    if ([name isEqual: NSGeneralPboard] || [name isEqual: NSPasteboardNameGeneral])
+        return _generalPasteboard;
+    if (name == nil) return nil;
+    WaylandPasteboard *pasteboard = [_namedPasteboards objectForKey: name];
+    if (!pasteboard) {
+        pasteboard = [[[WaylandPasteboard alloc] initWithName: name display: self
+                                                    manager: NULL seat: NULL] autorelease];
+        [_namedPasteboards setObject: pasteboard forKey: name];
+    }
+    return pasteboard;
 }
 
 - (void) beep {
