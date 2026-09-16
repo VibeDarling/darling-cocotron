@@ -16,30 +16,20 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE. */
 
-#import <AppKit/NSDraggingManager.h>
+#pragma once
 #import <AppKit/NSDragging.h>
-#import "WaylandDisplay.h"
+#include <stdint.h>
 
-@class WaylandDragIcon;
-@interface WaylandDraggingManager : NSDraggingManager {
-    WaylandDisplay *_display; // Display owns manager.
-    WaylandWindow *_origin;
-    WaylandDragIcon *_icon;
-    id _localSource;
-    struct wl_proxy *_source;
-    NSDictionary *_snapshot;
-    BOOL _busy, _finished, _dropped;
-    uint32_t _action, _offeredActions;
-    double _dropDeadline;
-    NSDragOperation _localOperations;
+// Native action bits differ from AppKit: AppKit Link is not native Move.
+// Core Wayland cannot represent Link, Generic, Private or Delete.
+static inline uint32_t WaylandActionsFromOperations(NSDragOperation operations) {
+    return ((operations & NSDragOperationCopy) ? 1u : 0u) |
+           ((operations & NSDragOperationMove) ? 2u : 0u);
 }
-- (id) initWithDisplay: (WaylandDisplay *) display;
-- (NSDragOperation) localOperations;
-- (void) cancel;
-- (void) outputRemoved: (struct wl_proxy *) output;
-- (void) outputsChanged;
-- (void) invalidate;
-- (void) windowUnmapped: (WaylandWindow *) window;
-- (void) handleEvent: (uint32_t) opcode kind: (WaylandObjectKind) kind
-              proxy: (struct wl_proxy *) proxy arguments: (union wl_argument *) args;
-@end
+static inline NSDragOperation WaylandOperationsFromActions(uint32_t actions) {
+    return ((actions & 1u) ? NSDragOperationCopy : NSDragOperationNone) |
+           ((actions & 2u) ? NSDragOperationMove : NSDragOperationNone);
+}
+static inline BOOL WaylandIsFinalDragAction(uint32_t action) {
+    return action == 1u || action == 2u;
+}

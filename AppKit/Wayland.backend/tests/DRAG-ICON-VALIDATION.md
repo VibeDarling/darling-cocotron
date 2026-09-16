@@ -57,6 +57,5 @@ The installed Onyx baseline produces 253 instead of 255 for some opaque image
 pixels when scaling. Raw raster evidence isolates this before Wayland; the
 separate coverage fix corrects it. This change deliberately preserves the raster.
 Multiple physical outputs, allocation failure and adversarial image callbacks
-received source review but no runtime success claim. Slide-back, additional drag
-actions, file conversion and modern dragging-session APIs remain follow-ups.
+received source review but no runtime success claim. Slide-back and file conversion and modern dragging-session APIs remain follow-ups.
 No Apple applications, PAC overrides, installed changes or user prefixes used.

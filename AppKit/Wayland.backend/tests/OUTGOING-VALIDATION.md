@@ -23,7 +23,8 @@ For same-app tests, move the GTK control away rather than overlapping targets.
 
 ## Implementation boundaries
 
-- One new v3 data source per drag; COPY only, independent of clipboard source.
+- One new v3 data source per drag, independent of clipboard source. COPY/MOVE
+  negotiation is covered in DRAG-ACTIONS-VALIDATION.md.
 - The first pointer press establishing the grab supplies the serial. Recheck
   origin/event/serial after lazy application callbacks; consume eligibility once.
 - Immutable snapshot, at most16MiB total payload; existing bounded off-thread
@@ -37,7 +38,7 @@ For same-app tests, move the GTK control away rather than overlapping targets.
   operation permission.
 - Drag icons are covered in DRAG-ICON-VALIDATION.md. No slide-back animation.
   Local-only sources are safely refused.
-  Other actions, file/promise conversion and modern dragging-session APIs remain
+  File/promise conversion and modern dragging-session APIs remain
   follow-ups. Core Wayland provides no global drop coordinates; endedAt currently
   uses the original virtual location. This is not full drag-and-drop parity.
 
