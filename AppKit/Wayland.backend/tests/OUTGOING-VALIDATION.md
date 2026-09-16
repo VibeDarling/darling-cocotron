@@ -61,3 +61,6 @@ run-loop failures remain preserved and are excluded from the final passing set.
 Chord presses, right-button starts, disappearing-origin-after-start, allocation
 failure and clock failure received source review but no runtime success claim.
 No Apple apps, PAC overrides, installed library changes or user prefixes used.
+
+Host-backed filename/URI conversion is covered in FILE-URI-VALIDATION.md; guest-only
+export and promises remain unsupported.

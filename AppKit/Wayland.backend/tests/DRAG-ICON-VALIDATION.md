@@ -59,3 +59,6 @@ separate coverage fix corrects it. This change deliberately preserves the raster
 Multiple physical outputs, allocation failure and adversarial image callbacks
 received source review but no runtime success claim. Slide-back and file conversion and modern dragging-session APIs remain follow-ups.
 No Apple applications, PAC overrides, installed changes or user prefixes used.
+
+Host-backed filename/URI conversion is covered in FILE-URI-VALIDATION.md; guest-only
+export and promises remain unsupported.

@@ -71,3 +71,6 @@ Evidence: `darling-gui/privbuild/wayland/actions/final-results.json`, the eight
 `run-*-standard/` folders and three `incoming-*-standard/` folders. Earlier fixture
 mask and experimental DELETE handshake failures remain preserved and excluded.
 No installed libraries, Apple applications, PAC overrides or user prefixes used.
+
+Host-backed filename/URI conversion is covered in FILE-URI-VALIDATION.md; guest-only
+export and promises remain unsupported.
