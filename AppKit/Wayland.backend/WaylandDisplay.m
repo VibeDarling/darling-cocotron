@@ -307,6 +307,8 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
         [pasteboard invalidate];
     [_namedPasteboards release];
     [self stopKeyRepeat];
+    [self cancelPendingModifier];
+    [_heldKeyIdentities release];
 
     if (_wlSource != NULL) {
         CFRunLoopRemoveSource(CFRunLoopGetMain(), _wlSource,
@@ -346,6 +348,7 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
     if (_windows != NULL)
         CFRelease(_windows);
 
+    [_buttonClickCounts release];
     // X11Display's -dealloc only releases the X resources that exist.
     [super dealloc];
 }
@@ -608,6 +611,11 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
         [self pointerEvent: opcode arguments: args];
         break;
 
+    case WaylandObjectKeyboardSync:
+        if (proxy == _modifierSync && opcode == WP_CALLBACK_EV_DONE)
+            [self flushPendingModifier];
+        break;
+
     case WaylandObjectKeyboard:
         [self keyboardEvent: opcode arguments: args];
         break;
@@ -645,6 +653,8 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
         [self releaseInputDevice: &_pointer opcode: WP_POINTER_RELEASE];
         _pointerWindow = nil;
         _pressedButtons = 0;
+        _lastClickWindow = nil;
+        [_buttonClickCounts removeAllObjects];
     }
 
     if ((capabilities & WP_SEAT_CAPABILITY_KEYBOARD) && _keyboard == NULL) {
@@ -656,6 +666,7 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
         [self releaseInputDevice: &_keyboard opcode: WP_KEYBOARD_RELEASE];
         [self stopKeyRepeat];
         _keyboardWindow = nil;
+        [self resetKeyboardModifiers];
     }
 }
 
@@ -674,6 +685,7 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
 #pragma mark - Pointer
 
 - (void) pointerEvent: (uint32_t) opcode arguments: (union wl_argument *) args {
+    [self flushPendingModifier];
     switch (opcode) {
     case WP_POINTER_EV_ENTER:
         _pointerEnterSerial = args[0].u;
@@ -689,6 +701,7 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
     case WP_POINTER_EV_LEAVE:
         _pressedButtons = 0;
         [self consumeDragPress];
+        [_buttonClickCounts removeAllObjects];
         _lastMouseLocation = [self mouseLocation];
         _pointerWindow = nil;
         _pointerEnterSerial = 0;
@@ -713,7 +726,8 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
             _inputWindow = nil;
         }
         [self pointerButton: args[2].u
-                    pressed: args[3].u == WP_POINTER_BUTTON_STATE_PRESSED];
+                    pressed: args[3].u == WP_POINTER_BUTTON_STATE_PRESSED
+                       time: args[1].u];
         if (firstPress && args[3].u == WP_POINTER_BUTTON_STATE_PRESSED && _inputEvent != nil) {
             [self consumeDragPress];
             _dragPressEvent = [_inputEvent retain];
@@ -775,7 +789,8 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
     }];
 }
 
-- (void) pointerButton: (uint32_t) button pressed: (BOOL) pressed {
+- (void) pointerButton: (uint32_t) button pressed: (BOOL) pressed
+                  time: (uint32_t) time {
     NSUInteger mask;
     NSInteger number;
     NSEventType downType, upType;
@@ -801,17 +816,33 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
     else
         _pressedButtons &= ~mask;
 
+    NSInteger eventClickCount = [[_buttonClickCounts objectForKey: @(button)] integerValue];
+    if (!pressed)
+        [_buttonClickCounts removeObjectForKey: @(button)];
     WaylandWindow *window = _pointerWindow;
     if (window == nil)
         return;
 
     if (pressed) {
-        NSTimeInterval now = [NSDate timeIntervalSinceReferenceDate];
-        if (now - _lastClickTime < [self doubleClickInterval])
+        // Group clicks only on the same button/window and within four logical
+        // pixels of the preceding press. Unsigned subtraction handles timestamp
+        // wrap without depending on the wall clock or dispatch latency.
+        CGFloat dx = _pointerSurfacePoint.x - _lastClickPoint.x;
+        CGFloat dy = _pointerSurfacePoint.y - _lastClickPoint.y;
+        if (_lastClickWindow == window && _lastClickButton == button &&
+            (uint32_t) (time - _lastClickTime) < [self doubleClickInterval] * 1000 &&
+            dx * dx + dy * dy <= 16 && _clickCount < NSIntegerMax)
             _clickCount++;
         else
             _clickCount = 1;
-        _lastClickTime = now;
+        _lastClickTime = time;
+        _lastClickButton = button;
+        _lastClickWindow = window;
+        _lastClickPoint = _pointerSurfacePoint;
+        if (_buttonClickCounts == nil)
+            _buttonClickCounts = [NSMutableDictionary new];
+        [_buttonClickCounts setObject: @(_clickCount) forKey: @(button)];
+        eventClickCount = _clickCount;
     }
 
     NSEvent *event = [NSEvent
@@ -819,7 +850,7 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
                       location: [window transformPoint: _pointerSurfacePoint]
                  modifierFlags: [self currentModifierFlags]
                         window: [window delegate]
-                    clickCount: _clickCount
+                    clickCount: eventClickCount
                         deltaX: 0.0
                         deltaY: 0.0];
     [(NSEvent_mouse *) event _setButtonNumber: number];
@@ -870,25 +901,118 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
 
 #pragma mark - Keyboard
 
+// Physical identity is metadata only: the compositor's following modifiers
+// event is authoritative for effective flags (including locks/layout changes).
+static int modifierCarbonKeycode(xkb_keysym_t sym) {
+    switch (sym) {
+    case XKB_KEY_Shift_L: return kVK_Shift;
+    case XKB_KEY_Shift_R: return kVK_RightShift;
+    case XKB_KEY_Control_L: return kVK_Control;
+    case XKB_KEY_Control_R: return kVK_RightControl;
+    case XKB_KEY_Alt_L: return kVK_Option;
+    case XKB_KEY_Alt_R: return kVK_RightOption;
+    case XKB_KEY_Super_L: case XKB_KEY_Meta_L: return kVK_Command;
+    case XKB_KEY_Super_R: case XKB_KEY_Meta_R: return 0x36; // Right Command.
+    case XKB_KEY_Caps_Lock: return kVK_CapsLock;
+    case XKB_KEY_ISO_Level3_Shift: case XKB_KEY_Mode_switch: return kVK_Function;
+    default: return -1;
+    }
+}
+
+// Device-dependent NSEvent bits, defined by IOKit's IOLLEvent.h. The aggregate
+// high bits still come exclusively from the compositor's XKB modifier mask.
+static NSUInteger modifierDeviceMask(int code) {
+    switch (code) {
+    case kVK_Control: return 0x0001;
+    case kVK_Shift: return 0x0002;
+    case kVK_RightShift: return 0x0004;
+    case kVK_Command: return 0x0008;
+    case 0x36: return 0x0010;
+    case kVK_Option: return 0x0020;
+    case kVK_RightOption: return 0x0040;
+    case kVK_RightControl: return 0x2000;
+    default: return 0;
+    }
+}
+
+- (void) cancelPendingModifier {
+    if (_modifierSync != NULL) {
+        WL.wl_proxy_destroy(_modifierSync);
+        _modifierSync = NULL;
+    }
+    _hasModifierKeycode = NO;
+}
+
+- (void) postModifierKeycode: (unsigned short) code {
+    NSWindow *delegate = [_keyboardWindow delegate];
+    if (delegate == nil)
+        return;
+    NSEvent *event = [NSEvent keyEventWithType: NSFlagsChanged
+            location: [_keyboardWindow mouseLocationOutsideOfEventStream]
+            modifierFlags: [self currentModifierFlags] timestamp: 0.0
+            windowNumber: [delegate windowNumber] context: nil
+            characters: @"" charactersIgnoringModifiers: @""
+            isARepeat: NO keyCode: code];
+    [self postEvent: event atStart: NO];
+}
+
+- (void) flushPendingModifier {
+    if (_hasModifierKeycode)
+        [self postModifierKeycode: _modifierKeycode];
+    [self cancelPendingModifier];
+}
+
+- (void) classifyHeldKeys {
+    for (NSNumber *key in [_heldKeyIdentities allKeys]) {
+        int identity = modifierCarbonKeycode(WL.xkb_state_key_get_one_sym(
+                _xkbState, [key unsignedIntValue]));
+        [_heldKeyIdentities setObject: @(identity) forKey: key];
+    }
+    _classifyHeldKeys = NO;
+}
+
+- (void) resetKeyboardModifiers {
+    [self cancelPendingModifier];
+    [_heldKeyIdentities removeAllObjects];
+    _syncModifierFlags = NO;
+    _classifyHeldKeys = NO;
+    if (_xkbState != NULL)
+        WL.xkb_state_update_mask(_xkbState, 0, 0, 0, 0, 0, 0);
+}
+
 - (void) keyboardEvent: (uint32_t) opcode arguments: (union wl_argument *) args {
     switch (opcode) {
     case WP_KEYBOARD_EV_KEYMAP:
         [self keymapWithFormat: args[0].u fd: args[1].h size: args[2].u];
         break;
 
-    case WP_KEYBOARD_EV_ENTER:
+    case WP_KEYBOARD_EV_ENTER: {
+        [self resetKeyboardModifiers];
         _keyboardWindow = [self windowForSurface: (struct wl_proxy *) args[1].o];
+        if (_heldKeyIdentities == nil)
+            _heldKeyIdentities = [NSMutableDictionary new];
+        struct wl_array *keys = args[2].a;
+        for (size_t i = 0; i < keys->size / sizeof(uint32_t); i++) {
+            uint32_t raw = ((uint32_t *)keys->data)[i];
+            [_heldKeyIdentities setObject: @(-1) forKey: @(raw + 8)];
+        }
+        // Enter is followed by modifiers: classify under that current group,
+        // without inventing key presses for keys held before focus arrived.
+        _classifyHeldKeys = YES;
+        _syncModifierFlags = YES;
         break;
+    }
 
     case WP_KEYBOARD_EV_LEAVE:
         _keyboardWindow = nil;
         [self stopKeyRepeat];
+        [self resetKeyboardModifiers];
         break;
 
     case WP_KEYBOARD_EV_KEY: {
-        if (_xkbState == NULL)
+        if (_xkbState == NULL || _keyboardWindow == nil)
             break;
-        // Wayland sends evdev codes; XKB keycodes are 8 higher.
+        [self flushPendingModifier];
         xkb_keycode_t keycode = args[2].u + 8;
         BOOL pressed = args[3].u == WP_KEYBOARD_KEY_STATE_PRESSED;
         if (pressed) {
@@ -899,6 +1023,27 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
             _inputWindow = nil;
         }
 
+        NSNumber *held = [_heldKeyIdentities objectForKey: @(keycode)];
+        int modifier = held != nil ? [held intValue] : modifierCarbonKeycode(
+                WL.xkb_state_key_get_one_sym(_xkbState, keycode));
+        if (pressed)
+            [_heldKeyIdentities setObject: @(modifier) forKey: @(keycode)];
+        else
+            [_heldKeyIdentities removeObjectForKey: @(keycode)];
+        if (modifier >= 0) {
+            _modifierKeycode = modifier;
+            _hasModifierKeycode = YES;
+            // A mask-changing key is followed by modifiers; an overlapping
+            // modifier need not be. A sync drains the compositor's already
+            // queued events even across socket reads before the idle fallback.
+            // It is not a keyboard frame or a fence for future input events.
+            union wl_argument syncArgs[1] = {{.o = NULL}};
+            _modifierSync = WaylandCreateObject((struct wl_proxy *)_wlDisplay,
+                    WP_DISPLAY_SYNC, &wl_callback_interface, syncArgs,
+                    WaylandObjectKeyboardSync, self);
+            [self flush];
+            break; // Modifiers are neither text nor repeatable keys.
+        }
         [self postKeyEventForKeycode: keycode pressed: pressed repeat: NO];
         if (pressed && _repeatRate > 0 &&
             WL.xkb_keymap_key_repeats(_xkbKeymap, keycode))
@@ -908,11 +1053,21 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
         break;
     }
 
-    case WP_KEYBOARD_EV_MODIFIERS:
-        if (_xkbState != NULL)
+    case WP_KEYBOARD_EV_MODIFIERS: {
+        NSUInteger oldFlags = [self currentModifierFlags];
+        if (_xkbState != NULL) {
             WL.xkb_state_update_mask(_xkbState, args[1].u, args[2].u, args[3].u,
                                      0, 0, args[4].u);
+            if (_classifyHeldKeys)
+                [self classifyHeldKeys];
+        }
+        if (_hasModifierKeycode)
+            [self flushPendingModifier];
+        else if (_syncModifierFlags || [self currentModifierFlags] != oldFlags)
+            [self postModifierKeycode: 0xFFFF];
+        _syncModifierFlags = NO;
         break;
+    }
 
     case WP_KEYBOARD_EV_REPEAT_INFO:
         _repeatRate = args[0].i;
@@ -961,6 +1116,10 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
         WL.xkb_keymap_unref(_xkbKeymap);
     _xkbKeymap = keymap;
     _xkbState = state;
+    [self cancelPendingModifier];
+    // Preserve press-time identities through keymap changes until release.
+    // Only enter-seeded keys need classification under the current group.
+    _syncModifierFlags = _keyboardWindow != nil;
 }
 
 - (BOOL) isModifierActive: (const char *) name {
@@ -972,6 +1131,8 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
 // The same mapping as -[X11Display modifierFlagsForState:].
 - (NSUInteger) currentModifierFlags {
     NSUInteger flags = 0;
+    for (NSNumber *identity in [_heldKeyIdentities allValues])
+        flags |= modifierDeviceMask([identity intValue]);
 
     if ([self isModifierActive: XKB_MOD_NAME_SHIFT])
         flags |= NSShiftKeyMask;
@@ -1346,8 +1507,13 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
 - (void) windowUnmapped: (WaylandWindow *) window {
     [_draggingManager windowUnmapped: window];
     if (_dragPressWindow == window) [self consumeDragPress];
-    if (_pointerWindow == window)
+    if (_lastClickWindow == window)
+        _lastClickWindow = nil;
+    if (_pointerWindow == window) {
         _pointerWindow = nil;
+        _pressedButtons = 0;
+        [_buttonClickCounts removeAllObjects];
+    }
     if (_inputWindow == window) {
         _inputWindow = nil;
         [_inputEvent release];
@@ -1356,6 +1522,7 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
     if (_keyboardWindow == window) {
         _keyboardWindow = nil;
         [self stopKeyRepeat];
+        [self resetKeyboardModifiers];
     }
 }
 

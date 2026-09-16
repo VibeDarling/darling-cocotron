@@ -125,6 +125,7 @@ bool WaylandCheckOpcodes(void) {
             {&wl_data_offer_interface, false, WP_DATA_OFFER_SET_ACTIONS, "set_actions"},
             {&wl_data_offer_interface, true, WP_DATA_OFFER_EV_SOURCE_ACTIONS, "source_actions"},
             {&wl_data_offer_interface, true, WP_DATA_OFFER_EV_ACTION, "action"},
+            {&wl_display_interface, false, WP_DISPLAY_SYNC, "sync"},
             {&wl_display_interface, false, WP_DISPLAY_GET_REGISTRY, "get_registry"},
             {&wl_registry_interface, false, WP_REGISTRY_BIND, "bind"},
             {&wl_registry_interface, true, WP_REGISTRY_EV_GLOBAL, "global"},
