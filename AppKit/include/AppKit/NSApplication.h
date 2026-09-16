@@ -150,6 +150,8 @@ typedef NS_OPTIONS(NSInteger, NSWindowListOptions) {
     NSApplicationPresentationOptions _presentationOptions;
 }
 
+@property(readonly) NSUserInterfaceLayoutDirection userInterfaceLayoutDirection;
+
 @property(strong) NSMenu *helpMenu;
 @property(readonly) NSApplicationPresentationOptions currentSystemPresentationOptions;
 @property NSApplicationPresentationOptions presentationOptions;
