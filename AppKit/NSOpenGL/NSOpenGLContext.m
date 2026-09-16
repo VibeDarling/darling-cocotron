@@ -130,6 +130,7 @@ static inline void _clearCurrentContext() {
 }
 
 - (void) updateViewParameters {
+    if (_view == nil || [_view window] == nil) return;
     NSRect rect = [_view bounds];
 
     if ([_view window] != nil)
@@ -152,6 +153,13 @@ static inline void _clearCurrentContext() {
     if (_view == view)
         return;
 
+    // Detach before native-window destruction; EGL can defer destroying a
+    // drawable that remains current. Keep self alive across the thread release.
+    [self retain];
+    if (CGLGetCurrentContext() == _glContext) {
+        if (CGLSetCurrentContext(NULL) != kCGLNoError) { [self release]; return; }
+        if (_currentContext() == self) _setCurrentContext(nil);
+    }
     _hasPrepared = NO;
     _view = view;
 
@@ -163,6 +171,7 @@ static inline void _clearCurrentContext() {
     _subwindow = nil;
 
     [self updateViewParameters];
+    [self release];
 }
 
 - (void) makeCurrentContext {
@@ -172,10 +181,19 @@ static inline void _clearCurrentContext() {
                            withObject: nil
                         waitUntilDone: YES];
 
+    if ([_subwindow respondsToSelector: @selector(requiresMainThreadPresentation)] &&
+        [_subwindow requiresMainThreadPresentation] && ![NSThread isMainThread]) {
+        NSLog(@"This window backend requires OpenGL rendering on the main thread");
+        return;
+    }
     if ((error = CGLContextMakeCurrentAndAttachToWindow(
-                 _glContext, _cglWindow)) != kCGLNoError)
+                 _glContext, _cglWindow)) != kCGLNoError) {
         NSLog(@"CGLSetCurrentContext failed with %d in %s %d", error, __FILE__,
               __LINE__);
+        // A swap-interval error may occur after EGL successfully switched.
+        if (CGLGetCurrentContext() == _glContext) _setCurrentContext(self);
+        return;
+    }
 
     _setCurrentContext(self);
 
@@ -257,7 +275,18 @@ static inline void _clearCurrentContext() {
 }
 
 - (void) flushBuffer {
-    CGLFlushDrawable(_glContext);
+    // Wayland geometry, EGL swap and parent commit must be one UI-thread
+    // transaction. Do not swap first then dispatch only presentation to main.
+    if ([_subwindow respondsToSelector: @selector(requiresMainThreadPresentation)] &&
+        [_subwindow requiresMainThreadPresentation] && ![NSThread isMainThread]) {
+        static int warned;
+        if (!__sync_lock_test_and_set(&warned, 1))
+            NSLog(@"This window backend requires OpenGL presentation on the main thread");
+        return;
+    }
+    if (CGLFlushDrawable(_glContext) == kCGLNoError &&
+        [_subwindow respondsToSelector: @selector(flush)])
+        [_subwindow flush];
 }
 
 @end

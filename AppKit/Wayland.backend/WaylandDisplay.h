@@ -29,7 +29,8 @@
 // It never opens an X connection and overrides every method that uses one.
 //
 // Toplevel origins remain virtual because Wayland controls global placement.
-// Clipboard uses wl_data_device; drag/drop and OpenGL subwindows are follow-ons.
+// Clipboard and incoming/outgoing COPY/MOVE drops use wl_data_device; EGL
+// subwindows use synchronized subsurfaces. Local-only drags keep data in process.
 
 #import "X11Display.h"
 #include <stdint.h>
@@ -42,7 +43,7 @@ struct xkb_context;
 struct xkb_keymap;
 struct xkb_state;
 
-@class WaylandCursor, WaylandWindow, WaylandPasteboard;
+@class WaylandCursor, WaylandWindow, WaylandPasteboard, WaylandDraggingManager;
 
 // Identifies the object a dispatched event belongs to.
 typedef enum {
@@ -62,6 +63,8 @@ typedef enum {
     WaylandObjectDataDevice,
     WaylandObjectDataOffer,
     WaylandObjectDataSource,
+    WaylandObjectKeyboardSync,
+    WaylandObjectLogicalOutput,
 } WaylandObjectKind;
 
 // The dispatcher installed on every proxy (see WaylandLibrary.h for why listeners
@@ -83,6 +86,11 @@ struct wl_proxy *WaylandCreateObject(struct wl_proxy *proxy, uint32_t opcode,
     struct wl_display *_wlDisplay;
     struct wl_proxy *_registry;
     struct wl_proxy *_compositor;
+    struct wl_proxy *_subcompositor;
+    struct wl_proxy *_viewporter;
+    struct wl_proxy *_logicalOutputManager, *_legacyLogicalOutputManager;
+    uint32_t _logicalOutputManagerName;
+    BOOL _eglAvailable;
     struct wl_proxy *_shm;
     struct wl_proxy *_wmBase;
     struct wl_proxy *_decorationManager;
@@ -106,16 +114,31 @@ struct wl_proxy *WaylandCreateObject(struct wl_proxy *proxy, uint32_t opcode,
     NSPoint _lastMouseLocation;
     uint32_t _pointerEnterSerial;
     NSUInteger _pressedButtons;
-    NSTimeInterval _lastClickTime;
+    uint32_t _lastClickTime; // Compositor milliseconds, wraps modulo 2^32.
+    uint32_t _lastClickButton;
+    WaylandWindow *_lastClickWindow; // Nonretained; cleared on unmap/device loss.
+    CGPoint _lastClickPoint;
     NSInteger _clickCount;
+    NSMutableDictionary *_buttonClickCounts; // Matching mouse-up keeps its down count.
     uint32_t _inputSerial;
     NSEvent *_inputEvent;
     WaylandWindow *_inputWindow;
+    NSEvent *_dragPressEvent;
+    WaylandWindow *_dragPressWindow; // Nonretained; invalidated on unmap.
+    uint32_t _dragPressSerial, _dragPressButton;
+    WaylandDraggingManager *_draggingManager;
 
     struct xkb_context *_xkbContext;
     struct xkb_keymap *_xkbKeymap;
     struct xkb_state *_xkbState;
     WaylandWindow *_keyboardWindow;
+    BOOL _syncModifierFlags;
+    BOOL _classifyHeldKeys;
+    // Raw XKB keycode -> identity at press time; -1 denotes a non-modifier.
+    NSMutableDictionary *_heldKeyIdentities;
+    struct wl_proxy *_modifierSync;
+    BOOL _hasModifierKeycode;
+    unsigned short _modifierKeycode;
     int32_t _repeatRate;
     int32_t _repeatDelay;
     uint32_t _repeatKeycode;
@@ -127,10 +150,18 @@ struct wl_proxy *WaylandCreateObject(struct wl_proxy *proxy, uint32_t opcode,
     struct wl_proxy *_imageCursorBuffer;
     int32_t _imageCursorBufferScale;
     WaylandCursor *_cursor;
+    BOOL _applyingCursor, _cursorApplyPending, _cursorApplyQueued;
     WaylandPasteboard *_generalPasteboard;
     NSMutableDictionary *_namedPasteboards;
 }
 
+- (WaylandWindow *) windowForSurface: (struct wl_proxy *) surface;
+// Caller owns the returned native immutable buffer.
+- (struct wl_proxy *) newARGBBuffer: (NSData *) pixels pixelSize: (NSSize) size;
+- (struct wl_proxy *) dragDataDevice;
+- (WaylandWindow *) dragOriginForEvent: (NSEvent *) event;
+- (uint32_t) dragSerialForEvent: (NSEvent *) event;
+- (void) consumeDragPress;
 - (void) flush;
 - (void) processPendingEvents;
 - (uint32_t) clipboardSerial;

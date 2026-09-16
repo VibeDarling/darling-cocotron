@@ -16,34 +16,24 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE. */
 
-#import <AppKit/NSPasteboard.h>
 #import "WaylandDisplay.h"
-
-void WaylandSendData(WaylandDisplay *display, NSData *data, int fd);
-
-// General pasteboard uses wl_data_device; other names are process-local.
-@interface WaylandPasteboard : NSPasteboard {
-    WaylandDisplay *_display; // display owns pasteboards
-    NSString *_name;
-    struct wl_proxy *_manager, *_device, *_source, *_selection, *_dragOffer;
-    NSMutableDictionary *_offers, *_offerActions;
-    id _dragSession;
-    NSMutableArray *_types;
-    NSMutableDictionary *_data, *_owners;
-    NSDictionary *_sourceData;
-    NSInteger _changeCount;
-    NSUInteger _selectionGeneration;
-    BOOL _owned, _needsPublish, _publishQueued, _publishing;
+@class WaylandCursor;
+@interface WaylandDragIcon : NSObject {
+    WaylandDisplay *_display;
+    WaylandCursor *_image;
+    NSMutableSet *_outputs;
+    struct wl_proxy *_surface, *_buffer;
+    NSPoint _offset;
+    int32_t _scale;
+    BOOL _shown, _positioned, _rendering, _scaleDirty, _scaleQueued;
 }
-- (id) initWithName: (NSString *) name display: (WaylandDisplay *) display
-           manager: (struct wl_proxy *) manager seat: (struct wl_proxy *) seat;
-- (struct wl_proxy *) dataDevice;
-+ (NSArray *) mimeTypesForType: (NSString *) type;
-+ (NSArray *) typesForMime: (NSString *) mime;
-+ (NSData *) encodeData: (NSData *) data forType: (NSString *) type;
-+ (NSData *) decodeData: (NSData *) data forType: (NSString *) type mime: (NSString *) mime;
+- (id) initWithImage: (NSImage *) image display: (WaylandDisplay *) display
+              scale: (int32_t) scale offset: (NSPoint) offset;
+- (struct wl_proxy *) surface;
+- (void) show;
 - (void) invalidate;
-- (void) inputAvailable;
+- (void) outputRemoved: (struct wl_proxy *) output;
+- (void) scheduleScaleUpdate;
 - (void) handleEvent: (uint32_t) opcode kind: (WaylandObjectKind) kind
               proxy: (struct wl_proxy *) proxy arguments: (union wl_argument *) args;
 @end

@@ -83,6 +83,15 @@ bool WaylandLibraryLoad(void) {
     WAYLAND_CURSOR_FUNCTIONS(WAYLAND_RESOLVE_OPTIONAL)
 #undef WAYLAND_RESOLVE_OPTIONAL
 
+    // Optional: CPU windows remain usable without EGL window support.
+    handle = openLibrary("libwayland-egl.so.1");
+    WL.hasEGL = handle != NULL;
+#define WAYLAND_RESOLVE_EGL(name) \
+    if (WL.hasEGL && !resolve(handle, #name, (void **) &WL.name)) \
+        WL.hasEGL = false;
+    WAYLAND_EGL_FUNCTIONS(WAYLAND_RESOLVE_EGL)
+#undef WAYLAND_RESOLVE_EGL
+
     WL.memfd_create = _elfcalls->dlsym(NULL, "memfd_create");
 
     loaded = 1;
@@ -98,6 +107,22 @@ struct OpcodeCheck {
 
 bool WaylandCheckOpcodes(void) {
     static const struct OpcodeCheck checks[] = {
+            {&wl_data_device_interface, false, WP_DATA_DEVICE_START_DRAG, "start_drag"},
+            {&wl_data_source_interface, false, WP_DATA_SOURCE_SET_ACTIONS, "set_actions"},
+            {&wl_data_source_interface, true, WP_DATA_SOURCE_EV_DROP_PERFORMED, "dnd_drop_performed"},
+            {&wl_data_source_interface, true, WP_DATA_SOURCE_EV_FINISHED, "dnd_finished"},
+            {&wl_data_source_interface, true, WP_DATA_SOURCE_EV_ACTION, "action"},
+            {&wl_subsurface_interface, false, WP_SUBSURFACE_PLACE_ABOVE, "place_above"},
+            {&wp_viewporter_interface, false, WP_VIEWPORTER_GET_VIEWPORT, "get_viewport"},
+            {&wp_viewport_interface, false, WP_VIEWPORT_DESTROY, "destroy"},
+            {&wp_viewport_interface, false, WP_VIEWPORT_SET_SOURCE, "set_source"},
+            {&wl_compositor_interface, false, WP_COMPOSITOR_CREATE_REGION, "create_region"},
+            {&wl_region_interface, false, WP_REGION_DESTROY, "destroy"},
+            {&wl_subcompositor_interface, false, WP_SUBCOMPOSITOR_GET_SUBSURFACE, "get_subsurface"},
+            {&wl_subsurface_interface, false, WP_SUBSURFACE_DESTROY, "destroy"},
+            {&wl_subsurface_interface, false, WP_SUBSURFACE_SET_POSITION, "set_position"},
+            {&wl_surface_interface, false, WP_SURFACE_SET_INPUT_REGION, "set_input_region"},
+
             {&wl_data_device_manager_interface, false, WP_DATA_MANAGER_CREATE_SOURCE, "create_data_source"},
             {&wl_data_device_manager_interface, false, WP_DATA_MANAGER_GET_DEVICE, "get_data_device"},
             {&wl_data_device_interface, false, WP_DATA_DEVICE_SET_SELECTION, "set_selection"},
@@ -114,6 +139,13 @@ bool WaylandCheckOpcodes(void) {
             {&wl_data_offer_interface, false, WP_DATA_OFFER_RECEIVE, "receive"},
             {&wl_data_offer_interface, false, WP_DATA_OFFER_DESTROY, "destroy"},
             {&wl_data_offer_interface, true, WP_DATA_OFFER_EV_OFFER, "offer"},
+            {&wl_data_device_interface, true, WP_DATA_DEVICE_EV_MOTION, "motion"},
+            {&wl_data_device_interface, true, WP_DATA_DEVICE_EV_DROP, "drop"},
+            {&wl_data_offer_interface, false, WP_DATA_OFFER_FINISH, "finish"},
+            {&wl_data_offer_interface, false, WP_DATA_OFFER_SET_ACTIONS, "set_actions"},
+            {&wl_data_offer_interface, true, WP_DATA_OFFER_EV_SOURCE_ACTIONS, "source_actions"},
+            {&wl_data_offer_interface, true, WP_DATA_OFFER_EV_ACTION, "action"},
+            {&wl_display_interface, false, WP_DISPLAY_SYNC, "sync"},
             {&wl_display_interface, false, WP_DISPLAY_GET_REGISTRY, "get_registry"},
             {&wl_registry_interface, false, WP_REGISTRY_BIND, "bind"},
             {&wl_registry_interface, true, WP_REGISTRY_EV_GLOBAL, "global"},
@@ -151,7 +183,14 @@ bool WaylandCheckOpcodes(void) {
             {&wl_keyboard_interface, true, WP_KEYBOARD_EV_KEY, "key"},
             {&wl_keyboard_interface, true, WP_KEYBOARD_EV_MODIFIERS, "modifiers"},
             {&wl_keyboard_interface, true, WP_KEYBOARD_EV_REPEAT_INFO, "repeat_info"},
+            {&zxdg_output_manager_v1_interface, false, WP_LOGICAL_MANAGER_DESTROY, "destroy"},
+            {&zxdg_output_manager_v1_interface, false, WP_LOGICAL_MANAGER_GET_OUTPUT, "get_xdg_output"},
+            {&zxdg_output_v1_interface, false, WP_LOGICAL_OUTPUT_DESTROY, "destroy"},
+            {&zxdg_output_v1_interface, true, WP_LOGICAL_OUTPUT_EV_POSITION, "logical_position"},
+            {&zxdg_output_v1_interface, true, WP_LOGICAL_OUTPUT_EV_SIZE, "logical_size"},
+            {&zxdg_output_v1_interface, true, WP_LOGICAL_OUTPUT_EV_DONE, "done"},
             {&wl_output_interface, false, WP_OUTPUT_RELEASE, "release"},
+            {&wl_output_interface, true, WP_OUTPUT_EV_GEOMETRY, "geometry"},
             {&wl_output_interface, true, WP_OUTPUT_EV_MODE, "mode"},
             {&wl_output_interface, true, WP_OUTPUT_EV_DONE, "done"},
             {&wl_output_interface, true, WP_OUTPUT_EV_SCALE, "scale"},

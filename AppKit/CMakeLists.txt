@@ -659,6 +659,8 @@ endif ()
 set(WAYLAND_PROTOCOL_FILES
 	"${WAYLAND_CORE_PROTOCOL_DIR}/wayland.xml"
 	"${WAYLAND_PROTOCOLS_DIR}/stable/xdg-shell/xdg-shell.xml"
+	"${WAYLAND_PROTOCOLS_DIR}/stable/viewporter/viewporter.xml"
+	"${WAYLAND_PROTOCOLS_DIR}/unstable/xdg-output/xdg-output-unstable-v1.xml"
 	"${WAYLAND_PROTOCOLS_DIR}/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml")
 set(WAYLAND_PROTOCOL_FILES_FOUND TRUE)
 foreach(protocol ${WAYLAND_PROTOCOL_FILES})
@@ -687,9 +689,14 @@ if (WAYLAND_CLIENT_FOUND AND WAYLAND_CURSOR_FOUND AND XKBCOMMON_FOUND
 		SOURCES
 			Wayland.backend/WaylandCursor.m
 			Wayland.backend/WaylandDisplay.m
+			Wayland.backend/WaylandDropSession.m
+			Wayland.backend/WaylandDraggingManager.m
+			Wayland.backend/WaylandDragIcon.m
+			Wayland.backend/WaylandFileURLs.m
 			Wayland.backend/WaylandLibrary.m
 			Wayland.backend/WaylandPasteboard.m
 			Wayland.backend/WaylandWindow.m
+			Wayland.backend/WaylandSubWindow.m
 			${WAYLAND_PROTOCOL_SOURCES}
 		INFO_PLIST
 			Wayland.backend/Info.plist
@@ -701,6 +708,7 @@ if (WAYLAND_CLIENT_FOUND AND WAYLAND_CURSOR_FOUND AND XKBCOMMON_FOUND
 			AppKit
 			Onyx2D
 			CoreGraphics
+			OpenGL
 			# WaylandDisplay subclasses X11Display for its backend-independent parts.
 			X11_backend
 	)

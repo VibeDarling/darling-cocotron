@@ -2,7 +2,7 @@
 
 This records the September 15–16, 2026 validation of the opt-in backend. It is
 fixture coverage, not a claim that the available Apple applications work.
-Reproduction controls for both checked-in fixtures are in the [backend
+Reproduction controls for the checked-in fixtures are in the [backend
 README](../README.md).
 
 ## Published implementation units
@@ -18,7 +18,7 @@ These commits are on the branch backing
 [PR #87](https://github.com/VibeDarling/darling-cocotron/pull/87).
 Image cursors and clipboard are separate implementation commits. The M2 commit
 keeps scaling, popup coordinate conversion and client-frame offsets together.
-Drag/drop and EGL/OpenGL subwindows are not implemented.
+Incoming copy drops are covered below; outgoing drags and EGL/OpenGL subwindows remain.
 
 ## Environment and successful checks
 
@@ -50,6 +50,34 @@ returned nil immediately because local ownership survived a clear operation.
 That bug was fixed before `3feac01c`; only the final timed and size-diagnostic
 checks support the boundary claims above.
 
+## Incoming copy-drop follow-up
+
+The native GTK3 source (`drop-source.c`) and plain-arm64 AppKit target
+(`droptest.m`) ran on the same isolated Sway compositor with Xwayland disabled.
+Every case required native `SOURCE_BEGIN`, explicit target checks, exit0 and
+clean prefix shutdown. The first harness used a non-event GtkLabel and produced
+no drag; it was corrected to a GtkEventBox before any pass was claimed.
+
+- Exact Unicode native-to-AppKit payload, repeated cached read, enter/update,
+  prepare/perform/conclude lifecycle, and independent clipboard state passed.
+- Leaving before release sends exit and no prepare/perform/conclude.
+- Unsupported MIME and move-only offers do not perform a drop.
+- A destination refusing preparation gets no perform/conclude callback.
+- A 17 MiB offer returns nil with the explicit `exceeds 16 MiB` diagnostic;
+  no conclude callback is delivered.
+- A stalled source returns nil after **5.021 seconds**, with the timeout
+  diagnostic and no conclude callback.
+- The full clipboard suite was rerun against this backend: Unicode both ways,
+  2.1 MB data, lazy publication, replacement/clear, unsupported type, broken
+  reader, actual stalled-owner timeout, 17 MiB rejection and natural exit0 pass.
+- Private compile/link and the 35-symbol fixed-arity ABI audit pass.
+
+This covers incoming copy with text and unsupported-MIME fixtures at scale1.
+Incoming file-URI conversion, move/link/ask, outgoing source sessions, periodic
+updates, drag icons, real Apple drag destinations, and multi-output/HiDPI drops
+are not validated or implemented by this follow-up. Receiver changes are hit-tested on motion and checked again at drop; cancelled/failed transfers never
+send the protocol success request.
+
 ## Limits and separate app work
 
 - At 2x, sampled image-cursor colors differ from the 1x reference by up to two
@@ -60,13 +88,16 @@ checks support the boundary claims above.
 - The `UNPREMULT_CURSOR=1` diagnostic passes eight exact pixel samples with a
   separate private Onyx2D straight-alpha fix. That shared renderer fix is not
   part of the Wayland branch; the normal fixture uses premultiplied input.
-- A separately authorized installed-only X11 Apple-app batch reached TextEdit's
-  loader and aborted with missing `_malloc_type_calloc` in `libSystem.B.dylib`
-  (exit 134), before any window or basic action. The batch stopped there and the
-  other five apps were not attempted. This is an installed-library blocker,
-  not a Wayland app pass or a clean exit. A subsequent installed allocator probe
-  passed 12 checks, but the Apple-app rerun is still pending; that probe does not
-  establish successful TextEdit startup.
+- Separate authorized installed-only X11 checks now show TextEdit and Stickies
+  rendering real document/note windows, accepting a typed marker and exiting
+  normally. Stickies needed the shared libxpc missing-service invalidation fix
+  before its welcome-note fallback ran. Terminal advanced past missing malloc
+  and feature-query symbols, then stopped on an unimplemented
+  `NSApplication userInterfaceLayoutDirection` selector. After that shared API
+  fix passed its installed gate, the next Terminal attempt aborted on
+  `1234 is out of bounds of array` during startup. Script Editor, Grapher and
+  Automator remain pending behind the first-failure stop. None of these are
+  Wayland Apple-app passes; shared library fixes are owned by separate PRs.
 - Earlier Apple-runner attempts stopped during container bootstrap because of
   overlong Unix socket paths. They provide no app compatibility evidence. The
   corrected physical-prefix layout passed its bootstrap control; runtime
