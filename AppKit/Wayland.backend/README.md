@@ -130,9 +130,46 @@ The timeout case must log an actual five-second wait; the oversized case must lo
 `Wayland drop: transfer exceeds 16 MiB`, not merely return nil. Source logs must
 show `SOURCE_BEGIN` so failed input injection cannot masquerade as rejection.
 
+## EGL and OpenGL subwindows
+
+Layer-backed views and `NSOpenGLView` use native `wl_egl_window` drawables and
+synchronized `wl_subsurface` children. The parent retains its native surface
+across hide/show. Child EGL surfaces must be destroyed before their native
+windows; current contexts are detached when replacing drawables.
+
+This requires Darling's additive `CGLRegisterNativeDisplayForPlatform` API and
+native `libwayland-egl`. The backend explicitly selects the Wayland EGL platform;
+it does not modify `EGL_PLATFORM`. If either capability is unavailable, CPU
+windows still work and the backend reports that EGL subwindows are unavailable.
+New explicit-platform contexts default to swap interval zero, avoiding waits for
+frame callbacks on hidden surfaces. Explicit caller swap-interval requests are
+preserved. The existing X11 registration keeps its original default.
+
+Integer output scale determines drawable pixels and layer viewports. With
+`wp_viewporter`, child content is cropped to parent content bounds; position,
+crop, scale and the rendered buffer are presented together after a successful
+swap. Without that optional protocol, fully contained children render but
+partially clipped children are suppressed. Hidden children stay hidden even if
+their owner keeps drawing. Re-created child roles retain sibling creation order.
+
+Geometry, rendering and presentation currently require the main/UI thread.
+The AppKit/QuartzCore wrappers reject background Wayland binding or presentation;
+raw CGL callers must keep geometry, swap and child `flush` on that thread too.
+This is not support for concurrent OpenGL rendering. Parent-window clipping does
+not implement arbitrary clipping through non-layer-backed ancestor views.
+
+`tests/egltest.m` tests direct CGL, real layer-backed views (`LAYER_TEST=1`) and
+standard OpenGL views (`OPENGL_VIEW_TEST=1`). `DEEP_TEST=1` adds overlapping child
+surfaces. The bounded sequence covers hide/swap/show, parent hide/show, resize,
+partial/outside clipping, invalid/fractional geometry, parent shrink before
+redraw, drawable replacement across windows, invalidated never-mapped parents,
+and background-presentation rejection. GL readback checks and compositor pixel
+captures are separate evidence; a successful swap alone is not a rendering pass.
+See `tests/EGL-VALIDATION.md` for reproducible setup and exact limits.
+
 ## Remaining milestones
 
-M3 outgoing drag/drop and M4 EGL/OpenGL subwindows remain. Primary-selection protocols,
+M3 outgoing drag/drop remains. Primary-selection protocols,
 clipboard-manager persistence after app exit and rich-format conversion are not
 implemented.
 
