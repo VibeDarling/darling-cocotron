@@ -133,12 +133,22 @@
     if (!isfinite(width) || !isfinite(height) || width <= 0 || height <= 0 ||
         width > 16384 || height > 16384) return;
 
-    // Older/native backends may still implement the original subwindow API.
-    CGFloat scale = [_subwindow respondsToSelector: @selector(backingScaleFactor)]
-        ? [_subwindow backingScaleFactor] : 1.0;
-    if (!isfinite(scale) || scale <= 0 ||
-        ceil(width) * scale > 16384 || ceil(height) * scale > 16384) return;
-    glViewport(0, 0, (GLsizei)(ceil(width) * scale), (GLsizei)(ceil(height) * scale));
+    // A fractional-scale backend rounds its drawable allocation once. Repeating
+    // width*scale here can truncate to a different size and leave an edge stale.
+    CGSize pixels = [_subwindow respondsToSelector: @selector(drawablePixelSize)]
+        ? [_subwindow drawablePixelSize] : CGSizeZero;
+    if (CGSizeEqualToSize(pixels, CGSizeZero)) {
+        // Preserve the original API for older/native backends.
+        CGFloat scale = [_subwindow respondsToSelector: @selector(backingScaleFactor)]
+            ? [_subwindow backingScaleFactor] : 1.0;
+        if (!isfinite(scale) || scale <= 0 ||
+            ceil(width) * scale > 16384 || ceil(height) * scale > 16384) return;
+        pixels = CGSizeMake(floor(ceil(width) * scale), floor(ceil(height) * scale));
+    } else if (!isfinite(pixels.width) || !isfinite(pixels.height) ||
+        pixels.width < 1 || pixels.height < 1 ||
+        pixels.width > 16384 || pixels.height > 16384 ||
+        floor(pixels.width) != pixels.width || floor(pixels.height) != pixels.height) return;
+    glViewport(0, 0, (GLsizei)pixels.width, (GLsizei)pixels.height);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glOrtho(0, width, 0, height, -1, 1);

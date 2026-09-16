@@ -31,6 +31,8 @@ const CFStringRef kCGWindowIsOnscreen = CFSTR("kCGWindowIsOnscreen");
 
 @implementation CGWindow
 
+- (CGFloat) backingScaleFactor { return 0; }
+
 - (void) setDelegate: delegate {
     O2InvalidAbstractInvocation();
 }

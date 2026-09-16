@@ -45,6 +45,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSWindowAnimationContext.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <CoreGraphics/CGWindow.h>
+#include <math.h>
 
 const NSNotificationName NSWindowDidBecomeKeyNotification =
         @"NSWindowDidBecomeKeyNotification";
@@ -3525,6 +3526,11 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (CGFloat) backingScaleFactor {
+    // Query only an existing native window: asking for a scale must not map it.
+    if ([_platformWindow respondsToSelector: @selector(backingScaleFactor)]) {
+        CGFloat scale = [_platformWindow backingScaleFactor];
+        if (isfinite(scale) && scale > 0) return scale;
+    }
     NSScreen *screen = [self screen];
     return screen != nil ? [screen backingScaleFactor] : 1.0;
 }

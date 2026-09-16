@@ -221,3 +221,5 @@ captures are separate evidence; a successful swap alone is not a rendering pass.
 See `tests/EGL-VALIDATION.md` for reproducible setup and exact limits.
 
 Cursor image callback lifetime and stale-presentation regression: [validation](tests/CURSOR-CALLBACK-VALIDATION.md).
+
+Exact drawable-size and per-window scale prerequisites: [validation](tests/DRAWABLE-SCALE-VALIDATION.md).
