@@ -13,6 +13,9 @@ hotspots are clamped to the image bounds.
 Native cursor buffers belong to the display, so an AppKit cursor can outlive its
 Wayland connection. Image cursors do not require libwayland-cursor or a theme.
 
+See [the validation record](tests/VALIDATION.md) for tested commits, results and
+coverage limits, including the separate installed-only Apple-app blocker.
+
 ## Manual regression application
 
 Build `tests/waylandtest.m` as a plain arm64 executable linked against AppKit with
