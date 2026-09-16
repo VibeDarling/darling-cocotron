@@ -342,6 +342,7 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
     if (_windows != NULL)
         CFRelease(_windows);
 
+    [_buttonClickCounts release];
     // X11Display's -dealloc only releases the X resources that exist.
     [super dealloc];
 }
@@ -637,6 +638,8 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
         [self releaseInputDevice: &_pointer opcode: WP_POINTER_RELEASE];
         _pointerWindow = nil;
         _pressedButtons = 0;
+        _lastClickWindow = nil;
+        [_buttonClickCounts removeAllObjects];
     }
 
     if ((capabilities & WP_SEAT_CAPABILITY_KEYBOARD) && _keyboard == NULL) {
@@ -679,6 +682,8 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
         break;
 
     case WP_POINTER_EV_LEAVE:
+        _pressedButtons = 0;
+        [_buttonClickCounts removeAllObjects];
         _lastMouseLocation = [self mouseLocation];
         _pointerWindow = nil;
         _pointerEnterSerial = 0;
@@ -702,7 +707,8 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
             _inputWindow = nil;
         }
         [self pointerButton: args[2].u
-                    pressed: args[3].u == WP_POINTER_BUTTON_STATE_PRESSED];
+                    pressed: args[3].u == WP_POINTER_BUTTON_STATE_PRESSED
+                       time: args[1].u];
         break;
 
     case WP_POINTER_EV_AXIS:
@@ -753,7 +759,8 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
     }];
 }
 
-- (void) pointerButton: (uint32_t) button pressed: (BOOL) pressed {
+- (void) pointerButton: (uint32_t) button pressed: (BOOL) pressed
+                  time: (uint32_t) time {
     NSUInteger mask;
     NSInteger number;
     NSEventType downType, upType;
@@ -779,17 +786,33 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
     else
         _pressedButtons &= ~mask;
 
+    NSInteger eventClickCount = [[_buttonClickCounts objectForKey: @(button)] integerValue];
+    if (!pressed)
+        [_buttonClickCounts removeObjectForKey: @(button)];
     WaylandWindow *window = _pointerWindow;
     if (window == nil)
         return;
 
     if (pressed) {
-        NSTimeInterval now = [NSDate timeIntervalSinceReferenceDate];
-        if (now - _lastClickTime < [self doubleClickInterval])
+        // Group clicks only on the same button/window and within four logical
+        // pixels of the preceding press. Unsigned subtraction handles timestamp
+        // wrap without depending on the wall clock or dispatch latency.
+        CGFloat dx = _pointerSurfacePoint.x - _lastClickPoint.x;
+        CGFloat dy = _pointerSurfacePoint.y - _lastClickPoint.y;
+        if (_lastClickWindow == window && _lastClickButton == button &&
+            (uint32_t) (time - _lastClickTime) < [self doubleClickInterval] * 1000 &&
+            dx * dx + dy * dy <= 16 && _clickCount < NSIntegerMax)
             _clickCount++;
         else
             _clickCount = 1;
-        _lastClickTime = now;
+        _lastClickTime = time;
+        _lastClickButton = button;
+        _lastClickWindow = window;
+        _lastClickPoint = _pointerSurfacePoint;
+        if (_buttonClickCounts == nil)
+            _buttonClickCounts = [NSMutableDictionary new];
+        [_buttonClickCounts setObject: @(_clickCount) forKey: @(button)];
+        eventClickCount = _clickCount;
     }
 
     NSEvent *event = [NSEvent
@@ -797,7 +820,7 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
                       location: [window transformPoint: _pointerSurfacePoint]
                  modifierFlags: [self currentModifierFlags]
                         window: [window delegate]
-                    clickCount: _clickCount
+                    clickCount: eventClickCount
                         deltaX: 0.0
                         deltaY: 0.0];
     [(NSEvent_mouse *) event _setButtonNumber: number];
@@ -1322,8 +1345,13 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
 }
 
 - (void) windowUnmapped: (WaylandWindow *) window {
-    if (_pointerWindow == window)
+    if (_lastClickWindow == window)
+        _lastClickWindow = nil;
+    if (_pointerWindow == window) {
         _pointerWindow = nil;
+        _pressedButtons = 0;
+        [_buttonClickCounts removeAllObjects];
+    }
     if (_inputWindow == window) {
         _inputWindow = nil;
         [_inputEvent release];
