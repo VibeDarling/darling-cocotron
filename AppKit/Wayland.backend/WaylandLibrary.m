@@ -98,6 +98,11 @@ struct OpcodeCheck {
 
 bool WaylandCheckOpcodes(void) {
     static const struct OpcodeCheck checks[] = {
+            {&wl_data_device_interface, false, WP_DATA_DEVICE_START_DRAG, "start_drag"},
+            {&wl_data_source_interface, false, WP_DATA_SOURCE_SET_ACTIONS, "set_actions"},
+            {&wl_data_source_interface, true, WP_DATA_SOURCE_EV_DROP_PERFORMED, "dnd_drop_performed"},
+            {&wl_data_source_interface, true, WP_DATA_SOURCE_EV_FINISHED, "dnd_finished"},
+            {&wl_data_source_interface, true, WP_DATA_SOURCE_EV_ACTION, "action"},
             {&wl_data_device_manager_interface, false, WP_DATA_MANAGER_CREATE_SOURCE, "create_data_source"},
             {&wl_data_device_manager_interface, false, WP_DATA_MANAGER_GET_DEVICE, "get_data_device"},
             {&wl_data_device_interface, false, WP_DATA_DEVICE_SET_SELECTION, "set_selection"},

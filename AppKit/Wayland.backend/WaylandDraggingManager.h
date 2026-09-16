@@ -16,31 +16,25 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE. */
 
-#import <AppKit/NSPasteboard.h>
+#import <AppKit/NSDraggingManager.h>
 #import "WaylandDisplay.h"
 
-void WaylandSendData(WaylandDisplay *display, NSData *data, int fd);
-
-// General pasteboard uses wl_data_device; other names are process-local.
-@interface WaylandPasteboard : NSPasteboard {
-    WaylandDisplay *_display; // display owns pasteboards
-    NSString *_name;
-    struct wl_proxy *_manager, *_device, *_source, *_selection, *_dragOffer;
-    NSMutableDictionary *_offers, *_offerActions;
-    id _dragSession;
-    NSMutableArray *_types;
-    NSMutableDictionary *_data, *_owners;
-    NSDictionary *_sourceData;
-    NSInteger _changeCount;
-    NSUInteger _selectionGeneration;
-    BOOL _owned, _needsPublish, _publishQueued, _publishing;
+@interface WaylandDraggingManager : NSDraggingManager {
+    WaylandDisplay *_display; // Display owns manager.
+    WaylandWindow *_origin;
+    id _localSource;
+    struct wl_proxy *_source;
+    NSDictionary *_snapshot;
+    BOOL _busy, _finished, _dropped;
+    uint32_t _action;
+    double _dropDeadline;
+    BOOL _localCopyAllowed;
 }
-- (id) initWithName: (NSString *) name display: (WaylandDisplay *) display
-           manager: (struct wl_proxy *) manager seat: (struct wl_proxy *) seat;
-- (struct wl_proxy *) dataDevice;
-+ (NSArray *) mimeTypesForType: (NSString *) type;
+- (id) initWithDisplay: (WaylandDisplay *) display;
+- (BOOL) localCopyAllowed;
+- (void) cancel;
 - (void) invalidate;
-- (void) inputAvailable;
+- (void) windowUnmapped: (WaylandWindow *) window;
 - (void) handleEvent: (uint32_t) opcode kind: (WaylandObjectKind) kind
               proxy: (struct wl_proxy *) proxy arguments: (union wl_argument *) args;
 @end
