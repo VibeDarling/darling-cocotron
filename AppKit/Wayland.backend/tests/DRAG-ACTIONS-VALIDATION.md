@@ -57,7 +57,8 @@ and [GTK drag selection handling](https://github.com/GNOME/gtk/blob/gtk-3-24/gtk
 No runtime claim for multi-receiver nested-motion replacement, every native event
 batching order, or old protocol versions; these received adversarial source review.
 Core Wayland lacks LINK; ASK needs additional application UI and is not advertised.
-Local-only sources, file/promise conversion and modern dragging sessions remain
+Local-only support is covered in LOCAL-DRAG-VALIDATION.md and host-backed
+filenames in FILE-URI-VALIDATION.md. Promises and modern dragging sessions remain
 follow-ups. Synthetic text fixtures do not establish file move semantics.
 
 ## Final evidence, 2026-09-16
