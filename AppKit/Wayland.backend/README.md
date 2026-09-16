@@ -101,9 +101,38 @@ Validated: Unicode both ways, 2.1 MB transfers, lazy providers, replacement afte
 clear, early reader closure, a 5.03-second stalled-owner timeout, 17 MiB rejection
 and natural fixture exit0. This is fixture coverage, not real Apple-app coverage.
 
+## Incoming drag-and-drop
+
+External Wayland clients can offer copy operations to registered AppKit views or
+windows. The backend uses AppKit's drag hit testing, sends enter/update/exit,
+respects `prepareForDragOperation:` and `performDragOperation:` refusals, and
+concludes only successful drops. UTF-8 MIME types map to `NSStringPboardType`;
+other types are passed through by name without rich-format or file-URI conversion.
+The drag pasteboard is independent of the general clipboard. Reads cache complete
+results and are limited to 16 MiB and five seconds. Application callbacks run
+after native dispatch; the offer survives drop-followed-by-leave during a read.
+
+This portion supports incoming **copy** only. Move, link and ask are rejected;
+outgoing AppKit drags, promised files, periodic destination updates and drag-image
+animation remain unsupported. Window/view hierarchy changes are checked on motion
+and drop; the compositor owns pointer movement and placement.
+
+Build `tests/droptest.m` like the other plain-arm64 AppKit fixtures. Build the
+native source with `cc tests/drop-source.c -o drop-source $(pkg-config --cflags
+--libs gtk+-3.0)` (run from this directory). Use a private compositor with Xwayland
+disabled and a dedicated Darling prefix containing this backend. Both processes
+use `DROP_MODE`, one of `accept`, `leave`, `unsupported`, `move-only`,
+`prepare-reject`, `oversize`, or `timeout`. Drag from the GTK source to the green
+AppKit view, move within the target, and release. For `leave`, move outside both
+windows before releasing. The target exits after 18 seconds, with an exact
+callback/payload/clipboard-independence check and a nonzero status on failure.
+The timeout case must log an actual five-second wait; the oversized case must log
+`Wayland drop: transfer exceeds 16 MiB`, not merely return nil. Source logs must
+show `SOURCE_BEGIN` so failed input injection cannot masquerade as rejection.
+
 ## Remaining milestones
 
-M3 drag/drop and M4 EGL/OpenGL subwindows remain. Primary-selection protocols,
+M3 outgoing drag/drop and M4 EGL/OpenGL subwindows remain. Primary-selection protocols,
 clipboard-manager persistence after app exit and rich-format conversion are not
 implemented.
 

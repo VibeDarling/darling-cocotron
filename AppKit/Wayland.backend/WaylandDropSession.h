@@ -17,26 +17,32 @@
  SOFTWARE. */
 
 #import <AppKit/NSPasteboard.h>
+#import <AppKit/NSDragging.h>
 #import "WaylandDisplay.h"
+@class WaylandWindow;
 
-// General pasteboard uses wl_data_device; other names are process-local.
-@interface WaylandPasteboard : NSPasteboard {
-    WaylandDisplay *_display; // display owns pasteboards
-    NSString *_name;
-    struct wl_proxy *_manager, *_device, *_source, *_selection, *_dragOffer;
-    NSMutableDictionary *_offers, *_offerActions;
-    id _dragSession;
-    NSMutableArray *_types;
-    NSMutableDictionary *_data, *_owners;
-    NSDictionary *_sourceData;
-    NSInteger _changeCount;
-    NSUInteger _selectionGeneration;
-    BOOL _owned, _needsPublish, _publishQueued, _publishing;
+// One incoming, copy-only offer. Its pasteboard never touches the clipboard.
+@interface WaylandDropSession : NSPasteboard <NSDraggingInfo> {
+    WaylandDisplay *_display;
+    WaylandWindow *_window;
+    NSWindow *_destination;
+    struct wl_proxy *_offer;
+    NSArray *_mimes, *_types;
+    NSMutableDictionary *_cache;
+    id _receiver;
+    NSPoint _point;
+    uint32_t _serial, _sourceActions, _action;
+    BOOL _dropAnnounced, _dropped, _accepted, _transferFailed;
+    int _sequence;
 }
-- (id) initWithName: (NSString *) name display: (WaylandDisplay *) display
-           manager: (struct wl_proxy *) manager seat: (struct wl_proxy *) seat;
+- (id) initWithOffer: (struct wl_proxy *) offer types: (NSArray *) mimes
+            display: (WaylandDisplay *) display window: (WaylandWindow *) window
+             serial: (uint32_t) serial sourceActions: (uint32_t) actions;
+- (void) motion: (CGPoint) point;
+- (void) sourceActions: (uint32_t) actions;
+- (void) selectedAction: (uint32_t) action;
+- (void) markDropped;
+- (void) drop;
+- (void) leave;
 - (void) invalidate;
-- (void) inputAvailable;
-- (void) handleEvent: (uint32_t) opcode kind: (WaylandObjectKind) kind
-              proxy: (struct wl_proxy *) proxy arguments: (union wl_argument *) args;
 @end

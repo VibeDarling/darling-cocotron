@@ -687,6 +687,7 @@ if (WAYLAND_CLIENT_FOUND AND WAYLAND_CURSOR_FOUND AND XKBCOMMON_FOUND
 		SOURCES
 			Wayland.backend/WaylandCursor.m
 			Wayland.backend/WaylandDisplay.m
+			Wayland.backend/WaylandDropSession.m
 			Wayland.backend/WaylandLibrary.m
 			Wayland.backend/WaylandPasteboard.m
 			Wayland.backend/WaylandWindow.m
