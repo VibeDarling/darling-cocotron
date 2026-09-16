@@ -32,6 +32,7 @@ used.
 | Area | Behavior and evidence |
 | --- | --- |
 | Windows | xdg toplevels, redraw/resize, hide/show, popups and client/server decorations; [initial validation](tests/VALIDATION.md) |
+| Outputs | Atomic core output updates, rotation, multi-output removal/reappearance; [output validation](tests/OUTPUT-VALIDATION.md) |
 | Input | Pointer/click grouping, scrolling, text/repeat and independent physical modifiers; [input validation](tests/INPUT-VALIDATION.md) |
 | Scale and cursors | Integer buffer scale, named/image cursors, scaled drag icons; [icon validation](tests/DRAG-ICON-VALIDATION.md) |
 | Clipboard and dragging | Clipboard ownership/transfer, incoming/outgoing COPY/MOVE, bounded immutable data; [outgoing](tests/OUTGOING-VALIDATION.md) and [actions](tests/DRAG-ACTIONS-VALIDATION.md) |
@@ -132,7 +133,8 @@ and minimize requests are delivered, with final behavior governed by policy.
 The half-point stripe is exactly one physical pixel at 2x. Historical image-cursor
 captures differed by up to two channel values at 2x; the separate Onyx resampling
 candidate and exact corrected captures are recorded in tests/DRAG-ICON-VALIDATION.md.
-Multiple physical outputs and fractional scales have not been validated.
+Two headless outputs now have rotation/scale/removal coverage in the output
+validation record. Multiple physical outputs and fractional scales remain unvalidated.
 
 ## Clipboard
 
