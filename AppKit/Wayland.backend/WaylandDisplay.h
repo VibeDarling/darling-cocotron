@@ -29,8 +29,8 @@
 // It never opens an X connection and overrides every method that uses one.
 //
 // Toplevel origins remain virtual because Wayland controls global placement.
-// Clipboard and incoming copy drops use wl_data_device; EGL subwindows use
-// synchronized subsurfaces. Outgoing drags are a follow-on.
+// Clipboard and incoming/outgoing COPY/MOVE drops use wl_data_device; EGL
+// subwindows use synchronized subsurfaces. Local-only drags keep data in process.
 
 #import "X11Display.h"
 #include <stdint.h>
