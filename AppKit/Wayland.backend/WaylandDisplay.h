@@ -62,6 +62,7 @@ typedef enum {
     WaylandObjectDataDevice,
     WaylandObjectDataOffer,
     WaylandObjectDataSource,
+    WaylandObjectKeyboardSync,
 } WaylandObjectKind;
 
 // The dispatcher installed on every proxy (see WaylandLibrary.h for why listeners
@@ -121,6 +122,10 @@ struct wl_proxy *WaylandCreateObject(struct wl_proxy *proxy, uint32_t opcode,
     struct xkb_state *_xkbState;
     WaylandWindow *_keyboardWindow;
     BOOL _syncModifierFlags;
+    BOOL _classifyHeldKeys;
+    // Raw XKB keycode -> identity at press time; -1 denotes a non-modifier.
+    NSMutableDictionary *_heldKeyIdentities;
+    struct wl_proxy *_modifierSync;
     BOOL _hasModifierKeycode;
     unsigned short _modifierKeycode;
     int32_t _repeatRate;
