@@ -29,9 +29,12 @@ typedef uint16_t CGGlyph;
 
 CF_IMPLICIT_BRIDGING_ENABLED
 
+COREGRAPHICS_EXPORT CFTypeID CGFontGetTypeID(void);
+
 COREGRAPHICS_EXPORT CFArrayRef CGFontCopyTableTags(CGFontRef font);
 
 COREGRAPHICS_EXPORT CGFontRef CGFontCreateWithFontName(CFStringRef name);
+COREGRAPHICS_EXPORT CGFontRef CGFontCreateWithPlatformFont(void *platformFontReference);
 COREGRAPHICS_EXPORT CGFontRef CGFontRetain(CGFontRef self);
 COREGRAPHICS_EXPORT void CGFontRelease(CGFontRef self);
 
@@ -51,6 +54,9 @@ COREGRAPHICS_EXPORT size_t CGFontGetNumberOfGlyphs(CGFontRef self);
 COREGRAPHICS_EXPORT bool CGFontGetGlyphAdvances(CGFontRef self,
                                                 const CGGlyph *glyphs,
                                                 size_t count, int *advances);
+COREGRAPHICS_EXPORT bool CGFontGetGlyphBBoxes(CGFontRef self,
+                                              const CGGlyph *glyphs,
+                                              size_t count, CGRect *bboxes);
 
 COREGRAPHICS_EXPORT CGGlyph CGFontGetGlyphWithGlyphName(CGFontRef self,
                                                         CFStringRef name);
@@ -61,6 +67,9 @@ COREGRAPHICS_EXPORT CFDataRef CGFontCopyTableForTag(CGFontRef self,
                                                     uint32_t tag);
 
 COREGRAPHICS_EXPORT CGFontRef CGFontCreateWithDataProvider(CGDataProviderRef provider);
+COREGRAPHICS_EXPORT CGFontRef CGFontCreateCopyWithVariations(CGFontRef self, CFDictionaryRef variations);
+COREGRAPHICS_EXPORT CFDictionaryRef CGFontCopyVariations(CGFontRef self);
+COREGRAPHICS_EXPORT CFArrayRef CGFontCopyVariationAxes(CGFontRef self);
 
 COREGRAPHICS_EXPORT CFStringRef const kCGFontVariationAxisName;
 COREGRAPHICS_EXPORT CFStringRef const kCGFontVariationAxisMinValue;

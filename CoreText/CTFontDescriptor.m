@@ -1,4 +1,7 @@
 #import <CoreText/CTFontDescriptor.h>
+#import <Foundation/NSDictionary.h>
+#import <Foundation/NSArray.h>
+#import <Foundation/NSValue.h>
 
 #include <stdio.h>
 
@@ -7,6 +10,7 @@ const CFStringRef kCTFontNameAttribute = CFSTR("NSFontNameAttribute");
 const CFStringRef kCTFontDisplayNameAttribute = CFSTR("NSFontVisibleNameAttribute");
 const CFStringRef kCTFontFamilyNameAttribute = CFSTR("NSFontFamilyAttribute");
 const CFStringRef kCTFontStyleNameAttribute = CFSTR("NSFontFaceAttribute");
+const CFStringRef kCTFontPostScriptNameAttribute = CFSTR("NSFontPostScriptNameAttribute");
 const CFStringRef kCTFontTraitsAttribute = CFSTR("NSCTFontTraitsAttribute");
 const CFStringRef kCTFontVariationAttribute = CFSTR("NSCTFontVariationAttribute");
 const CFStringRef kCTFontSizeAttribute = CFSTR("NSFontSizeAttribute");
@@ -25,8 +29,64 @@ const CFStringRef kCTFontFormatAttribute = CFSTR("NSCTFontFormatAttribute");
 const CFStringRef kCTFontRegistrationScopeAttribute = CFSTR("NSCTFontRegistrationScopeAttribute");
 const CFStringRef kCTFontPriorityAttribute = CFSTR("NSCTFontPriorityAttribute");
 
+CFTypeID CTFontDescriptorGetTypeID(void)
+{
+    return CFDictionaryGetTypeID();
+}
+
+CTFontDescriptorRef CTFontDescriptorCreateWithAttributes(CFDictionaryRef attributes)
+{
+    if (!attributes) {
+        return (CTFontDescriptorRef)[[NSDictionary dictionary] retain];
+    }
+    return (CTFontDescriptorRef)[(id)attributes copy];
+}
+
+CTFontDescriptorRef CTFontDescriptorCreateWithNameAndSize(CFStringRef name, CGFloat size)
+{
+    NSMutableDictionary *attributes = [NSMutableDictionary dictionary];
+    if (name) {
+        attributes[(id)kCTFontNameAttribute] = (id)name;
+    }
+    if (size > 0.0) {
+        attributes[(id)kCTFontSizeAttribute] = [NSNumber numberWithDouble:(double)size];
+    }
+    return CTFontDescriptorCreateWithAttributes((CFDictionaryRef)attributes);
+}
+
+CFDictionaryRef CTFontDescriptorCopyAttributes(CTFontDescriptorRef descriptor)
+{
+    if (!descriptor) return NULL;
+    return (CFDictionaryRef)[(id)descriptor copy];
+}
+
 CFTypeRef CTFontDescriptorCopyAttribute(CTFontDescriptorRef descriptor, CFStringRef attribute)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    if (!descriptor || !attribute) return nil;
+    id val = [(NSDictionary *)descriptor objectForKey:(id)attribute];
+    return (CFTypeRef)[val retain];
+}
+
+CFArrayRef CTFontDescriptorCreateMatchingFontDescriptors(CTFontDescriptorRef descriptor, CFSetRef mandatoryAttributes)
+{
+    if (!descriptor) return (CFArrayRef)[[NSArray array] retain];
+    return (CFArrayRef)[[NSArray arrayWithObject:(id)descriptor] retain];
+}
+
+CTFontDescriptorRef CTFontDescriptorCreateMatchingFontDescriptor(CTFontDescriptorRef descriptor, CFSetRef mandatoryAttributes)
+{
+    if (!descriptor) return NULL;
+    return (CTFontDescriptorRef)[(id)descriptor retain];
+}
+
+CTFontDescriptorRef CTFontDescriptorCreateCopyWithAttributes(CTFontDescriptorRef descriptor, CFDictionaryRef attributes)
+{
+    if (!descriptor) return CTFontDescriptorCreateWithAttributes(attributes);
+    NSMutableDictionary *dict = [(NSDictionary *)descriptor mutableCopy];
+    if (attributes) {
+        [dict addEntriesFromDictionary:(NSDictionary *)attributes];
+    }
+    CTFontDescriptorRef result = CTFontDescriptorCreateWithAttributes((CFDictionaryRef)dict);
+    [dict release];
+    return result;
 }

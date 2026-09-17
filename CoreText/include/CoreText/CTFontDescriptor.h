@@ -1,4 +1,6 @@
 #import <CoreFoundation/CFString.h>
+#import <CoreFoundation/CFSet.h>
+#import <CoreGraphics/CGBase.h>
 #import <CoreText/CoreTextExport.h>
 #import <CoreText/CTFontTraits.h>
 
@@ -7,6 +9,7 @@ CORETEXT_EXPORT const CFStringRef kCTFontNameAttribute;
 CORETEXT_EXPORT const CFStringRef kCTFontDisplayNameAttribute;
 CORETEXT_EXPORT const CFStringRef kCTFontFamilyNameAttribute;
 CORETEXT_EXPORT const CFStringRef kCTFontStyleNameAttribute;
+CORETEXT_EXPORT const CFStringRef kCTFontPostScriptNameAttribute;
 CORETEXT_EXPORT const CFStringRef kCTFontTraitsAttribute;
 CORETEXT_EXPORT const CFStringRef kCTFontVariationAttribute;
 CORETEXT_EXPORT const CFStringRef kCTFontSizeAttribute;
@@ -38,6 +41,15 @@ typedef enum CTFontOrientation : uint32_t {
   kCTFontVerticalOrientation = 2, // Deprecated
 } CTFontOrientation;
 
+CORETEXT_EXPORT CFTypeID CTFontDescriptorGetTypeID(void);
+
+CORETEXT_EXPORT CTFontDescriptorRef CTFontDescriptorCreateWithAttributes(CFDictionaryRef attributes);
+CORETEXT_EXPORT CTFontDescriptorRef CTFontDescriptorCreateWithNameAndSize(CFStringRef name, CGFloat size);
+CORETEXT_EXPORT CFDictionaryRef CTFontDescriptorCopyAttributes(CTFontDescriptorRef descriptor);
 CORETEXT_EXPORT CFTypeRef CTFontDescriptorCopyAttribute(CTFontDescriptorRef descriptor, CFStringRef attribute);
+
+CORETEXT_EXPORT CFArrayRef CTFontDescriptorCreateMatchingFontDescriptors(CTFontDescriptorRef descriptor, CFSetRef mandatoryAttributes);
+CORETEXT_EXPORT CTFontDescriptorRef CTFontDescriptorCreateMatchingFontDescriptor(CTFontDescriptorRef descriptor, CFSetRef mandatoryAttributes);
+CORETEXT_EXPORT CTFontDescriptorRef CTFontDescriptorCreateCopyWithAttributes(CTFontDescriptorRef descriptor, CFDictionaryRef attributes);
 
 CF_IMPLICIT_BRIDGING_DISABLED

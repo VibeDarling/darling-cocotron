@@ -19,6 +19,9 @@ CORETEXT_EXPORT bool CTFontManagerUnregisterGraphicsFont(CGFontRef font, CFError
 
 CORETEXT_EXPORT CFArrayRef CTFontManagerCopyAvailableFontFamilyNames(void);
 
+CORETEXT_EXPORT CFArrayRef CTFontManagerCreateFontDescriptorsFromData(CFDataRef data);
+CORETEXT_EXPORT CFArrayRef CTFontManagerCreateFontDescriptorsFromURL(CFURLRef fontURL);
+
 CORETEXT_EXPORT bool CTFontManagerRegisterFontsForURL(CFURLRef fontURL, CTFontManagerScope scope, CFErrorRef * error);
 
 CF_IMPLICIT_BRIDGING_DISABLED

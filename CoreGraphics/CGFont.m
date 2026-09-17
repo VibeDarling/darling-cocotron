@@ -20,8 +20,27 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <CoreGraphics/CGFont.h>
 #import <Onyx2D/O2Font.h>
 
+CFTypeID CGFontGetTypeID(void) {
+    return (CFTypeID)[O2Font self];
+}
+
 CGFontRef CGFontCreateWithFontName(CFStringRef name) {
     return (CGFontRef)O2FontCreateWithFontName((NSString *) name);
+}
+
+// In legacy Mac OS X, platformFontReference is an opaque pointer holding an ATSFontRef
+// (or QuickDraw font handle). Because Darling does not implement the legacy ATS server
+// and subsystem, we gracefully resolve this to a standard default font (Helvetica/sans-serif)
+// via Onyx2D and fontconfig, avoiding crashes in clients such as cairo-quartz.
+CGFontRef CGFontCreateWithPlatformFont(void *platformFontReference) {
+    if (platformFontReference == NULL) {
+        return NULL;
+    }
+    CGFontRef font = CGFontCreateWithFontName(CFSTR("Helvetica"));
+    if (!font) {
+        font = CGFontCreateWithFontName(CFSTR(""));
+    }
+    return font;
 }
 
 CGFontRef CGFontRetain(CGFontRef self) {
@@ -109,3 +128,30 @@ CFStringRef const kCGFontVariationAxisName = CFSTR("kCGFontVariationAxisName");
 CFStringRef const kCGFontVariationAxisMinValue = CFSTR("kCGFontVariationAxisMinValue");
 CFStringRef const kCGFontVariationAxisDefaultValue = CFSTR("kCGFontVariationAxisDefaultValue");
 CFStringRef const kCGFontVariationAxisMaxValue = CFSTR("kCGFontVariationAxisMaxValue");
+
+CFArrayRef CGFontCopyTableTags(CGFontRef font) {
+    return NULL;
+}
+
+CGFontRef CGFontCreateCopyWithVariations(CGFontRef self, CFDictionaryRef variations) {
+    return CGFontRetain(self);
+}
+
+CFDictionaryRef CGFontCopyVariations(CGFontRef self) {
+    return NULL;
+}
+
+CFArrayRef CGFontCopyVariationAxes(CGFontRef self) {
+    return NULL;
+}
+
+// TODO: Implement precise per-glyph bounding box calculation using FreeType/O2Font outline
+// metrics. Returning the overall font bounding box for all glyphs is an approximation
+// sufficient for basic bounds queries, but may lead to imprecise layout in advanced text engines.
+bool CGFontGetGlyphBBoxes(CGFontRef self, const CGGlyph *glyphs, size_t count, CGRect *bboxes) {
+    if (!bboxes || !glyphs) return false;
+    for (size_t i = 0; i < count; i++) {
+        bboxes[i] = CGFontGetFontBBox(self);
+    }
+    return true;
+}
