@@ -51,14 +51,40 @@
 	_timestamp = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
 
 	_location = CGInvalidPoint;
+	if (source)
+		_flags = CGEventSourceFlagsState(source.stateID);
 	return self;
 }
 
 -(instancetype) initWithCoder:(NSCoder*) coder
 {
 	NSKeyedUnarchiver* unarchiver = (NSKeyedUnarchiver*) coder;
-	
-	// TODO
+
+	CGEventSourceStateID stateId = [unarchiver decodeIntForKey: @"stateId"];
+	_source = [[CGEventSource alloc] initWithState: stateId];
+
+	_type = [unarchiver decodeIntForKey: @"type"];
+	_timestamp = [unarchiver decodeInt64ForKey: @"timestamp"];
+	_flags = [unarchiver decodeInt64ForKey: @"flags"];
+	_fields = [[unarchiver decodeObjectForKey: @"fields"] mutableCopy];
+	if (!_fields)
+		_fields = [[NSMutableDictionary alloc] initWithCapacity: 0];
+	_virtualKey = [unarchiver decodeIntForKey: @"virtualKey"];
+	NSUInteger len = 0;
+	const uint8_t* str = [unarchiver decodeBytesForKey: @"unicodeString" returnedLength: &len];
+	if (str && len <= sizeof(_unicodeString))
+		memcpy(_unicodeString, str, len);
+	_location.x = [unarchiver decodeDoubleForKey: @"location.x"];
+	_location.y = [unarchiver decodeDoubleForKey: @"location.y"];
+	_mouseButton = [unarchiver decodeIntForKey: @"mouseButton"];
+
+	const uint8_t* rec = [unarchiver decodeBytesForKey: @"eventRecord" returnedLength: &len];
+	if (rec && len > 0)
+	{
+		_eventRecord = (CGSEventRecordPtr) malloc(len);
+		_eventRecordLength = (uint32_t) len;
+		memcpy(_eventRecord, rec, len);
+	}
 
 	return self;
 }
@@ -68,6 +94,7 @@
 	_location = _eventRecord->location;
 	_type = _eventRecord->type; // These types match!
 	_timestamp = _eventRecord->time;
+	_flags = _eventRecord->flags;
 
 	switch (_eventRecord->type)
 	{
@@ -112,7 +139,12 @@
 		}
 		case NX_KEYDOWN:
 		case NX_KEYUP:
+		case NX_FLAGSCHANGED:
 		{
+			_virtualKey = _eventRecord->data.key.keyCode;
+			_fields[@(kCGKeyboardEventKeycode)] = [NSNumber numberWithLongLong: _virtualKey];
+			_fields[@(kCGKeyboardEventAutorepeat)] = [NSNumber numberWithInt: _eventRecord->data.key.repeat];
+			_fields[@(kCGKeyboardEventKeyboardType)] = [NSNumber numberWithInt: _eventRecord->data.key.keyboardType];
 			break;
 		}
 	}
@@ -218,6 +250,7 @@
 
 	[archiver encodeInt: _type forKey: @"type"];
 	[archiver encodeInt64: _timestamp forKey: @"timestamp"];
+	[archiver encodeInt64: _flags forKey: @"flags"];
 	[archiver encodeObject: _fields forKey: @"fields"];
 	[archiver encodeInt: _virtualKey forKey: @"virtualKey"];
 	[archiver encodeBytes: (uint8_t*) _unicodeString length: sizeof(_unicodeString) forKey: @"unicodeString"];

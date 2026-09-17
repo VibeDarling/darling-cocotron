@@ -27,6 +27,16 @@ void CGEventPost(CGEventTapLocation tap, CGEventRef _Nullable event)
 	// TODO: Finally, invoke callbacks registered with CGSRegisterNotifyProc()
 }
 
+void CGEventPostToPSN(void * _Nullable processSerialNumber, CGEventRef _Nullable event)
+{
+	CGEventPost(kCGHIDEventTap, event);
+}
+
+void CGEventPostToPid(pid_t pid, CGEventRef _Nullable event)
+{
+	CGEventPost(kCGHIDEventTap, event);
+}
+
 CFMachPortRef CGEventTapCreate(CGEventTapLocation tap, CGEventTapPlacement place,
 	CGEventTapOptions options, CGEventMask eventsOfInterest, CGEventTapCallBack callback, void *userInfo)
 {
@@ -46,6 +56,22 @@ CFMachPortRef CGEventTapCreate(CGEventTapLocation tap, CGEventTapPlacement place
 	return mp;
 }
 
+CFMachPortRef CGEventTapCreateForPSN(void * processSerialNumber,
+	CGEventTapPlacement place, CGEventTapOptions options,
+	CGEventMask eventsOfInterest, CGEventTapCallBack callback,
+	void * userInfo)
+{
+	return CGEventTapCreate(kCGAnnotatedSessionEventTap, place, options, eventsOfInterest, callback, userInfo);
+}
+
+CFMachPortRef CGEventTapCreateForPid(pid_t pid,
+	CGEventTapPlacement place, CGEventTapOptions options,
+	CGEventMask eventsOfInterest, CGEventTapCallBack callback,
+	void * userInfo)
+{
+	return CGEventTapCreate(kCGAnnotatedSessionEventTap, place, options, eventsOfInterest, callback, userInfo);
+}
+
 void _CGEventTapDestroyed(CGEventTapLocation location, mach_port_t mp)
 {
 	// TODO: Deregister the tap
@@ -60,6 +86,11 @@ void CGEventTapEnable(CFMachPortRef tap, bool enable)
 	tapObj.enabled = enable;
 }
 
+bool CGEventTapIsEnabled(CFMachPortRef tap)
+{
+	return tap != NULL;
+}
+
 void CGEventTapPostEvent(CGEventTapProxy proxy, CGEventRef event)
 {
 
@@ -67,5 +98,7 @@ void CGEventTapPostEvent(CGEventTapProxy proxy, CGEventRef event)
 
 CGError CGGetEventTapList(uint32_t maxNumberOfTaps, CGEventTapInformation *tapList, uint32_t *eventTapCount)
 {
-
+	if (eventTapCount)
+		*eventTapCount = 0;
+	return kCGErrorSuccess;
 }

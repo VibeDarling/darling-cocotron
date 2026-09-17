@@ -70,9 +70,36 @@ void CGEventSourceSetPixelsPerLine(CGEventSourceRef source,
 }
 
 CGEventFlags CGEventSourceFlagsState(CGEventSourceStateID stateID) {
+    if (stateID < -1 || stateID > 1) return 0;
     return g_sourceStates[stateID + 1];
 }
 
+bool CGEventSourceButtonState(CGEventSourceStateID stateID, CGMouseButton button) {
+    return false;
+}
+
+bool CGEventSourceKeyState(CGEventSourceStateID stateID, CGKeyCode key) {
+    return false;
+}
+
+CFTimeInterval CGEventSourceSecondsSinceLastEventType(CGEventSourceStateID stateID, CGEventType eventType) {
+    return 0.0;
+}
+
+uint32_t CGEventSourceCounterForEventType(CGEventSourceStateID stateID, CGEventType eventType) {
+    return 0;
+}
+
 void CGEventSourceSetLocalEventsSuppressionInterval(CGEventSourceRef source, CFTimeInterval seconds) {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+}
+
+CFTimeInterval CGEventSourceGetLocalEventsSuppressionInterval(CGEventSourceRef source) {
+    return 0.0;
+}
+
+void CGEventSourceSetLocalEventsFilterDuringSuppressionState(CGEventSourceRef source, CGEventFilterMask filter, CGEventSuppressionState state) {
+}
+
+CGEventFilterMask CGEventSourceGetLocalEventsFilterDuringSuppressionState(CGEventSourceRef source, CGEventSuppressionState state) {
+    return 0;
 }

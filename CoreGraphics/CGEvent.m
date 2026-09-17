@@ -97,9 +97,29 @@ void CGEventSetTimestamp(CGEventRef event, CGEventTimestamp timestamp)
 	e.timestamp = timestamp;
 }
 
+CGEventFlags CGEventGetFlags(CGEventRef event)
+{
+	CGEvent* e = (CGEvent*) event;
+	return e ? e.flags : 0;
+}
+
+void CGEventSetFlags(CGEventRef event, CGEventFlags flags)
+{
+	CGEvent* e = (CGEvent*) event;
+	if (!e)
+		return;
+	e.flags = flags;
+	if (e.eventRecord)
+		e.eventRecord->flags = (CGSEventFlag) flags;
+}
+
 int64_t CGEventGetIntegerValueField(CGEventRef event, CGEventField field)
 {
 	CGEvent* e = (CGEvent*) event;
+	if (!e)
+		return 0;
+	if (field == kCGKeyboardEventKeycode)
+		return e.virtualKey;
 	NSNumber* value = e.fields[[NSNumber numberWithInt: field]];
 
 	if (!value)
@@ -110,6 +130,10 @@ int64_t CGEventGetIntegerValueField(CGEventRef event, CGEventField field)
 void CGEventSetIntegerValueField(CGEventRef event, CGEventField field, int64_t value)
 {
 	CGEvent* e = (CGEvent*) event;
+	if (!e)
+		return;
+	if (field == kCGKeyboardEventKeycode)
+		e.virtualKey = (CGKeyCode) value;
 	e.fields[[NSNumber numberWithInt: field]] = [NSNumber numberWithLongLong: value];
 }
 
@@ -152,6 +176,7 @@ CGEventRef CGEventCreateKeyboardEvent(CGEventSourceRef source, CGKeyCode virtual
 	CGEventType type = keyDown ? kCGEventKeyDown : kCGEventKeyUp;
 	CGEvent* event = [[CGEvent alloc] initWithSource: (CGEventSource*) source type: type];
 	event.virtualKey = virtualKey;
+	event.fields[@(kCGKeyboardEventKeycode)] = [NSNumber numberWithLongLong: virtualKey];
 
 	return (CGEventRef) event;
 }
@@ -225,6 +250,11 @@ CGEventRef CGEventCreateScrollWheelEvent(CGEventSourceRef source, CGScrollEventU
 		va_end(vl);
 	}
 	return (CGEventRef) event;
+}
+
+CGEventRef CGEventCreateScrollWheelEvent2(CGEventSourceRef source, CGScrollEventUnit units, uint32_t wheelCount, int32_t wheel1, int32_t wheel2, int32_t wheel3)
+{
+	return CGEventCreateScrollWheelEvent(source, units, wheelCount, wheel1, wheel2, wheel3);
 }
 
 CGPoint CGEventGetLocation(CGEventRef event)
