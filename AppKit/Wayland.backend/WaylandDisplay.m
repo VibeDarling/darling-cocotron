@@ -20,6 +20,7 @@
 #import "CarbonKeys.h"
 #import "NSEvent_mouse.h"
 #import "WaylandCursor.h"
+#import "WaylandScale.h"
 #import "WaylandPasteboard.h"
 #import "WaylandDraggingManager.h"
 #import <OpenGL/CGLInternal.h>
@@ -123,6 +124,10 @@ int WaylandDispatch(const void *kind, void *proxy, uint32_t opcode,
             case WaylandObjectDataSource:
                 [(WaylandPasteboard *) object handleEvent: opcode kind: objectKind
                                                      proxy: proxy arguments: args];
+                break;
+            case WaylandObjectFractionalScale:
+                if (opcode == WP_FRACTIONAL_EV_PREFERRED && args[0].u != 0)
+                    [(id<WaylandFractionalScaleOwner>)object preferredScaleChanged: args[0].u];
                 break;
             case WaylandObjectLogicalOutput:
                 [((WaylandOutput *) object)->_display logicalOutputEvent: opcode
@@ -285,11 +290,12 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
 
     if (WL.hasCursor) {
         const char *sizeString = getenv("XCURSOR_SIZE");
-        int size = sizeString ? atoi(sizeString) : 0;
+        long parsed = sizeString ? strtol(sizeString, NULL, 10) : 24;
+        int size = parsed > 0 && parsed <= INT_MAX ? (int)parsed : 24;
         _cursorTheme = WL.wl_cursor_theme_load(getenv("XCURSOR_THEME"),
                                                size > 0 ? size : 24,
                                                (struct wl_shm *) _shm);
-        _cursorThemeScale = 1;
+        _cursorThemeScale120 = 120;
         if (_cursorTheme == NULL) {
             NSLog(@"Wayland backend: no cursor theme, the compositor's cursor "
                   @"stays");
@@ -299,6 +305,13 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
     args[0].o = NULL;
     _cursorSurface = WaylandCreateObject(_compositor, WP_COMPOSITOR_CREATE_SURFACE,
                                         &wl_surface_interface, args, 0, nil);
+
+    _cursorFractionalScale = [self newFractionalScaleForSurface: _cursorSurface owner: (id)self];
+    if (_cursorFractionalScale) {
+        union wl_argument viewport[] = {{.o = NULL}, {.o = (struct wl_object *)_cursorSurface}};
+        _cursorViewport = WaylandCreateObject(_viewporter, WP_VIEWPORTER_GET_VIEWPORT,
+            &wp_viewport_interface, viewport, 0, nil);
+    }
 
     CFSocketContext context = {.version = 0, .info = self};
     _wlSocket = CFSocketCreateWithNative(NULL, WL.wl_display_get_fd(_wlDisplay),
@@ -359,9 +372,9 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
         WL.wl_cursor_theme_destroy(_cursorTheme);
     if (_wlDisplay != NULL) {
         // wl_display_disconnect() doesn't free proxies.
-        struct wl_proxy *proxies[] = {_imageCursorBuffer, _cursorSurface, _pointer, _keyboard,
+        struct wl_proxy *proxies[] = {_imageCursorBuffer, _cursorFractionalScale, _cursorViewport, _cursorSurface, _pointer, _keyboard,
                                       _seat, _decorationManager, _dataDeviceManager, _wmBase,
-                                      _shm, _viewporter, _subcompositor, _logicalOutputManager,
+                                      _shm, _viewporter, _fractionalScaleManager, _subcompositor, _logicalOutputManager,
                                       _legacyLogicalOutputManager, _compositor, _registry};
         for (size_t i = 0; i < sizeof(proxies) / sizeof(proxies[0]); i++)
             if (proxies[i] != NULL)
@@ -495,8 +508,13 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
                                   kind: 0
                                 object: nil];
     } else if (strcmp(interface, "wp_viewporter") == 0 && _viewporter == NULL) {
+        _viewporterName = name;
         _viewporter = [self bindGlobal: name interface: &wp_viewporter_interface
                                version: 1 kind: 0 object: nil];
+    } else if (strcmp(interface, "wp_fractional_scale_manager_v1") == 0 && _fractionalScaleManager == NULL) {
+        _fractionalScaleManagerName = name;
+        _fractionalScaleManager = [self bindGlobal: name interface: &wp_fractional_scale_manager_v1_interface
+                                          version: 1 kind: 0 object: nil];
     } else if (strcmp(interface, "wl_subcompositor") == 0 && _subcompositor == NULL) {
         _subcompositor = [self bindGlobal: name interface: &wl_subcompositor_interface
                                   version: 1 kind: 0 object: nil];
@@ -599,7 +617,24 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
     }
 }
 
+- (struct wl_proxy *) newFractionalScaleForSurface: (struct wl_proxy *) surface owner: (id<WaylandFractionalScaleOwner>) owner {
+    if (!_fractionalScaleManager || !_viewporter || !surface) return NULL;
+    union wl_argument args[] = {{.o = NULL}, {.o = (struct wl_object *)surface}};
+    return WaylandCreateObject(_fractionalScaleManager, WP_FRACTIONAL_MANAGER_GET_SCALE,
+        &wp_fractional_scale_v1_interface, args, WaylandObjectFractionalScale, owner);
+}
+
 - (void) registryGlobalRemoved: (uint32_t) name {
+    if (_fractionalScaleManager && name == _fractionalScaleManagerName) {
+        WaylandMarshal(_fractionalScaleManager, WP_FRACTIONAL_MANAGER_DESTROY, NULL, WL_MARSHAL_FLAG_DESTROY, NULL);
+        _fractionalScaleManager = NULL; _fractionalScaleManagerName = 0;
+        return; // Existing surface preferences survive factory removal.
+    }
+    if (_viewporter && name == _viewporterName) {
+        WaylandMarshal(_viewporter, WP_VIEWPORTER_DESTROY, NULL, WL_MARSHAL_FLAG_DESTROY, NULL);
+        _viewporter = NULL; _viewporterName = 0;
+        return; // Existing viewport objects remain usable.
+    }
     if (_logicalOutputManager && name == _logicalOutputManagerName) {
         if (_legacyLogicalOutputManager)
             WaylandMarshal(_legacyLogicalOutputManager, WP_LOGICAL_MANAGER_DESTROY, NULL,
@@ -780,6 +815,9 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
         _pointerWindow = nil;
         _pointerEnterSerial = 0;
         _pressedButtons = 0;
+        _pendingScrollX = _pendingScrollY = 0;
+        _pendingScrollWindow = nil;
+        _pendingScrollActive = NO;
         _lastClickWindow = nil;
         [_buttonClickCounts removeAllObjects];
     }
@@ -812,6 +850,8 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
 #pragma mark - Pointer
 
 - (void) pointerEvent: (uint32_t) opcode arguments: (union wl_argument *) args {
+    if (opcode != WP_POINTER_EV_AXIS && opcode != WP_POINTER_EV_FRAME)
+        [self postPendingScroll];
     [self flushPendingModifier];
     switch (opcode) {
     case WP_POINTER_EV_ENTER:
@@ -832,6 +872,9 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
         _lastMouseLocation = [self mouseLocation];
         _pointerWindow = nil;
         _pointerEnterSerial = 0;
+        _pendingScrollX = _pendingScrollY = 0;
+        _pendingScrollWindow = nil;
+        _pendingScrollActive = NO;
         break;
 
     case WP_POINTER_EV_MOTION:
@@ -870,6 +913,10 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
     }
     case WP_POINTER_EV_AXIS:
         [self pointerAxis: args[1].u value: wl_fixed_to_double(args[2].f)];
+        break;
+
+    case WP_POINTER_EV_FRAME:
+        [self postPendingScroll];
         break;
     }
 }
@@ -996,14 +1043,49 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
     // One wheel notch is 10 units, scrolling down is positive; the X11 backend
     // reports a notch up as deltaY 1.
     CGFloat delta = -value / 10.0;
+    if (axis != WP_POINTER_AXIS_HORIZONTAL_SCROLL &&
+        axis != WP_POINTER_AXIS_VERTICAL_SCROLL)
+        return;
+    if (!_pendingScrollActive) {
+        _pendingScrollWindow = window;
+        _pendingScrollSurfacePoint = _pointerSurfacePoint;
+        _pendingScrollModifiers = [self currentModifierFlags];
+        _pendingScrollActive = YES;
+    }
+    if (axis == WP_POINTER_AXIS_HORIZONTAL_SCROLL)
+        _pendingScrollX += delta;
+    else if (axis == WP_POINTER_AXIS_VERTICAL_SCROLL)
+        _pendingScrollY += delta;
+
+    // wl_pointer.frame was added in version 5. Older seats deliver each axis
+    // event independently, so preserve their immediate behavior.
+    if (WL.wl_proxy_get_version(_pointer) < 5)
+        [self postPendingScroll];
+}
+
+- (void) postPendingScroll {
+    CGFloat deltaX = _pendingScrollX;
+    CGFloat deltaY = _pendingScrollY;
+    WaylandWindow *window = _pendingScrollWindow;
+    CGPoint surfacePoint = _pendingScrollSurfacePoint;
+    NSUInteger modifiers = _pendingScrollModifiers;
+    _pendingScrollX = _pendingScrollY = 0;
+    _pendingScrollWindow = nil;
+    _pendingScrollActive = NO;
+    if (deltaX == 0 && deltaY == 0)
+        return;
+
+    if (window == nil)
+        return;
+
     NSEvent *event = [NSEvent
             mouseEventWithType: NSScrollWheel
-                      location: [window transformPoint: _pointerSurfacePoint]
-                 modifierFlags: [self currentModifierFlags]
+                      location: [window transformPoint: surfacePoint]
+                 modifierFlags: modifiers
                         window: [window delegate]
                     clickCount: 1
-                        deltaX: axis == WP_POINTER_AXIS_HORIZONTAL_SCROLL ? delta : 0.0
-                        deltaY: axis == WP_POINTER_AXIS_VERTICAL_SCROLL ? delta : 0.0];
+                        deltaX: deltaX
+                        deltaY: deltaY];
     [self postEvent: event atStart: NO];
 }
 
@@ -1108,6 +1190,7 @@ static NSUInteger modifierDeviceMask(int code) {
 }
 
 - (void) keyboardEvent: (uint32_t) opcode arguments: (union wl_argument *) args {
+    [self postPendingScroll];
     switch (opcode) {
     case WP_KEYBOARD_EV_KEYMAP:
         [self keymapWithFormat: args[0].u fd: args[1].h size: args[2].u];
@@ -1659,6 +1742,9 @@ static NSUInteger modifierDeviceMask(int code) {
         _pointerWindow = nil;
         _pointerEnterSerial = 0;
         _pressedButtons = 0;
+        _pendingScrollX = _pendingScrollY = 0;
+        _pendingScrollWindow = nil;
+        _pendingScrollActive = NO;
         [_buttonClickCounts removeAllObjects];
     }
     if (_inputWindow == window) {
@@ -1695,24 +1781,36 @@ static NSUInteger modifierDeviceMask(int code) {
 
 #pragma mark - Cursors
 
-- (struct wl_proxy *) imageCursorBufferForScale: (int32_t) scale cursor: (WaylandCursor *) cursor {
-    if (_imageCursorBuffer != NULL && _imageCursorBufferScale != scale) {
+- (uint32_t) cursorRenderScale120 {
+    if (_cursorFractionalScale) return _cursorPreferredScale120 ?: (_pointerWindow ? [_pointerWindow renderScale120] : 120);
+    return (uint32_t)MIN((uint64_t)(_pointerWindow ? [_pointerWindow bufferScale] : 1) * 120, UINT32_MAX);
+}
+- (void) preferredScaleChanged: (uint32_t) scale120 {
+    if (!_cursorFractionalScale || !scale120 || scale120 == _cursorPreferredScale120) return;
+    _cursorPreferredScale120 = scale120;
+    if (_applyingCursor) { _cursorApplyPending = YES; return; }
+    if (_cursorApplyQueued) return;
+    _cursorApplyQueued = YES;
+    [self performAfterDispatch: ^{ self->_cursorApplyQueued = NO; [self applyCursor]; }];
+}
+
+- (struct wl_proxy *) imageCursorBufferForScale120: (uint32_t) scale120 cursor: (WaylandCursor *) cursor {
+    if (_imageCursorBuffer != NULL && _imageCursorBufferScale120 != scale120) {
         union wl_argument none[1] = {{.o = NULL}};
         WaylandMarshal(_imageCursorBuffer, WP_BUFFER_DESTROY, NULL, WL_MARSHAL_FLAG_DESTROY, none);
         _imageCursorBuffer = NULL;
     }
     if (_imageCursorBuffer != NULL)
         return _imageCursorBuffer;
-    NSData *pixels = [cursor pixelsForScale: scale];
+    NSData *pixels = [cursor pixelsForScale120: scale120];
     // Rendering an NSImage can select a different cursor or dispatch input.
     // Never install that obsolete result as the active cursor buffer.
     if (_cursorApplyPending || cursor != _cursor || pixels == nil)
         return NULL;
 
-    NSSize dimensions = [cursor size];
-    dimensions.width *= scale; dimensions.height *= scale;
+    NSSize dimensions = [cursor pixelSizeForScale120: scale120];
     _imageCursorBuffer = [self newARGBBuffer: pixels pixelSize: dimensions];
-    _imageCursorBufferScale = scale;
+    _imageCursorBufferScale120 = scale120;
     return _imageCursorBuffer;
 }
 
@@ -1772,34 +1870,31 @@ static NSUInteger modifierDeviceMask(int code) {
     if (_cursorSurface == NULL)
         return;
 
-    int32_t scale = _pointerWindow != nil ? [_pointerWindow bufferScale] : 1;
-    struct wl_proxy *buffer = decoration ? NULL : [self imageCursorBufferForScale: scale cursor: cursor];
+    uint32_t scale120 = [self cursorRenderScale120];
+    BOOL fractional = _cursorFractionalScale != NULL;
+    int32_t wireScale = fractional ? 1 : (int32_t)(scale120 / 120);
+    struct wl_proxy *buffer = decoration ? NULL : [self imageCursorBufferForScale120: scale120 cursor: cursor];
     if (_cursorApplyPending || cursor != _cursor || pointer != _pointer ||
         surface != _cursorSurface || serial != _pointerEnterSerial ||
         window != _pointerWindow || !CGPointEqualToPoint(point, _pointerSurfacePoint) ||
         decoration != [_pointerWindow isDecorationPoint: _pointerSurfacePoint] ||
-        scale != (_pointerWindow ? [_pointerWindow bufferScale] : 1)) {
+        scale120 != [self cursorRenderScale120]) {
         _cursorApplyPending = YES;
         return;
     }
-    NSSize size = [cursor size];
-    size.width *= scale;
-    size.height *= scale;
+    NSSize logical = [cursor size];
     NSPoint hotSpot = [cursor hotSpot];
     if (buffer == NULL) {
-        if (WL.hasCursor && _cursorThemeScale != scale) {
+        if (WL.hasCursor && _cursorThemeScale120 != scale120) {
             const char *sizeString = getenv("XCURSOR_SIZE");
-            int cursorSize = sizeString ? atoi(sizeString) : 0;
-            if (cursorSize <= 0 || cursorSize > INT_MAX / scale)
-                cursorSize = 24;
-            struct wl_cursor_theme *theme = scale <= INT_MAX / cursorSize
-                    ? WL.wl_cursor_theme_load(getenv("XCURSOR_THEME"), cursorSize * scale,
-                                               (struct wl_shm *) _shm) : NULL;
+            long nominal = sizeString ? strtol(sizeString, NULL, 10) : 24;
+            if (nominal <= 0 || nominal > INT32_MAX) nominal = 24;
+            int32_t requested;
+            struct wl_cursor_theme *theme = WaylandScaleExtent((int32_t)nominal, scale120, INT32_MAX, &requested)
+                ? WL.wl_cursor_theme_load(getenv("XCURSOR_THEME"), requested, (struct wl_shm *)_shm) : NULL;
             if (theme != NULL) {
-                if (_cursorTheme != NULL)
-                    WL.wl_cursor_theme_destroy(_cursorTheme);
-                _cursorTheme = theme;
-                _cursorThemeScale = scale;
+                if (_cursorTheme != NULL) WL.wl_cursor_theme_destroy(_cursorTheme);
+                _cursorTheme = theme; _cursorThemeScale120 = scale120;
             }
         }
         if (_cursorTheme == NULL)
@@ -1818,25 +1913,37 @@ static NSUInteger modifierDeviceMask(int code) {
         buffer = (struct wl_proxy *) WL.wl_cursor_image_get_buffer(image);
         if (buffer == NULL)
             return;
-        size = NSMakeSize(image->width, image->height);
-        scale = _cursorThemeScale;
-        // Themes may pick a different available size. Never commit a buffer
-        // whose dimensions aren't divisible by its surface scale.
-        if (image->width % scale != 0 || image->height % scale != 0)
-            scale = 1;
-        hotSpot = NSMakePoint(image->hotspot_x / scale, image->hotspot_y / scale);
+        if (!image->width || !image->height || image->width > INT32_MAX || image->height > INT32_MAX) return;
+        if (fractional) {
+            uint64_t width = ((uint64_t)image->width * 120 + _cursorThemeScale120 / 2) / _cursorThemeScale120;
+            uint64_t height = ((uint64_t)image->height * 120 + _cursorThemeScale120 / 2) / _cursorThemeScale120;
+            if (width > INT32_MAX || height > INT32_MAX) return;
+            logical = NSMakeSize(MAX(1, width), MAX(1, height));
+            hotSpot = NSMakePoint(MIN(logical.width - 1, floor(image->hotspot_x * logical.width / image->width)),
+                MIN(logical.height - 1, floor(image->hotspot_y * logical.height / image->height)));
+        } else {
+            wireScale = (int32_t)(_cursorThemeScale120 / 120);
+            if (wireScale < 1 || image->width % wireScale || image->height % wireScale) wireScale = 1;
+            logical = NSMakeSize(image->width / wireScale, image->height / wireScale);
+            hotSpot = NSMakePoint(image->hotspot_x / wireScale, image->hotspot_y / wireScale);
+        }
     }
 
     if (_compositorVersion >= 3) {
-        union wl_argument scaleArgs[1] = {{.i = scale}};
+        union wl_argument scaleArgs[1] = {{.i = wireScale}};
         WaylandMarshal(_cursorSurface, WP_SURFACE_SET_BUFFER_SCALE, NULL, 0, scaleArgs);
+    }
+
+    if (_cursorViewport) {
+        union wl_argument destination[] = {{.i = (int32_t)logical.width}, {.i = (int32_t)logical.height}};
+        WaylandMarshal(_cursorViewport, WP_VIEWPORT_SET_DESTINATION, NULL, 0, destination);
     }
 
     union wl_argument attach[3] = {{.o = (struct wl_object *) buffer}, {.i = 0}, {.i = 0}};
     WaylandMarshal(_cursorSurface, WP_SURFACE_ATTACH, NULL, 0, attach);
     union wl_argument damage[4] = {{.i = 0}, {.i = 0},
-                                   {.i = (int32_t) size.width / scale},
-                                   {.i = (int32_t) size.height / scale}};
+                                   {.i = (int32_t)logical.width},
+                                   {.i = (int32_t)logical.height}};
     WaylandMarshal(_cursorSurface, WP_SURFACE_DAMAGE, NULL, 0, damage);
     union wl_argument none[1] = {{.o = NULL}};
     WaylandMarshal(_cursorSurface, WP_SURFACE_COMMIT, NULL, 0, none);

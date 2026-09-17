@@ -25,13 +25,17 @@ struct wl_egl_window;
 // CALayerContext releases its EGL surface before releasing this native window.
 @interface WaylandSubWindow : CGSubWindow {
     WaylandWindow *_parent;
-    struct wl_proxy *_surface, *_subsurface, *_viewport;
+    struct wl_proxy *_surface, *_subsurface, *_viewport, *_fractionalScale;
+    uint32_t _preferredScale120;
+    BOOL _scaleUpdatePending, _needsScaleRedraw, _scaleRedrawRequested;
     struct wl_egl_window *_eglWindow;
+    CGSize _drawablePixelSize;
     CGRect _frame, _pendingRect, _presentedRect;
     BOOL _visible, _clipped;
 }
 - (id) initWithParentWindow: (WaylandWindow *) parent frame: (CGRect) frame;
 - (void) updateGeometry;
+- (void) preferredScaleChanged: (uint32_t) scale120;
 - (struct wl_proxy *) presentedSurface;
 - (void) placeAboveSurface: (struct wl_proxy *) surface;
 @end
