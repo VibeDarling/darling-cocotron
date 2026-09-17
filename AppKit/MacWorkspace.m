@@ -1,6 +1,8 @@
 #import "MacWorkspace.h"
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSRaise.h>
+#import <Foundation/NSTask.h>
+#import <Foundation/NSFileHandle.h>
 #include <LaunchServices/LaunchServices.h>
 
 @implementation NSWorkspace (macos)
@@ -89,9 +91,58 @@
         withApplication: (NSString *) application
           andDeactivate: (BOOL) deactivate
 {
-    // TODO: call LSOpenFromURLSpec()
-    NSUnimplementedMethod();
-    return NO;
+    /* LaunchServices is not available in the Darling guest yet.  The
+       Applications viewer nevertheless has a real bundle path, so launch
+       its CFBundleExecutable directly.  Keeping the inherited environment
+       is intentional: it carries the reviewed Wayland display and the
+       app-only PAC setting without changing either globally. */
+    NSString *bundlePath = application;
+    if (!bundlePath && path && [path hasSuffix: @".app"])
+        bundlePath = path;
+    if (!bundlePath)
+        return NO;
+
+    NSString *plistPath = [bundlePath stringByAppendingPathComponent: @"Contents/Info.plist"];
+    NSDictionary *plist = [NSDictionary dictionaryWithContentsOfFile: plistPath];
+    NSString *executable = [plist objectForKey: @"CFBundleExecutable"];
+    if (![executable isKindOfClass: [NSString class]] || [executable length] == 0)
+        executable = [bundlePath lastPathComponent];
+    if ([executable hasSuffix: @".app"])
+        executable = [executable substringToIndex: [executable length] - 4];
+
+    NSString *launchPath = [bundlePath stringByAppendingPathComponent:
+        [NSString stringWithFormat: @"Contents/MacOS/%@", executable]];
+    BOOL isDirectory = NO;
+    if (![[NSFileManager defaultManager] fileExistsAtPath: launchPath isDirectory: &isDirectory] || isDirectory)
+        return NO;
+
+    NSDictionary *environment = [[NSProcessInfo processInfo] environment];
+    NSLog(@"NSWorkspace launch argv=[%@] bundle=%@ backend=%@ wayland=%@ display=%@ pac=%@",
+          launchPath, bundlePath,
+          [environment objectForKey: @"DARLING_APPKIT_BACKEND"],
+          [environment objectForKey: @"WAYLAND_DISPLAY"],
+          [environment objectForKey: @"DISPLAY"],
+          [environment objectForKey: @"DARLING_DISABLE_PTRAUTH"]);
+
+    NSTask *task = [[[NSTask alloc] init] autorelease];
+    [task setLaunchPath: launchPath];
+    [task setArguments: @[]];
+    [task setEnvironment: environment];
+    [task setCurrentDirectoryPath: bundlePath];
+    [task setStandardError: [NSFileHandle fileHandleWithStandardError]];
+    [task setStandardOutput: [NSFileHandle fileHandleWithStandardOutput]];
+    NSError *launchError = nil;
+    if (![task launchAndReturnError: &launchError]) {
+        NSLog(@"NSWorkspace launch failed executable=%@ error=%@", launchPath, launchError);
+        return NO;
+    }
+    NSLog(@"NSWorkspace launch started executable=%@ pid=%d", launchPath, [task processIdentifier]);
+    [task setTerminationHandler: ^(NSTask *finished) {
+        NSLog(@"NSWorkspace child terminated executable=%@ pid=%d status=%d reason=%ld",
+              launchPath, [finished processIdentifier], [finished terminationStatus],
+              (long)[finished terminationReason]);
+    }];
+    return YES;
 }
 
 - (BOOL) openURL: (NSURL *) url {
