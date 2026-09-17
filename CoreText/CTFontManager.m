@@ -20,8 +20,18 @@ bool CTFontManagerUnregisterGraphicsFont(CGFontRef font, CFErrorRef *error)
 
 CFArrayRef CTFontManagerCopyAvailableFontFamilyNames(void)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    NSArray *families = [NSArray arrayWithObjects:
+        @"Helvetica",
+        @"Times",
+        @"Courier",
+        @"Arial",
+        @"Menlo",
+        @"Monaco",
+        @"Geneva",
+        @"Symbol",
+        @"Apple Color Emoji",
+        nil];
+    return (CFArrayRef)[families copy];
 }
 
 CFArrayRef CTFontManagerCreateFontDescriptorsFromData(CFDataRef data)
