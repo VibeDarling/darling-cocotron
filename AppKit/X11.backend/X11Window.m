@@ -370,6 +370,7 @@ static NSData *makeWindowIcon() {
     if (!_mapped) {
         XMapWindow(_display, _window);
         _mapped = YES;
+        XFlush(_display);
     }
 }
 
