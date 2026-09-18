@@ -22,6 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSFont.h>
 #import <AppKit/NSGraphicsContextFunctions.h>
 #import <AppKit/NSGraphicsStyle.h>
+#import <AppKit/NSGradient.h>
 #import <AppKit/NSImage.h>
 #import <AppKit/NSInterfacePartAttributedString.h>
 #import <AppKit/NSInterfacePartDisabledAttributedString.h>
@@ -669,18 +670,14 @@ static NSDictionary *sScrollerButtonAttributes = nil;
 @implementation NSGraphicsStyle (NSSlider)
 
 - (NSSize) sliderKnobSizeForControlSize: (NSControlSize) controlSize {
-
     switch (controlSize) {
     default:
-    case NSRegularControlSize:     // aqua is 17x19
-        return NSMakeSize(12, 15); // this is Windows specific, uxtheme part
-                                   // size request was failing, hardcoded, sigh
-
-    case NSSmallControlSize: // aqua is 13x15
-        return NSMakeSize(9, 13);
-
-    case NSMiniControlSize: // aqua is 11x11
-        return NSMakeSize(11, 11);
+    case NSRegularControlSize:
+        return NSMakeSize(16, 16);
+    case NSSmallControlSize:
+        return NSMakeSize(12, 12);
+    case NSMiniControlSize:
+        return NSMakeSize(10, 10);
     }
 }
 
@@ -690,12 +687,67 @@ static NSDictionary *sScrollerButtonAttributes = nil;
                  hasTickMarks: (BOOL) hasTickMarks
              tickMarkPosition: (NSTickMarkPosition) tickMarkPosition
 {
-    NSDrawButton(rect, rect);
+    NSRect knobBounds = NSInsetRect(rect, 0.5, 0.5);
+    NSBezierPath *path = nil;
 
-    if (highlighted) {
-        [[NSColor whiteColor] setFill];
-        NSRectFill(NSInsetRect(rect, 1, 1));
+    if (!hasTickMarks) {
+        path = [NSBezierPath bezierPathWithOvalInRect: knobBounds];
+    } else {
+        path = [NSBezierPath bezierPath];
+        CGFloat minX = NSMinX(knobBounds), maxX = NSMaxX(knobBounds), midX = NSMidX(knobBounds);
+        CGFloat minY = NSMinY(knobBounds), maxY = NSMaxY(knobBounds), midY = NSMidY(knobBounds);
+        CGFloat tip = roundf((vertical ? knobBounds.size.width : knobBounds.size.height) * 0.28);
+        if (tip < 3.0)
+            tip = 3.0;
+
+        if (vertical) {
+            if (tickMarkPosition == NSTickMarkLeft) {
+                [path moveToPoint: NSMakePoint(minX, midY)];
+                [path lineToPoint: NSMakePoint(minX + tip, maxY)];
+                [path lineToPoint: NSMakePoint(maxX, maxY)];
+                [path lineToPoint: NSMakePoint(maxX, minY)];
+                [path lineToPoint: NSMakePoint(minX + tip, minY)];
+                [path closePath];
+            } else {
+                [path moveToPoint: NSMakePoint(maxX, midY)];
+                [path lineToPoint: NSMakePoint(maxX - tip, minY)];
+                [path lineToPoint: NSMakePoint(minX, minY)];
+                [path lineToPoint: NSMakePoint(minX, maxY)];
+                [path lineToPoint: NSMakePoint(maxX - tip, maxY)];
+                [path closePath];
+            }
+        } else {
+            if (tickMarkPosition == NSTickMarkAbove) {
+                [path moveToPoint: NSMakePoint(midX, maxY)];
+                [path lineToPoint: NSMakePoint(maxX, maxY - tip)];
+                [path lineToPoint: NSMakePoint(maxX, minY)];
+                [path lineToPoint: NSMakePoint(minX, minY)];
+                [path lineToPoint: NSMakePoint(minX, maxY - tip)];
+                [path closePath];
+            } else {
+                [path moveToPoint: NSMakePoint(midX, minY)];
+                [path lineToPoint: NSMakePoint(minX, minY + tip)];
+                [path lineToPoint: NSMakePoint(minX, maxY)];
+                [path lineToPoint: NSMakePoint(maxX, maxY)];
+                [path lineToPoint: NSMakePoint(maxX, minY + tip)];
+                [path closePath];
+            }
+        }
     }
+
+    NSGradient *gradient;
+    if (highlighted) {
+        gradient = [[[NSGradient alloc] initWithStartingColor: [NSColor colorWithCalibratedWhite: 0.92 alpha: 1.0]
+                                                  endingColor: [NSColor colorWithCalibratedWhite: 0.70 alpha: 1.0]] autorelease];
+    } else {
+        gradient = [[[NSGradient alloc] initWithStartingColor: [NSColor colorWithCalibratedWhite: 1.0 alpha: 1.0]
+                                                  endingColor: [NSColor colorWithCalibratedWhite: 0.85 alpha: 1.0]] autorelease];
+    }
+    [gradient drawInBezierPath: path angle: 90.0];
+
+    [[NSColor colorWithCalibratedWhite: 0.45 alpha: 1.0] setStroke];
+    [path setLineWidth: 1.0];
+    [path stroke];
 }
 
 - (void) drawSliderTrackInRect: (NSRect) rect
@@ -712,7 +764,15 @@ static NSDictionary *sScrollerButtonAttributes = nil;
         groove.origin.y = floor(rect.origin.y + (rect.size.height - 4) / 2);
     }
 
-    NSDrawGrayBezel(groove, rect);
+    CGFloat radius = MIN(groove.size.width, groove.size.height) / 2.0;
+    NSBezierPath *trackPath = [NSBezierPath bezierPathWithRoundedRect: groove
+                                                              xRadius: radius
+                                                              yRadius: radius];
+    [[NSColor colorWithCalibratedWhite: 0.78 alpha: 1.0] setFill];
+    [trackPath fill];
+    [[NSColor colorWithCalibratedWhite: 0.55 alpha: 1.0] setStroke];
+    [trackPath setLineWidth: 1.0];
+    [trackPath stroke];
 }
 
 - (void) drawSliderTickInRect: (NSRect) rect {
