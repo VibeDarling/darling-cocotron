@@ -465,6 +465,7 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification;
 - (BOOL) isDocumentEdited;
 - (BOOL) isZoomed;
 - (BOOL) isVisible;
+- (void) setIsVisible: (BOOL) flag;
 - (BOOL) isKeyWindow;
 - (BOOL) isMainWindow;
 - (BOOL) isMiniaturized;

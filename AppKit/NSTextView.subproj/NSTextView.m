@@ -1572,6 +1572,8 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 
 - (void) deleteBackward: sender {
     NSRange range = [self selectedRange];
+    if (range.location == NSNotFound || range.location > [_textStorage length])
+        range = NSMakeRange([_textStorage length], 0);
 
     if (range.length > 0) {
 
@@ -2462,6 +2464,11 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
                useTypingAttributes: (BOOL) useTypingAttributes
             allowsTypingCoalescing: (BOOL) allowsTypingCoalescing
 {
+    if (range.location == NSNotFound || range.location > [_textStorage length])
+        range = NSMakeRange([_textStorage length], 0);
+    if (range.location + range.length > [_textStorage length])
+        range.length = [_textStorage length] - range.location;
+
     NSUndoManager *undoManager = [self undoManager];
 
     if (_firstResponderButNotEditingYet) {
@@ -3068,11 +3075,15 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
         replacementString = [object string];
     }
 
-    if ([self shouldChangeTextInRange: [self selectedRange]
+    NSRange range = [self selectedRange];
+    if (range.location == NSNotFound || range.location > [_textStorage length])
+        range = NSMakeRange([_textStorage length], 0);
+
+    if ([self shouldChangeTextInRange: range
                     replacementString: replacementString] == NO) {
         return;
     }
-    [self _replaceCharactersInRange: [self selectedRange]
+    [self _replaceCharactersInRange: range
                          withString: object
              allowsTypingCoalescing: YES];
     [self didChangeText];
@@ -3121,9 +3132,10 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
     NSRect glyphRect = rect;
     glyphRect.origin.x -= _textContainerInset.width;
     glyphRect.origin.y -= _textContainerInset.height;
-    NSRange gRange = gRange =
-            [layoutManager glyphRangeForBoundingRect: glyphRect
+    NSRange gRange = [layoutManager glyphRangeForBoundingRect: glyphRect
                                      inTextContainer: [self textContainer]];
+    if (gRange.location == NSNotFound)
+        gRange = [layoutManager glyphRangeForTextContainer: [self textContainer]];
 
     if ([self drawsBackground]) {
         [_backgroundColor setFill];
