@@ -45,6 +45,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <objc/message.h>
 #import <pthread.h>
 
+@interface NSEvent (LocalMonitorsInternal)
++ (NSEvent *) _filterEventWithLocalMonitors: (NSEvent *) event;
+@end
+
 const NSRunLoopMode NSModalPanelRunLoopMode = @"NSModalPanelRunLoopMode";
 const NSRunLoopMode NSEventTrackingRunLoopMode = @"NSEventTrackingRunLoopMode";
 
@@ -747,6 +751,10 @@ NSApplication *NSApp = nil;
 }
 
 - (void) sendEvent: (NSEvent *) event {
+    event = [NSEvent _filterEventWithLocalMonitors: event];
+    if (event == nil)
+        return;
+
     if ([event type] == NSKeyDown) {
         unsigned modifierFlags = [event modifierFlags];
 

@@ -191,6 +191,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [self setNeedsDisplay: YES];
 }
 
+- (NSTextFieldBezelStyle) bezelStyle {
+    return [_cell bezelStyle];
+}
+
+- (void) setBezelStyle: (NSTextFieldBezelStyle) style {
+    [_cell setBezelStyle: style];
+    [self setNeedsDisplay: YES];
+}
+
 - (NSString *) placeholderString {
     return [_cell placeholderString];
 }
@@ -230,7 +239,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (BOOL) needsPanelToBecomeKey {
-    return YES;
+    return NO;
 }
 
 - (BOOL) becomeFirstResponder {
@@ -486,6 +495,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (void) setRefusesFirstResponder: (BOOL) flag {
     [_cell setRefusesFirstResponder: flag];
+}
+
+- (BOOL) textView: (NSTextView *) textView doCommandBySelector: (SEL) selector {
+    if ([_delegate respondsToSelector: @selector(control:textView:doCommandBySelector:)]) {
+        return [_delegate control: self
+                         textView: textView
+              doCommandBySelector: selector];
+    }
+    return NO;
 }
 
 - (void) doCommandBySelector: (SEL) selector {

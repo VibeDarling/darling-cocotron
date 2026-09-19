@@ -59,7 +59,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (CGRect) boundingRect {
-    O2InvalidAbstractInvocation();
+    CGRect bbox = CGFontGetFontBBox(_font);
+    if (_unitsPerEm > 0) {
+        CGFloat scale = _size / _unitsPerEm;
+        return CGRectMake(bbox.origin.x * scale, bbox.origin.y * scale,
+                          bbox.size.width * scale, bbox.size.height * scale);
+    }
     return CGRectZero;
 }
 

@@ -307,6 +307,10 @@ enum { NSApplicationActivated = 0, NSApplicationDeactivated = 1 };
 @property(readonly) NSInteger buttonNumber;
 - (NSInteger) buttonNumber;
 
++ (id) addLocalMonitorForEventsMatchingMask: (NSEventMask) mask
+                                    handler: (NSEvent * (^)(NSEvent *event)) block;
++ (void) removeMonitor: (id) eventMonitor;
+
 @end
 
 APPKIT_EXPORT NSEventMask NSEventMaskFromType(NSEventType type);

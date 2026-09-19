@@ -30,6 +30,22 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSException.h>
 #import <Foundation/NSRaise.h>
 
+@interface _NSEventLocalMonitor : NSObject {
+@public
+    NSEventMask _mask;
+    NSEvent * (^_handler)(NSEvent *);
+}
+@end
+
+@implementation _NSEventLocalMonitor
+- (void) dealloc {
+    [_handler release];
+    [super dealloc];
+}
+@end
+
+static NSMutableArray<_NSEventLocalMonitor *> *s_localMonitors = nil;
+
 @implementation NSEvent
 
 + (NSPoint) mouseLocation {
@@ -352,12 +368,41 @@ static NSTimer *_periodicTimer = nil;
 + (id) addLocalMonitorForEventsMatchingMask: (NSEventMask) mask
                                     handler: (NSEvent * (^)(NSEvent *event)) block
 {
-    NSUnimplementedMethod();
-    return nil;
+    if (!block)
+        return nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        s_localMonitors = [NSMutableArray new];
+    });
+
+    _NSEventLocalMonitor *monitor = [_NSEventLocalMonitor new];
+    monitor->_mask = mask;
+    monitor->_handler = [block copy];
+    [s_localMonitors addObject: monitor];
+    [monitor release];
+    return monitor;
 }
 
 + (void) removeMonitor: (id) eventMonitor {
-    NSUnimplementedMethod();
+    if (eventMonitor && s_localMonitors)
+        [s_localMonitors removeObjectIdenticalTo: eventMonitor];
+}
+
++ (NSEvent *) _filterEventWithLocalMonitors: (NSEvent *) event {
+    if (event == nil || [s_localMonitors count] == 0)
+        return event;
+
+    NSEventMask eventMask = NSEventMaskFromType([event type]);
+    NSArray *monitors = [s_localMonitors copy];
+    for (_NSEventLocalMonitor *m in monitors) {
+        if (m->_mask & eventMask) {
+            event = m->_handler(event);
+            if (event == nil)
+                break;
+        }
+    }
+    [monitors release];
+    return event;
 }
 
 @end

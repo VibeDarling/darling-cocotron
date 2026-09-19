@@ -3622,4 +3622,12 @@ static BOOL _allowsAutomaticWindowTabbing;
     _toolbarStyle = style;
 }
 
+- (BOOL) titlebarAppearsTransparent {
+    return _titlebarAppearsTransparent;
+}
+
+- (void) setTitlebarAppearsTransparent: (BOOL) transparent {
+    _titlebarAppearsTransparent = transparent;
+}
+
 @end

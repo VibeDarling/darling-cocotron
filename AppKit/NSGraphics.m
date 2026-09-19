@@ -125,19 +125,11 @@ void NSRectFillListWithGrays(const NSRect *rects, const CGFloat *grays,
 }
 
 void NSRectFillList(const NSRect *rects, int count) {
-    CGContextRef context = NSCurrentGraphicsPort();
-    CGContextSaveGState(context);
-    CGContextSetBlendMode(context, kCGBlendModeCopy);
-    CGContextFillRects(NSCurrentGraphicsPort(), rects, count);
-    CGContextRestoreGState(context);
+    NSRectFillListUsingOperation(rects, count, NSCompositeSourceOver);
 }
 
 void NSRectFill(NSRect rect) {
-    CGContextRef context = NSCurrentGraphicsPort();
-    CGContextSaveGState(context);
-    CGContextSetBlendMode(context, kCGBlendModeCopy);
-    CGContextFillRect(NSCurrentGraphicsPort(), rect);
-    CGContextRestoreGState(context);
+    NSRectFillUsingOperation(rect, NSCompositeSourceOver);
 }
 
 void NSEraseRect(NSRect rect) {
