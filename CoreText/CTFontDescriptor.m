@@ -13,6 +13,7 @@ const CFStringRef kCTFontStyleNameAttribute = CFSTR("NSFontFaceAttribute");
 const CFStringRef kCTFontPostScriptNameAttribute = CFSTR("NSFontPostScriptNameAttribute");
 const CFStringRef kCTFontTraitsAttribute = CFSTR("NSCTFontTraitsAttribute");
 const CFStringRef kCTFontVariationAttribute = CFSTR("NSCTFontVariationAttribute");
+const CFStringRef kCTFontVariationAxesAttribute = CFSTR("NSCTFontVariationAxesAttribute");
 const CFStringRef kCTFontSizeAttribute = CFSTR("NSFontSizeAttribute");
 const CFStringRef kCTFontMatrixAttribute = CFSTR("NSCTFontMatrixAttribute");
 const CFStringRef kCTFontCascadeListAttribute = CFSTR("NSCTFontCascadeListAttribute");

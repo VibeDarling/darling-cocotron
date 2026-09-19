@@ -12,6 +12,7 @@ CORETEXT_EXPORT const CFStringRef kCTFontStyleNameAttribute;
 CORETEXT_EXPORT const CFStringRef kCTFontPostScriptNameAttribute;
 CORETEXT_EXPORT const CFStringRef kCTFontTraitsAttribute;
 CORETEXT_EXPORT const CFStringRef kCTFontVariationAttribute;
+CORETEXT_EXPORT const CFStringRef kCTFontVariationAxesAttribute;
 CORETEXT_EXPORT const CFStringRef kCTFontSizeAttribute;
 CORETEXT_EXPORT const CFStringRef kCTFontMatrixAttribute;
 CORETEXT_EXPORT const CFStringRef kCTFontCascadeListAttribute;
