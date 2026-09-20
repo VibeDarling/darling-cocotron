@@ -33,6 +33,7 @@ unsigned int kCGDisplayPixelHeight = kCGDisplayHeight;
 unsigned int kCGDisplayPixelWidth = kCGDisplayWidth;
 
 const CFStringRef kCGDisplayProductNameKey = CFSTR("kCGDisplayProductNameKey");
+const CFStringRef kCGDisplayShowDuplicateLowResolutionModes = CFSTR("kCGDisplayShowDuplicateLowResolutionModes");
 
 CGError CGCaptureAllDisplays(void) {
     return kCGErrorSuccess;
@@ -528,6 +529,27 @@ CFDictionaryRef CGDisplayCurrentMode(CGDirectDisplayID display) {
 
 size_t CGDisplayModeGetPixelWidth(CGDisplayModeRef mode) {
     return 0;
+}
+
+size_t CGDisplayModeGetPixelHeight(CGDisplayModeRef mode) {
+    NSDictionary *dict = (NSDictionary *) mode;
+    NSNumber *pixelHeight = [dict valueForKey: @"PixelHeight"];
+    if (pixelHeight)
+        return [pixelHeight unsignedIntValue];
+    return CGDisplayModeGetHeight(mode);
+}
+
+uint32_t CGDisplayModeGetIOFlags(CGDisplayModeRef mode) {
+    NSDictionary *dict = (NSDictionary *) mode;
+    return [[dict valueForKey: @"IOFlags"] unsignedIntValue];
+}
+
+boolean_t CGDisplayModeIsUsableForDesktopGUI(CGDisplayModeRef mode) {
+    NSDictionary *dict = (NSDictionary *) mode;
+    NSNumber *usable = [dict valueForKey: @"UsableForDesktopGUI"];
+    if (usable)
+        return [usable boolValue];
+    return TRUE;
 }
 
 boolean_t CGDisplayIsActive(CGDirectDisplayID display) {
