@@ -33,7 +33,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @class NSWindow, NSMenu, NSMenuItem, NSCursor, NSClipView, NSPasteboard,
         NSTextInputContext, NSImage, NSBitmapImageRep, NSScrollView,
         NSTrackingArea, NSShadow, NSScreen, CALayer, CIFilter, CALayerContext,
-        NSLayoutDimension, NSLayoutXAxisAnchor, NSLayoutYAxisAnchor;
+        NSLayoutDimension, NSLayoutXAxisAnchor, NSLayoutYAxisAnchor,
+        NSGestureRecognizer;
 
 // See Cocoa Event Handling Guide : Using Tracking-Area Objects : Compatibility
 // Issues
@@ -144,6 +145,7 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
     NSAppearance *_appearance;
     BOOL _canDrawConcurrently;
 
+    NSMutableArray *_gestureRecognizers;
     BOOL _needsLayout;
     BOOL _needsUpdateConstraints;
     BOOL _clipsToBounds;
@@ -520,6 +522,16 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
 - (void) addConstraints: (NSArray *) constraints;
 // Clears needsLayout in the subtree; frames aren't recomputed.
 - (void) layoutSubtreeIfNeeded;
+
+@end
+
+@interface NSView (NSViewGestureRecognizers)
+
+// Stored only: AppKit never routes events to a recognizer, so a recognizer
+// added here stays in NSGestureRecognizerStatePossible and never fires.
+@property(copy) NSArray *gestureRecognizers;
+- (void) addGestureRecognizer: (NSGestureRecognizer *) recognizer;
+- (void) removeGestureRecognizer: (NSGestureRecognizer *) recognizer;
 
 @end
 
