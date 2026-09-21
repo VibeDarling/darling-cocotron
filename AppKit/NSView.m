@@ -3126,6 +3126,14 @@ static id anchorForView(NSView *view, NSString *className,
     return anchorForView(self, @"NSLayoutYAxisAnchor", NSLayoutAttributeCenterY);
 }
 
+- (NSSize) intrinsicContentSize {
+    return NSMakeSize(NSViewNoIntrinsicMetric, NSViewNoIntrinsicMetric);
+}
+
+- (void) invalidateIntrinsicContentSize {
+    _needsLayout = YES;
+}
+
 - (void) addConstraints: (NSArray *) constraints {
     [NSLayoutConstraint activateConstraints: constraints];
 }

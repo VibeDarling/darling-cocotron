@@ -509,6 +509,13 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
 @property(readonly, retain) NSLayoutYAxisAnchor *bottomAnchor;
 @property(readonly, retain) NSLayoutYAxisAnchor *centerYAnchor;
 
+// NSViewNoIntrinsicMetric in both dimensions; subclasses that know their own
+// size override it.
+@property(readonly) NSSize intrinsicContentSize;
+// Marks the view as needing layout. There is no constraint solver to notify,
+// so nothing recomputes a size from it.
+- (void) invalidateIntrinsicContentSize;
+
 // Activates the constraints.
 - (void) addConstraints: (NSArray *) constraints;
 // Clears needsLayout in the subtree; frames aren't recomputed.
