@@ -32,6 +32,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #import <CoreGraphics/CGPSConverter.h>
 #import <CoreGraphics/CGShading.h>
 #import <CoreGraphics/CGWindowLevel.h>
+#import <CoreGraphics/CGSubWindow.h>
 #import <CoreGraphics/CGWindow.h>
 #import <CoreGraphics/CGRemoteOperation.h>
 
