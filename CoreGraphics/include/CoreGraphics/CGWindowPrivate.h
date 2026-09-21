@@ -23,8 +23,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 // CoreGraphics module to re-enter Foundation. The CoreGraphics umbrella header
 // deliberately does not include this file.
 
-#ifndef COREGRAPHICS_CGWINDOWPRIVATE_H
-#define COREGRAPHICS_CGWINDOWPRIVATE_H
+#ifndef CGWINDOWPRIVATE_H
+#define CGWINDOWPRIVATE_H
 
 #include <CoreGraphics/CGWindow.h>
 #import <CoreGraphics/CGSubWindow.h>

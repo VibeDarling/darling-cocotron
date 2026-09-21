@@ -17,8 +17,8 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
-#ifndef COREGRAPHICS_CGWINDOW_H
-#define COREGRAPHICS_CGWINDOW_H
+#ifndef CGWINDOW_H
+#define CGWINDOW_H
 
 // Keep this header CoreFoundation-only, as it is on macOS. The Cocotron window
 // class and its delegate protocol live in CGWindowPrivate.h: pulling Foundation
