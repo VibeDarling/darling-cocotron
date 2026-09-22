@@ -426,8 +426,8 @@ CGContextDrawRadialGradient(CGContextRef c,
 COREGRAPHICS_EXPORT void CGContextDrawTiledImage(CGContextRef c, CGRect rect, CGImageRef image);
 
 COREGRAPHICS_EXPORT void
-CGContextShowGlyphsAtPositions(CGContextRef c,
-                               const CGGlyph * glyphs, const CGPoint * Lpositions,
-                               size_t count);
+CGContextShowGlyphsAtPositions(CGContextRef context,
+                               const CGGlyph *glyphs,
+                               const CGPoint *positions, size_t count);
 
 CF_IMPLICIT_BRIDGING_DISABLED
