@@ -253,6 +253,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return nil;
 }
 
+- (NSString *) fontFamilyNameForGenericFamily: (NSString *) generic {
+    NSInvalidAbstractInvocation();
+    return nil;
+}
+
 - (CGFloat) scrollerWidth {
     NSInvalidAbstractInvocation();
     return 0;
