@@ -34,12 +34,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         NSTextInputContext, NSImage, NSBitmapImageRep, NSScrollView,
         NSTrackingArea, NSShadow, NSScreen, CALayer, CIFilter, CALayerContext,
         NSLayoutDimension, NSLayoutXAxisAnchor, NSLayoutYAxisAnchor,
-        NSGestureRecognizer;
+        NSGestureRecognizer, NSView;
 
 // See Cocoa Event Handling Guide : Using Tracking-Area Objects : Compatibility
 // Issues
-typedef NSTrackingArea *NSTrackingRectTag;
-typedef NSTrackingArea *NSToolTipTag;
+typedef NSTrackingArea *NSTrackingRectTag NS_SWIFT_NAME(NSView.TrackingRectTag);
+typedef NSTrackingArea *NSToolTipTag NS_SWIFT_NAME(NSView.ToolTipTag);
 typedef NSString *NSViewFullScreenModeOptionKey;
 
 typedef NS_OPTIONS(NSUInteger, NSAutoresizingMaskOptions) {
@@ -543,7 +543,7 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
 
 @end
 
-@interface NSObject (NSView_toolTipOwner)
+@protocol NSViewToolTipOwner <NSObject>
 - (NSString *) view: (NSView *) view
         stringForToolTip: (NSToolTipTag) tag
                    point: (NSPoint) point
