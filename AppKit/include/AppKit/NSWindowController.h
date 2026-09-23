@@ -39,8 +39,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - initWithWindowNibName: (NSNibName) nibName owner: owner;
 - initWithWindowNibPath: (NSString *) nibPath owner: owner;
 
-- (NSWindow *) window;
-- (void) setWindow: (NSWindow *) window;
+// Loads the window first if it isn't loaded and a nib name is set, as
+// subclasses that build the window in -loadWindow rely on.
+@property (retain) NSWindow *window;
 
 - (BOOL) isWindowLoaded;
 - (void) loadWindow;

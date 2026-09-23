@@ -54,6 +54,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (void) dealloc {
     [_touchBar release];
+    [_userActivity release];
     [super dealloc];
 }
 
@@ -342,6 +343,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) restoreStateWithCoder: (NSCoder *) coder {
+}
+
+- (NSUserActivity *) userActivity {
+    return _userActivity;
+}
+
+- (void) setUserActivity: (NSUserActivity *) userActivity {
+    [userActivity retain];
+    [_userActivity release];
+    _userActivity = userActivity;
 }
 
 - (void) updateUserActivityState: (NSUserActivity *) userActivity {

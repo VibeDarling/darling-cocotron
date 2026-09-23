@@ -10,6 +10,7 @@
     NSString *_title;
     NSView *_view;
     NSUserInterfaceItemIdentifier _identifier;
+    NSSize _preferredContentSize;
 }
 
 - initWithNibName: (NSString *) name bundle: (NSBundle *) bundle;
@@ -18,6 +19,8 @@
 - (NSBundle *) nibBundle;
 
 @property (retain) NSView *view;
+// Stored for the controller's presenter; NSZeroSize until set.
+@property NSSize preferredContentSize;
 - (NSString *) title;
 - representedObject;
 
