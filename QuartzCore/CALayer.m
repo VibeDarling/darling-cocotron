@@ -256,7 +256,6 @@ NSString *const CAToneMapModeIfSupported = @"ifSupported";
     [_toneMapMode release];
     _toneMapMode = value;
 }
-}
 
 - (BOOL) allowsEdgeAntialiasing {
     return _allowsEdgeAntialiasing;
