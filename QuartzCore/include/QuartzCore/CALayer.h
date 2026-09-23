@@ -68,6 +68,17 @@ CA_EXPORT CALayerContentsFormat const kCAContentsFormatGray8Uint NS_SWIFT_NAME(C
 
 @end
 
+typedef NSString *CADynamicRange NS_TYPED_ENUM;
+typedef NSString *CAToneMapMode NS_TYPED_ENUM;
+
+CA_EXPORT CADynamicRange const CADynamicRangeAutomatic;
+CA_EXPORT CADynamicRange const CADynamicRangeStandard;
+CA_EXPORT CADynamicRange const CADynamicRangeConstrainedHigh;
+CA_EXPORT CADynamicRange const CADynamicRangeHigh;
+
+CA_EXPORT CAToneMapMode const CAToneMapModeAutomatic;
+CA_EXPORT CAToneMapMode const CAToneMapModeNever;
+CA_EXPORT CAToneMapMode const CAToneMapModeIfSupported;
 @interface CALayer : NSObject {
     CALayerContext *_context;
     CALayer *_superlayer;
@@ -87,6 +98,8 @@ CA_EXPORT CALayerContentsFormat const kCAContentsFormatGray8Uint NS_SWIFT_NAME(C
     BOOL _allowsGroupOpacity;
     CGPathRef _shadowPath;
     BOOL _needsLayout;
+    NSString *_preferredDynamicRange;
+    NSString *_toneMapMode;
     BOOL _allowsEdgeAntialiasing;
     CATransform3D _transform;
     CATransform3D _sublayerTransform;
@@ -134,6 +147,10 @@ CA_EXPORT CALayerContentsFormat const kCAContentsFormatGray8Uint NS_SWIFT_NAME(C
 @property CGRect contentsCenter;
 @property(copy) CALayerContentsFormat contentsFormat;
 @property(copy) CALayerContentsGravity contentsGravity;
+
+// Stored for callers; CARenderer draws standard dynamic range only.
+@property(copy) CADynamicRange preferredDynamicRange;
+@property(copy) CAToneMapMode toneMapMode;
 
 @property CATransform3D transform;
 @property CATransform3D sublayerTransform;
