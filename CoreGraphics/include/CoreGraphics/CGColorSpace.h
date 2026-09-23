@@ -77,6 +77,9 @@ COREGRAPHICS_EXPORT CGColorSpaceRef CGColorSpaceCreateWithName(CFStringRef name)
     CF_SWIFT_NAME(CGColorSpace.init(name:));
 COREGRAPHICS_EXPORT CFStringRef CGColorSpaceGetName(CGColorSpaceRef colorSpace);
 COREGRAPHICS_EXPORT CFStringRef CGColorSpaceCopyName(CGColorSpaceRef colorSpace);
+COREGRAPHICS_EXPORT CGColorSpaceRef CGColorSpaceCreateExtended(CGColorSpaceRef space);
+COREGRAPHICS_EXPORT CGColorSpaceRef CGColorSpaceCreateExtendedLinearized(CGColorSpaceRef space);
+COREGRAPHICS_EXPORT bool CGColorSpaceUsesExtendedRange(CGColorSpaceRef space);
 
 CF_IMPLICIT_BRIDGING_DISABLED
 
