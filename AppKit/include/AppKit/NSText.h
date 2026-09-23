@@ -37,13 +37,28 @@ enum {
     NSParagraphSeparatorCharacter = 0x2029
 };
 
-typedef enum {
-    NSLeftTextAlignment,
-    NSRightTextAlignment,
-    NSCenterTextAlignment,
-    NSJustifiedTextAlignment,
-    NSNaturalTextAlignment
-} NSTextAlignment;
+#if !__NSTEXT_ALIGNMENT_SHARED_SECTION__
+#define __NSTEXT_ALIGNMENT_SHARED_SECTION__ 1
+typedef NS_ENUM(NSInteger, NSTextAlignment) {
+    NSTextAlignmentLeft      = 0,
+#if TARGET_ABI_USES_IOS_VALUES
+    NSTextAlignmentCenter    = 1,
+    NSTextAlignmentRight     = 2,
+#else /* !TARGET_ABI_USES_IOS_VALUES */
+    NSTextAlignmentRight     = 1,
+    NSTextAlignmentCenter    = 2,
+#endif
+    NSTextAlignmentJustified = 3,
+    NSTextAlignmentNatural   = 4
+};
+#endif // !__NSTEXT_ALIGNMENT_SHARED_SECTION__
+
+// Macros rather than constants so they still work as case labels and in C++.
+#define NSLeftTextAlignment NSTextAlignmentLeft
+#define NSRightTextAlignment NSTextAlignmentRight
+#define NSCenterTextAlignment NSTextAlignmentCenter
+#define NSJustifiedTextAlignment NSTextAlignmentJustified
+#define NSNaturalTextAlignment NSTextAlignmentNatural
 
 enum {
     NSIllegalTextMovement = 0x00,
@@ -58,11 +73,14 @@ enum {
     NSOtherTextMovement = 0
 };
 
-typedef enum {
-    NSWritingDirectionNatural = -1,
-    NSWritingDirectionLeftToRight,
-    NSWritingDirectionRightToLeft,
-} NSWritingDirection;
+#if !__NSWRITING_DIRECTION_SHARED_SECTION__
+#define __NSWRITING_DIRECTION_SHARED_SECTION__ 1
+typedef NS_ENUM(NSInteger, NSWritingDirection) {
+    NSWritingDirectionNatural       = -1,
+    NSWritingDirectionLeftToRight   = 0,
+    NSWritingDirectionRightToLeft   = 1
+};
+#endif // !__NSWRITING_DIRECTION_SHARED_SECTION__
 
 APPKIT_EXPORT NSString *const NSTextDidBeginEditingNotification;
 APPKIT_EXPORT NSString *const NSTextDidEndEditingNotification;
