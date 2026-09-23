@@ -201,6 +201,7 @@ typedef struct __VFlags {
 
     // TODO: decode this
     _translatesAutoresizingMaskIntoConstraints = YES;
+    [self _setDefaultLayoutPriorities];
 
     if ([coder allowsKeyedCoding]) {
         NSKeyedUnarchiver *keyed = (NSKeyedUnarchiver *) coder;
@@ -434,6 +435,7 @@ typedef struct __VFlags {
     [_layerContext setFrame: _frame];
 
     _translatesAutoresizingMaskIntoConstraints = YES;
+    [self _setDefaultLayoutPriorities];
 
     return self;
 }
@@ -3003,6 +3005,13 @@ static CGFloat backingScaleFactor(NSView *view) {
 
 - (void) _nsib_setUsesPointIntegralizationForLayout: (BOOL) usesPointIntegralizationForLayout {
     NSUnimplementedMethod();
+}
+
+- (void) _setDefaultLayoutPriorities {
+    _horizontalContentHuggingPriority = NSLayoutPriorityDefaultLow;
+    _verticalContentHuggingPriority = NSLayoutPriorityDefaultLow;
+    _horizontalContentCompressionResistancePriority = NSLayoutPriorityDefaultHigh;
+    _verticalContentCompressionResistancePriority = NSLayoutPriorityDefaultHigh;
 }
 
 - (NSLayoutPriority) contentHuggingPriorityForOrientation: (NSLayoutConstraintOrientation) orientation {
