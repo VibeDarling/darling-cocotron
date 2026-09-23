@@ -49,6 +49,54 @@ NSNotificationName const NSSystemColorsDidChangeNotification = @"NSSystemColorsD
 
 @implementation NSColor
 
++ (NSColor *) colorWithCGColor: (CGColorRef) color {
+    if (color == NULL)
+        return nil;
+
+    CGColorSpaceRef colorSpace = CGColorGetColorSpace(color);
+    NSColorSpaceName spaceName;
+    switch (CGColorSpaceGetModel(colorSpace)) {
+        case kCGColorSpaceModelMonochrome:
+            spaceName = NSDeviceWhiteColorSpace;
+            break;
+        case kCGColorSpaceModelRGB:
+            spaceName = NSCalibratedRGBColorSpace;
+            break;
+        case kCGColorSpaceModelCMYK:
+            spaceName = NSDeviceCMYKColorSpace;
+            break;
+        case kCGColorSpaceModelPattern:
+            spaceName = NSPatternColorSpace;
+            break;
+        default:
+            spaceName = NSCustomColorSpace;
+            break;
+    }
+    return [NSColor_CGColor colorWithColorRef: color spaceName: spaceName];
+}
+
++ (NSColor *) colorWithColorSpace: (NSColorSpace *) space
+                       components: (const CGFloat *) components
+                            count: (NSInteger) count
+{
+    CGColorSpaceRef cgSpace = [space CGColorSpace];
+    if (cgSpace == NULL || components == NULL) {
+        [NSException raise: NSInvalidArgumentException
+                    format: @"A component-based color space and components are required"];
+    }
+    CGColorSpaceModel model = CGColorSpaceGetModel(cgSpace);
+    if (model == kCGColorSpaceModelPattern || model == kCGColorSpaceModelIndexed ||
+        count != (NSInteger)CGColorSpaceGetNumberOfComponents(cgSpace) + 1) {
+        [NSException raise: NSInvalidArgumentException
+                    format: @"Color component count does not match its color space"];
+    }
+
+    CGColorRef cgColor = CGColorCreate(cgSpace, components);
+    NSColor *result = [self colorWithCGColor: cgColor];
+    CGColorRelease(cgColor);
+    return result;
+}
+
 - (void) encodeWithCoder: (NSCoder *) coder {
 
     if ([coder allowsKeyedCoding]) {

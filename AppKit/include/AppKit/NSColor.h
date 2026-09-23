@@ -38,6 +38,11 @@ typedef NSString *NSColorSpaceName;
     NSImage *_pattern;
 }
 
++ (NSColor *) colorWithCGColor: (CGColorRef) color;
++ (NSColor *) colorWithColorSpace: (NSColorSpace *) space
+                       components: (const CGFloat *) components
+                            count: (NSInteger) count;
+
 @property(class, strong, readonly) NSColor *labelColor;
 @property(class, strong, readonly) NSColor *secondaryLabelColor;
 @property(class, strong, readonly) NSColor *tertiaryLabelColor;
