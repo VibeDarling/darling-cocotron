@@ -17,6 +17,8 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
+#import <AppKit/NSDisplay.h>
+#import <AppKit/NSFont.h>
 #import <AppKit/NSFontDescriptor.h>
 #import <AppKit/NSRaise.h>
 #import <Foundation/NSDictionary.h>
@@ -53,6 +55,13 @@ const NSFontWeight NSFontWeightSemibold = 0x3fd3333340000000;
 const NSFontWeight NSFontWeightBold = 0x3fd99999a0000000;
 const NSFontWeight NSFontWeightMedium = 0x3fcd70a3e0000000;
 const NSFontWeight NSFontWeightRegular = 0x0000000000000000;
+
+NSFontDescriptorSystemDesign const NSFontDescriptorSystemDesignDefault = @"NSCTFontUIFontDesignDefault";
+NSFontDescriptorSystemDesign const NSFontDescriptorSystemDesignSerif = @"NSCTFontUIFontDesignSerif";
+NSFontDescriptorSystemDesign const NSFontDescriptorSystemDesignMonospaced = @"NSCTFontUIFontDesignMonospaced";
+NSFontDescriptorSystemDesign const NSFontDescriptorSystemDesignRounded = @"NSCTFontUIFontDesignRounded";
+
+static NSString *const NSFontUIFontDesignTrait = @"NSCTFontUIFontDesignTrait";
 
 @implementation NSFontDescriptor : NSObject
 
@@ -184,6 +193,57 @@ const NSFontWeight NSFontWeightRegular = 0x0000000000000000;
     [copy setObject: traitsCopy forKey: NSFontTraitsAttribute];
 
     return [[self class] fontDescriptorWithFontAttributes: copy];
+}
+
+// Only system font descriptors and their design variants have designs;
+// non-default designs map to fontconfig's CSS generic families.
+- (NSFontDescriptor *) fontDescriptorWithDesign:
+        (NSFontDescriptorSystemDesign) design
+{
+    NSString *systemFamily = [[NSFont systemFontOfSize: 0] familyName];
+    if (systemFamily == nil) {
+        return nil;
+    }
+    NSDictionary *traits = [_attributes objectForKey: NSFontTraitsAttribute];
+    if ([traits objectForKey: NSFontUIFontDesignTrait] == nil) {
+        NSFont *font = [NSFont fontWithDescriptor: self size: [self pointSize]];
+        if (![[font familyName] isEqualToString: systemFamily]) {
+            return nil;
+        }
+    }
+
+    NSString *generic = nil;
+    if ([design isEqualToString: NSFontDescriptorSystemDesignSerif]) {
+        generic = @"serif";
+    } else if ([design isEqualToString: NSFontDescriptorSystemDesignMonospaced]) {
+        generic = @"monospace";
+    } else if ([design isEqualToString: NSFontDescriptorSystemDesignRounded]) {
+        generic = @"ui-rounded";
+    } else if (![design isEqualToString: NSFontDescriptorSystemDesignDefault]) {
+        return nil;
+    }
+
+    NSString *family = systemFamily;
+    if (generic != nil) {
+        family = [[NSDisplay currentDisplay] fontFamilyNameForGenericFamily: generic];
+        if (family == nil) {
+            return nil;
+        }
+    }
+
+    NSMutableDictionary *attributes =
+            [NSMutableDictionary dictionaryWithDictionary: _attributes];
+    [attributes removeObjectsForKeys: @[
+        NSFontNameAttribute, NSFontVisibleNameAttribute, NSFontFaceAttribute,
+        NSFontFixedAdvanceAttribute
+    ]];
+    [attributes setObject: family forKey: NSFontFamilyAttribute];
+    NSMutableDictionary *designTraits =
+            [NSMutableDictionary dictionaryWithDictionary: traits];
+    [designTraits setObject: design forKey: NSFontUIFontDesignTrait];
+    [attributes setObject: designTraits forKey: NSFontTraitsAttribute];
+
+    return [[self class] fontDescriptorWithFontAttributes: attributes];
 }
 
 - (NSArray *) matchingFontDescriptorsWithMandatoryKeys: (NSSet *) keys {
