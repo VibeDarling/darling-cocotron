@@ -43,13 +43,13 @@ COREGRAPHICS_EXPORT const CFStringRef kCGColorSpaceExtendedGray;
 COREGRAPHICS_EXPORT const CFStringRef kCGColorSpaceLinearGray;
 COREGRAPHICS_EXPORT const CFStringRef kCGColorSpaceExtendedLinearGray;
 
-typedef enum {
-    kCGRenderingIntentDefault,
-    kCGRenderingIntentAbsoluteColorimetric,
-    kCGRenderingIntentRelativeColorimetric,
-    kCGRenderingIntentSaturation,
-    kCGRenderingIntentPerceptual,
-} CGColorRenderingIntent;
+typedef CF_ENUM(int32_t, CGColorRenderingIntent) {
+    kCGRenderingIntentDefault CF_SWIFT_NAME(defaultIntent),
+    kCGRenderingIntentAbsoluteColorimetric CF_SWIFT_NAME(absoluteColorimetric),
+    kCGRenderingIntentRelativeColorimetric CF_SWIFT_NAME(relativeColorimetric),
+    kCGRenderingIntentSaturation CF_SWIFT_NAME(saturation),
+    kCGRenderingIntentPerceptual CF_SWIFT_NAME(perceptual),
+};
 
 typedef enum {
     kCGColorSpaceModelUnknown = -1,
@@ -77,6 +77,10 @@ COREGRAPHICS_EXPORT CGColorSpaceRef CGColorSpaceCreateWithName(CFStringRef name)
     CF_SWIFT_NAME(CGColorSpace.init(name:));
 COREGRAPHICS_EXPORT CFStringRef CGColorSpaceGetName(CGColorSpaceRef colorSpace);
 COREGRAPHICS_EXPORT CFStringRef CGColorSpaceCopyName(CGColorSpaceRef colorSpace);
+
+// True if the space uses an ITU-R BT.2100 transfer function (PQ or HLG).
+COREGRAPHICS_EXPORT bool CGColorSpaceUsesITUR_2100TF(CGColorSpaceRef space);
+COREGRAPHICS_EXPORT bool CGColorSpaceIsHLGBased(CGColorSpaceRef space);
 
 CF_IMPLICIT_BRIDGING_DISABLED
 
