@@ -5,6 +5,7 @@
 #import <QuartzCore/CATransform3D.h>
 
 @class CAAnimation, CALayerContext, CALayer;
+@protocol CALayoutManager;
 
 typedef NS_OPTIONS(unsigned int, CAEdgeAntialiasingMask) {
     kCALayerLeftEdge = 1U << 0,
@@ -131,13 +132,18 @@ CA_EXPORT CAToneMapMode const CAToneMapModeIfSupported;
     BOOL _hidden;
     id _textureContents;
     BOOL _needsDisplayOnBoundsChange;
+    NSString *_name;
+    id _layoutManager;
+    NSArray *_constraints;
 }
 
 + layer;
 
+@property(copy) NSString *name;
 @property(readonly) CALayer *superlayer;
 @property(copy) NSArray<CALayer *> *sublayers;
 @property(assign) id<CALayerDelegate> delegate;
+@property(retain) id<CALayoutManager> layoutManager;
 @property CGPoint anchorPoint;
 @property CGPoint position;
 @property CGRect bounds;
