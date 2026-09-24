@@ -94,7 +94,7 @@ static CTFontRef createFont(CGFontRef cgFont, CGFloat size) {
     fontCreated = YES;
     Class cls = fontClass ?: [KTFont class];
     pthread_mutex_unlock(&fontClassLock);
-    return (CTFontRef) (void *) [[cls alloc] initWithFont: cgFont size: size];
+    return (CTFontRef)[[cls alloc] initWithFont: cgFont size: size];
 }
 
 static CGFontRef graphicsFont(CTFontRef font) {
