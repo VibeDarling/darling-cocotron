@@ -45,6 +45,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSWindowAnimationContext.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <CoreGraphics/CGWindowPrivate.h>
+#import "NSGestureRecognizer-Private.h"
 #include <math.h>
 
 const NSNotificationName NSWindowDidBecomeKeyNotification =
@@ -2310,6 +2311,34 @@ static BOOL _allowsAutomaticWindowTabbing;
     NSUnimplementedMethod();
 }
 
+// The recognizers of the view an event goes to and of that view's ancestors,
+// innermost first. Releases and drags go where the press went.
+- (NSArray *) _gestureRecognizersForEvent: (NSEvent *) event {
+    NSPoint location;
+    switch ([event type]) {
+    case NSEventTypeLeftMouseDown:
+    case NSEventTypeRightMouseDown:
+    case NSEventTypeOtherMouseDown:
+    case NSEventTypeOtherMouseUp:
+    case NSEventTypeMagnify:
+    case NSEventTypeRotate:
+        location = [event locationInWindow];
+        break;
+    case NSEventTypeLeftMouseUp:
+    case NSEventTypeRightMouseUp:
+    case NSEventTypeLeftMouseDragged:
+    case NSEventTypeRightMouseDragged:
+        location = _mouseDownLocationInWindow;
+        break;
+    default:
+        return nil;
+    }
+    NSMutableArray *recognizers = [NSMutableArray array];
+    for (NSView *view = [_backgroundView hitTest: location]; view != nil; view = [view superview])
+        [recognizers addObjectsFromArray: [view gestureRecognizers]];
+    return recognizers;
+}
+
 - (void) sendEvent: (NSEvent *) event {
     // Some events can cause our window to be destroyed
     // So make sure self lives at least through this current run loop...
@@ -2347,6 +2376,10 @@ static BOOL _allowsAutomaticWindowTabbing;
             return;
         }
     }
+
+    NSArray *recognizers = [self _gestureRecognizersForEvent: event];
+    for (NSGestureRecognizer *recognizer in recognizers)
+        [recognizer _receiveEvent: event];
 
     BOOL shouldValidateToolbarItems = YES;
     // OK let's see if anyone else wants it.
@@ -2437,6 +2470,16 @@ static BOOL _allowsAutomaticWindowTabbing;
                 scrollWheel: event];
         break;
 
+    case NSEventTypeMagnify:
+        [[_backgroundView hitTest: [event locationInWindow]]
+                magnifyWithEvent: event];
+        break;
+
+    case NSEventTypeRotate:
+        [[_backgroundView hitTest: [event locationInWindow]]
+                rotateWithEvent: event];
+        break;
+
     case NSAppKitDefined:
         // Nothing special to do.
         break;
@@ -2446,6 +2489,9 @@ static BOOL _allowsAutomaticWindowTabbing;
         NSUnimplementedMethod();
         break;
     }
+    for (NSGestureRecognizer *recognizer in recognizers)
+        [recognizer _resetIfFinished];
+
     if (shouldValidateToolbarItems && [self toolbar]) {
         [NSObject cancelPreviousPerformRequestsWithTarget: [self toolbar]
                                                  selector: @selector
