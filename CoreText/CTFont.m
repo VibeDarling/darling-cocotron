@@ -29,6 +29,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #endif
 #import <ft2build.h>
 #import FT_FREETYPE_H
+#import FT_OUTLINE_H
 #ifdef DARLING
 #undef __linux__
 #endif
@@ -369,12 +370,73 @@ CGFloat CTFontGetXHeight(CTFontRef self) {
     return scaled(self, CGFontGetXHeight(graphicsFont(self)));
 }
 
+typedef struct {
+    CGMutablePathRef path;
+    const CGAffineTransform *matrix;
+    BOOL contourOpen;
+} GlyphPathBuilder;
+
+static int glyphPathMoveTo(const FT_Vector *to, void *user) {
+    GlyphPathBuilder *builder = user;
+
+    if (builder->contourOpen)
+        CGPathCloseSubpath(builder->path);
+    CGPathMoveToPoint(builder->path, builder->matrix, to->x, to->y);
+    builder->contourOpen = YES;
+    return 0;
+}
+
+static int glyphPathLineTo(const FT_Vector *to, void *user) {
+    GlyphPathBuilder *builder = user;
+
+    CGPathAddLineToPoint(builder->path, builder->matrix, to->x, to->y);
+    return 0;
+}
+
+static int glyphPathConicTo(const FT_Vector *control, const FT_Vector *to, void *user) {
+    GlyphPathBuilder *builder = user;
+
+    CGPathAddQuadCurveToPoint(builder->path, builder->matrix, control->x, control->y,
+                              to->x, to->y);
+    return 0;
+}
+
+static int glyphPathCubicTo(const FT_Vector *control1, const FT_Vector *control2,
+                            const FT_Vector *to, void *user)
+{
+    GlyphPathBuilder *builder = user;
+
+    CGPathAddCurveToPoint(builder->path, builder->matrix, control1->x, control1->y,
+                          control2->x, control2->y, to->x, to->y);
+    return 0;
+}
+
 CGPathRef CTFontCreatePathForGlyph(CTFontRef self, CGGlyph glyph,
                                    CGAffineTransform *xform)
 {
-    [NSException raise: NSInvalidArgumentException
-                format: @"CTFontCreatePathForGlyph: glyph outlines are not implemented"];
-    return NULL;
+    FT_Face face = faceForFont(self);
+
+    // Unscaled outlines are in font units, so the shared face's size is left alone.
+    if (FT_Load_Glyph(face, glyph, FT_LOAD_NO_SCALE) != 0 ||
+        face->glyph->format != FT_GLYPH_FORMAT_OUTLINE)
+        return NULL;
+
+    CGFloat unit = scaled(self, 1);
+    CGAffineTransform matrix = CGAffineTransformMakeScale(unit, unit);
+    if (xform != NULL)
+        matrix = CGAffineTransformConcat(matrix, *xform);
+
+    GlyphPathBuilder builder = {CGPathCreateMutable(), &matrix, NO};
+    const FT_Outline_Funcs funcs = {glyphPathMoveTo, glyphPathLineTo, glyphPathConicTo,
+                                    glyphPathCubicTo, 0, 0};
+
+    if (FT_Outline_Decompose(&face->glyph->outline, &funcs, &builder) != 0) {
+        CGPathRelease(builder.path);
+        return NULL;
+    }
+    if (builder.contourOpen)
+        CGPathCloseSubpath(builder.path);
+    return builder.path;
 }
 
 CGGlyph CTFontGetGlyphWithName(CTFontRef font, CFStringRef glyphName)
