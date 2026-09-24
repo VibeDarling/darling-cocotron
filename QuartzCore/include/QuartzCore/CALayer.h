@@ -6,6 +6,13 @@
 
 @class CAAnimation, CALayerContext, CALayer;
 
+typedef NS_OPTIONS(unsigned int, CAEdgeAntialiasingMask) {
+    kCALayerLeftEdge = 1U << 0,
+    kCALayerRightEdge = 1U << 1,
+    kCALayerBottomEdge = 1U << 2,
+    kCALayerTopEdge = 1U << 3,
+};
+
 enum {
     kCALayerNotSizable = 0x00,
     kCALayerMinXMargin = 0x01,
@@ -79,7 +86,7 @@ CA_EXPORT CADynamicRange const CADynamicRangeHigh;
 CA_EXPORT CAToneMapMode const CAToneMapModeAutomatic;
 CA_EXPORT CAToneMapMode const CAToneMapModeNever;
 CA_EXPORT CAToneMapMode const CAToneMapModeIfSupported;
-@interface CALayer : NSObject {
+@interface CALayer : NSObject <NSSecureCoding> {
     CALayerContext *_context;
     CALayer *_superlayer;
     NSArray *_sublayers;
@@ -101,6 +108,7 @@ CA_EXPORT CAToneMapMode const CAToneMapModeIfSupported;
     NSString *_preferredDynamicRange;
     NSString *_toneMapMode;
     BOOL _allowsEdgeAntialiasing;
+    CAEdgeAntialiasingMask _edgeAntialiasingMask;
     CATransform3D _transform;
     CATransform3D _sublayerTransform;
     NSString *_minificationFilter;
@@ -128,7 +136,7 @@ CA_EXPORT CAToneMapMode const CAToneMapModeIfSupported;
 + layer;
 
 @property(readonly) CALayer *superlayer;
-@property(copy) NSArray *sublayers;
+@property(copy) NSArray<CALayer *> *sublayers;
 @property(assign) id<CALayerDelegate> delegate;
 @property CGPoint anchorPoint;
 @property CGPoint position;
@@ -185,11 +193,19 @@ CA_EXPORT CAToneMapMode const CAToneMapModeIfSupported;
 
 // Stored only; CARenderer does not yet antialias layer edges.
 @property BOOL allowsEdgeAntialiasing;
+@property CAEdgeAntialiasingMask edgeAntialiasingMask;
 
 // When YES, a change of the bounds size marks the layer as needing display.
 @property BOOL needsDisplayOnBoundsChange;
 
 - (nonnull instancetype)init;
+// Copies the layer's properties but not its place in the layer tree or its
+// animations, as for a presentation copy; subclasses copy their own state.
+- (nonnull instancetype)initWithLayer: (nonnull id)layer;
+// Archives the layer tree below this layer. Raises NSInvalidArchiveOperationException
+// for state that cannot be archived: animations, filter objects, and contents or
+// colors other than CGImages and colors in named or device color spaces.
+- (nullable instancetype)initWithCoder: (nonnull NSCoder *)coder;
 
 - (void) addSublayer: (CALayer *) layer;
 - (void) insertSublayer: (CALayer *) layer atIndex: (unsigned int) index;
