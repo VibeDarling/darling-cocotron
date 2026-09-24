@@ -202,6 +202,7 @@ typedef struct __VFlags {
     // TODO: decode this
     _translatesAutoresizingMaskIntoConstraints = YES;
     [self _setDefaultLayoutPriorities];
+    _alphaValue = 1.0;
 
     if ([coder allowsKeyedCoding]) {
         NSKeyedUnarchiver *keyed = (NSKeyedUnarchiver *) coder;
@@ -436,6 +437,7 @@ typedef struct __VFlags {
 
     _translatesAutoresizingMaskIntoConstraints = YES;
     [self _setDefaultLayoutPriorities];
+    _alphaValue = 1.0;
 
     return self;
 }
@@ -736,12 +738,13 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 }
 
 - (CGFloat) alphaValue {
-    NSUnimplementedMethod();
-    return 0.;
+    return _alphaValue;
 }
 
+// Applied through the backing layer; views drawn without one ignore it.
 - (void) setAlphaValue: (CGFloat) alpha {
-    NSUnimplementedMethod();
+    _alphaValue = alpha;
+    [_layer setOpacity: alpha];
 }
 
 - (int) gState {
@@ -1933,6 +1936,7 @@ static void alignAxis(CGFloat *origin, CGFloat *length, NSAlignmentOptions optio
 
     if (_layer == nil) {
         _layer = [[self makeBackingLayer] retain];
+        [_layer setOpacity: _alphaValue];
         configureLayerGeometry(self);
     }
 
@@ -2527,7 +2531,10 @@ static NSView *viewBeingPrinted = nil;
             [[NSColor yellowColor] set];
             NSRectFill(rect);
         } else {
-            [self drawRect: rect];
+            if (_layer != nil && [self wantsUpdateLayer])
+                [self updateLayer];
+            else
+                [self drawRect: rect];
             if (NSShowAllViews) {
                 [[self _borderColorForNSShowAllViews] set];
                 NSFrameRect(rect);
@@ -2576,6 +2583,40 @@ static NSView *viewBeingPrinted = nil;
                           inContext: (NSGraphicsContext *) context
 {
     NSUnimplementedMethod();
+}
+
+- (BOOL) wantsUpdateLayer {
+    return NO;
+}
+
+- (void) updateLayer {
+}
+
+- (void) prepareForReuse {
+    [self setAlphaValue: 1.0];
+    [self setHidden: NO];
+}
+
+- (NSEdgeInsets) alignmentRectInsets {
+    return NSEdgeInsetsMake(0, 0, 0, 0);
+}
+
+// The insets are measured in the view's own coordinates, so which of top and
+// bottom touches the frame's origin depends on whether the view is flipped.
+- (NSRect) frameForAlignmentRect: (NSRect) alignmentRect {
+    NSEdgeInsets insets = [self alignmentRectInsets];
+    CGFloat originInset = [self isFlipped] ? insets.top : insets.bottom;
+    return NSMakeRect(alignmentRect.origin.x - insets.left, alignmentRect.origin.y - originInset,
+                      alignmentRect.size.width + insets.left + insets.right,
+                      alignmentRect.size.height + insets.top + insets.bottom);
+}
+
+- (NSRect) alignmentRectForFrame: (NSRect) frame {
+    NSEdgeInsets insets = [self alignmentRectInsets];
+    CGFloat originInset = [self isFlipped] ? insets.top : insets.bottom;
+    return NSMakeRect(frame.origin.x + insets.left, frame.origin.y + originInset,
+                      frame.size.width - insets.left - insets.right,
+                      frame.size.height - insets.top - insets.bottom);
 }
 
 - (void) drawRect: (NSRect) rect {

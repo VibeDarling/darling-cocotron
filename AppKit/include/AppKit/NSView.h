@@ -98,6 +98,7 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
     NSView *_nextKeyView;
     NSView *_previousKeyView;
     BOOL _isHidden;
+    CGFloat _alphaValue;
     BOOL _postsNotificationOnFrameChange;
     BOOL _postsNotificationOnBoundsChange;
     BOOL _autoresizesSubviews;
@@ -191,8 +192,15 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
 - (NSInteger) tag;
 @property (readonly) BOOL isFlipped;
 @property (readonly) BOOL isOpaque;
-- (CGFloat) alphaValue;
-- (void) setAlphaValue: (CGFloat) alpha;
+@property CGFloat alphaValue;
+
+// Makes the view visible and opaque again before it is reused.
+- (void) prepareForReuse;
+
+// A layer-backed view that answers YES gets -updateLayer instead of
+// -drawRect:; the default -updateLayer does nothing.
+@property(readonly) BOOL wantsUpdateLayer;
+- (void) updateLayer;
 - (int) gState;
 - (NSRect) visibleRect;
 - (BOOL) wantsDefaultClipping;
@@ -530,6 +538,12 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
 - (NSLayoutPriority) contentCompressionResistancePriorityForOrientation: (NSLayoutConstraintOrientation) orientation;
 - (void) setContentCompressionResistancePriority: (NSLayoutPriority) priority
                                   forOrientation: (NSLayoutConstraintOrientation) orientation;
+
+// NSEdgeInsetsZero here; subclasses whose content sits inside their frame
+// override it, and the two conversions below follow.
+@property(readonly) NSEdgeInsets alignmentRectInsets;
+- (NSRect) alignmentRectForFrame: (NSRect) frame;
+- (NSRect) frameForAlignmentRect: (NSRect) alignmentRect;
 // Clears needsLayout in the subtree; frames aren't recomputed.
 - (void) layoutSubtreeIfNeeded;
 
