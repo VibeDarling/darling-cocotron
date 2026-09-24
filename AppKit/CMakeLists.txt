@@ -275,6 +275,7 @@ set(AppKit_sources
 	NSEvent.subproj/NSEvent_CoreGraphics.m
 	NSEvent.subproj/NSEvent_other.m
 	NSEvent.subproj/NSEvent_keyboard.m
+	NSEvent.subproj/NSEvent_gesture.m
 	NSEvent.subproj/NSEvent.m
 
 	NSButton.m
@@ -666,7 +667,8 @@ set(WAYLAND_PROTOCOL_FILES
 	"${WAYLAND_PROTOCOLS_DIR}/stable/viewporter/viewporter.xml"
 	"${WAYLAND_PROTOCOLS_DIR}/staging/fractional-scale/fractional-scale-v1.xml"
 	"${WAYLAND_PROTOCOLS_DIR}/unstable/xdg-output/xdg-output-unstable-v1.xml"
-	"${WAYLAND_PROTOCOLS_DIR}/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml")
+	"${WAYLAND_PROTOCOLS_DIR}/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml"
+	"${WAYLAND_PROTOCOLS_DIR}/unstable/pointer-gestures/pointer-gestures-unstable-v1.xml")
 set(WAYLAND_PROTOCOL_FILES_FOUND TRUE)
 foreach(protocol ${WAYLAND_PROTOCOL_FILES})
 	if (NOT EXISTS "${protocol}")
