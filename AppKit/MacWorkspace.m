@@ -269,10 +269,36 @@ static NSImage *ImageFromIcnsFile(NSString *file) {
     return YES;
 }
 
+// Launch Services can't launch applications in the guest yet, so .app bundles take -openFile:'s launch path; it
+// reports anything else it can't open with an OSStatus.
+- (NSError *) _openURL: (NSURL *) url {
+    if ([url isFileURL] && [[[url path] pathExtension] caseInsensitiveCompare: @"app"] == NSOrderedSame) {
+        if ([self openFile: nil withApplication: [url path] andDeactivate: YES])
+            return nil;
+        return [NSError errorWithDomain: NSCocoaErrorDomain
+                                   code: NSFileReadUnknownError
+                               userInfo: @{NSURLErrorKey: url}];
+    }
+    OSStatus status = LSOpenCFURLRef((CFURLRef) url, NULL);
+    if (status == noErr)
+        return nil;
+    return [NSError errorWithDomain: NSOSStatusErrorDomain code: status userInfo: @{NSURLErrorKey: url}];
+}
+
 - (BOOL) openURL: (NSURL *) url {
-    // TODO: Call LSOpenFromURLSpec()
-    NSUnimplementedMethod();
-    return NO;
+    return [self _openURL: url] == nil;
+}
+
+// The launched application isn't tracked, so success passes a nil app; the configuration has nothing to act on.
+- (void) openURL: (NSURL *) url
+        configuration: (NSWorkspaceOpenConfiguration *) configuration
+    completionHandler: (void (^)(NSRunningApplication *app, NSError *error)) completionHandler
+{
+    NSError *error = [self _openURL: url];
+    if (completionHandler)
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            completionHandler(nil, error);
+        });
 }
 
 - (BOOL) selectFile: (NSString *) path
