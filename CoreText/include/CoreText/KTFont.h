@@ -37,11 +37,6 @@ enum { CGNullGlyph = 0x0 };
 - (CGFontRef) cgFont;
 - (CGFloat) pointSize;
 
-// The advance of current; AppKit's NSFont still calls this.
-- (CGPoint) positionOfGlyph: (CGGlyph) current
-            precededByGlyph: (CGGlyph) previous
-                  isNominal: (BOOL *) isNominalp;
-
 @end
 
 // Makes CoreText create every font as an instance of fontClass, which must
