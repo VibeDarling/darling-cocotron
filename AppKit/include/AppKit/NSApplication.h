@@ -145,6 +145,7 @@ typedef NS_OPTIONS(NSInteger, NSWindowListOptions) {
     NSMutableArray *_orderedWindows; // get rid of
     NSTimer *_attentionTimer;
     NSApplicationPresentationOptions _presentationOptions;
+    BOOL _automaticCustomizeTouchBarMenuItemEnabled;
 }
 
 @property(readonly) NSUserInterfaceLayoutDirection userInterfaceLayoutDirection;
@@ -154,6 +155,8 @@ typedef NS_OPTIONS(NSInteger, NSWindowListOptions) {
 @property NSApplicationPresentationOptions presentationOptions;
 @property(strong) NSAppearance *appearance;
 @property(readonly, strong) NSAppearance *effectiveAppearance;
+@property(getter=isAutomaticCustomizeTouchBarMenuItemEnabled)
+        BOOL automaticCustomizeTouchBarMenuItemEnabled;
 
 @property (class, readonly, retain) NSApplication *sharedApplication;
 
