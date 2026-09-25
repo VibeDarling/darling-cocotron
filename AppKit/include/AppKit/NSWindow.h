@@ -474,6 +474,7 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification
 - (NSButtonCell *) defaultButtonCell;
 - (NSWindow *) attachedSheet;
 - (NSWindow *) sheetParent;
+- (NSArray<NSWindow *> *) tabbedWindows;
 
 - (id) windowController;
 - (NSArray *) drawers;
