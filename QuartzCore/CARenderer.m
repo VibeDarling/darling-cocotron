@@ -484,7 +484,13 @@ static void roundedRectOutline(CGRect r, CGFloat radius, GLfloat *xy) {
                  -bounds.size.height * anchorPoint.y, 0);
 
     [self _drawBackgroundOfLayer: layer bounds: bounds opacity: opacity];
-    [self _drawContentsOfLayer: layer bounds: bounds opacity: opacity];
+
+    // A layer that draws its own content (CAMetalLayer draws the texture the GPU
+    // filled in) opts out of the contents path, which would otherwise upload
+    // into the same texture it just drew from.
+    if (![layer _drawLayerContents: bounds opacity: opacity])
+        [self _drawContentsOfLayer: layer bounds: bounds opacity: opacity];
+
     [self _drawBorderOfLayer: layer bounds: bounds opacity: opacity];
 
     for (CALayer *child in layer.sublayers)
