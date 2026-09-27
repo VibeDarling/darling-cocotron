@@ -1,6 +1,7 @@
 #import <Foundation/NSDictionary.h>
 #import <Foundation/NSException.h>
 #import <QuartzCore/CAAnimation.h>
+#import <QuartzCore/CAConstraintLayoutManager.h>
 #import <QuartzCore/CALayer.h>
 #import <QuartzCore/CALayerContext.h>
 #import <QuartzCore/CATransaction.h>
@@ -415,6 +416,7 @@ NSString *const CAToneMapModeIfSupported = @"ifSupported";
     _shadowOffset = other->_shadowOffset;
     _hidden = other->_hidden;
     _needsDisplayOnBoundsChange = other->_needsDisplayOnBoundsChange;
+    _geometryFlipped = other->_geometryFlipped;
 
     // The copy has no context yet, so these setters only do the retain/copy.
     [self setContents: other->_contents];
@@ -431,6 +433,10 @@ NSString *const CAToneMapModeIfSupported = @"ifSupported";
     [self setShadowPath: other->_shadowPath];
     [self setFilters: other->_filters];
     [self setCompositingFilter: other->_compositingFilter];
+    [self setName: other->_name];
+    // Assigned directly: the setters would mark this copy and its superlayer for layout.
+    _layoutManager = [other->_layoutManager retain];
+    _constraints = [other->_constraints copy];
     // Shared, not re-parented: -setMask: would move the mask to this
     // context-less copy.
     _mask = [other->_mask retain];
@@ -458,6 +464,10 @@ NSString *const CAToneMapModeIfSupported = @"ifSupported";
     if (_contents != nil && ![_contents isKindOfClass: [O2Image class]])
         [NSException raise: NSInvalidArchiveOperationException
                     format: @"Cannot archive %@: contents %@ are not a CGImage", self, _contents];
+    if (_layoutManager != nil && ![_layoutManager conformsToProtocol: @protocol(NSCoding)])
+        [NSException raise: NSInvalidArchiveOperationException
+                    format: @"Cannot archive %@: layout manager %@ does not support archiving", self,
+                            _layoutManager];
 
     [coder encodeObject: _sublayers forKey: @"sublayers"];
     [coder encodeObject: _mask forKey: @"mask"];
@@ -494,6 +504,10 @@ NSString *const CAToneMapModeIfSupported = @"ifSupported";
     CAEncodeSize(coder, _shadowOffset, @"shadowOffset");
     [coder encodeBool: _hidden forKey: @"hidden"];
     [coder encodeBool: _needsDisplayOnBoundsChange forKey: @"needsDisplayOnBoundsChange"];
+    [coder encodeBool: _geometryFlipped forKey: @"geometryFlipped"];
+    [coder encodeObject: _name forKey: @"name"];
+    [coder encodeObject: _constraints forKey: @"constraints"];
+    [coder encodeObject: _layoutManager forKey: @"layoutManager"];
 }
 
 - initWithCoder: (NSCoder *) coder {
@@ -526,6 +540,7 @@ NSString *const CAToneMapModeIfSupported = @"ifSupported";
     _shadowOffset = CADecodeSize(coder, @"shadowOffset");
     _hidden = [coder decodeBoolForKey: @"hidden"];
     _needsDisplayOnBoundsChange = [coder decodeBoolForKey: @"needsDisplayOnBoundsChange"];
+    _geometryFlipped = [coder decodeBoolForKey: @"geometryFlipped"];
 
     Class string = [NSString class];
     [self setContentsFormat: [coder decodeObjectOfClass: string forKey: @"contentsFormat"]];
@@ -536,6 +551,23 @@ NSString *const CAToneMapModeIfSupported = @"ifSupported";
     [self setMinificationFilter: [coder decodeObjectOfClass: string forKey: @"minificationFilter"]];
     [self setMagnificationFilter: [coder decodeObjectOfClass: string forKey: @"magnificationFilter"]];
     [self setCompositingFilter: [coder decodeObjectOfClass: string forKey: @"compositingFilter"]];
+    [self setName: [coder decodeObjectOfClass: string forKey: @"name"]];
+    NSSet *constraintClasses = [NSSet setWithObjects: [NSArray class], [CAConstraint class], nil];
+    id constraints = [coder decodeObjectOfClasses: constraintClasses forKey: @"constraints"];
+    if (constraints != nil && ![constraints isKindOfClass: [NSArray class]])
+        [NSException raise: NSInvalidUnarchiveOperationException
+                    format: @"Layer constraints %@ are not an array", constraints];
+    for (id constraint in constraints)
+        if (![constraint isKindOfClass: [CAConstraint class]])
+            [NSException raise: NSInvalidUnarchiveOperationException
+                        format: @"Layer constraint %@ is not a CAConstraint", constraint];
+    [self setConstraints: constraints];
+    // Any class may be a layout manager, so the archive decides; it must still be one.
+    id layoutManager = [coder decodeObjectOfClass: [NSObject class] forKey: @"layoutManager"];
+    if (layoutManager != nil && ![layoutManager conformsToProtocol: @protocol(CALayoutManager)])
+        [NSException raise: NSInvalidUnarchiveOperationException
+                    format: @"Layout manager %@ does not conform to CALayoutManager", layoutManager];
+    [self setLayoutManager: layoutManager];
 
     CGImageRef image = CADecodeImage(coder, @"contents");
     [self setContents: (id) image];
