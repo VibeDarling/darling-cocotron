@@ -19,7 +19,7 @@
 - (NSString *) nibName;
 - (NSBundle *) nibBundle;
 
-@property (retain) NSView *view;
+@property (retain, nonnull) NSView *view;
 @property(copy) NSArray<__kindof NSViewController *> *childViewControllers;
 @property(readonly) NSViewController *parentViewController;
 
@@ -30,7 +30,6 @@
                            atIndex: (NSInteger) index;
 - (void) removeChildViewControllerAtIndex: (NSInteger) index;
 - (void) removeFromParentViewController;
-
 - (NSString *) title;
 - representedObject;
 
