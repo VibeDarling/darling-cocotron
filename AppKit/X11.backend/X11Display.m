@@ -271,10 +271,10 @@ static void socketCallback(CFSocketRef s, CFSocketCallBackType type,
                                           crtc->width / scale,
                                           crtc->height / scale);
 
-                X11Screen *nsscreen = [[[X11Screen alloc]
-                            initWithFrame: frame
-                             visibleFrame: frame] autorelease];
-                nsscreen->_x11Scale = scale;
+                nsscreen = [[[X11Screen alloc] initWithFrame: frame
+                                                 visibleFrame: frame]
+                                autorelease];
+                ((X11Screen *) nsscreen)->_x11Scale = scale;
 
                 Atom actualType;
                 unsigned long nitems, bytesAfter;
@@ -1361,15 +1361,16 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
             // _cursorGrabbed, deltaX, deltaY);
             if (_cursorGrabbed) {
                 if (pos.x != lastMotionPos.x || pos.y != lastMotionPos.y) {
-                    // XWarpPointer needs DEVICE root coordinates: the window
-                    // origin is device pixels, so the cursor's logical position
-                    // has to be scaled back up before being added.
+                    // XWarpPointer needs DEVICE root coordinates, and
+                    // -transformFrame: now works in points, so convert the
+                    // window origin and the cursor position separately.
                     CGFloat scale = [window backingScaleFactor];
-                    CGRect frame = [window transformFrame: [window frame]];
+                    CGRect deviceFrame =
+                        [window deviceRect: [window transformFrame: [window frame]]];
 
                     CGPoint globalPos =
-                            NSMakePoint(frame.origin.x + pos.x * scale,
-                                        frame.origin.y + pos.y * scale);
+                            NSMakePoint(deviceFrame.origin.x + pos.x * scale,
+                                        deviceFrame.origin.y + pos.y * scale);
 
                     [self warpMouse: globalPos];
 
@@ -1696,21 +1697,24 @@ void CGNativeBorderFrameWidthsForStyle(NSUInteger styleMask, CGFloat *top,
             _cursorGrabbed = YES;
             NSLog(@"XGrabPointer() succeeded for window %lu\n", win);
 
-            NSRect frame = [xwin transformFrame: nswin.frame];
+            // Both the grab seed and the warp work in device pixels, so convert
+            // the logical frame once. The window stores a raw device point and
+            // -transformPoint: flips in device space, so its centre is already
+            // in the right units.
+            O2Rect deviceFrame =
+                [xwin deviceRect: [xwin transformFrame: nswin.frame]];
             // NSLog(@"Window's frame is at %f,%f, size %fx%f\n",
-            // frame.origin.x, frame.origin.y, frame.size.width,
-            // frame.size.height);
+            // deviceFrame.origin.x, deviceFrame.origin.y,
+            // deviceFrame.size.width, deviceFrame.size.height);
             CGPoint ptGlobal =
-                    NSMakePoint(frame.size.width / 2.0 + frame.origin.x,
-                                frame.size.height / 2.0 + frame.origin.y);
-            CGPoint ptLocal = NSMakePoint(frame.size.width / 2.0,
-                                          frame.size.height / 2.0);
+                    NSMakePoint(deviceFrame.size.width / 2.0 + deviceFrame.origin.x,
+                                deviceFrame.size.height / 2.0 + deviceFrame.origin.y);
+            CGPoint ptLocal = NSMakePoint(deviceFrame.size.width / 2.0,
+                                          deviceFrame.size.height / 2.0);
 
             // NSLog(@"setting last known pos in window to x=%f, y=%f\n",
             // ptLocal.x, ptLocal.y);
 
-            // The window stores a raw device point, and transformFrame: returns
-            // device pixels, so its centre is already in the right units.
             [xwin setLastKnownCursorPosition: [xwin transformPoint: ptLocal]];
             [self warpMouse: ptGlobal];
         } else {

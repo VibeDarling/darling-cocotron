@@ -900,16 +900,26 @@ static int ignoreBadWindow(Display *display, XErrorEvent *errorEvent) {
     [_deviceDictionary addEntriesFromDictionary: entries];
 }
 
+// Logical points in, logical points out: -frame and every AppKit-level frame
+// are points, so the top-left flip has to use the LOGICAL screen height.
+// Mixing the device screen height with a logical origin puts the window
+// off-screen at 2x. Callers that need device pixels go through -deviceRect:.
 - (O2Rect) transformFrame: (O2Rect) frame {
+    CGFloat screenHeight =
+        DisplayHeight(_display, DefaultScreen(_display)) /
+        [self backingScaleFactor];
     return NSMakeRect(frame.origin.x,
-                      DisplayHeight(_display, DefaultScreen(_display)) -
-                              frame.origin.y - frame.size.height,
+                      screenHeight - frame.origin.y - frame.size.height,
                       fmax(frame.size.width, 1.0),
                       fmax(frame.size.height, 1.0));
 }
 
+// `pos` is in DEVICE pixels, so the flip is against the device height. _frame
+// is in logical points, so using it here would misplace every Y coordinate once
+// the backing scale is above 1.
 - (NSPoint) transformPoint: (NSPoint) pos; {
-    return NSMakePoint(pos.x, _frame.size.height - pos.y);
+    CGFloat deviceHeight = _frame.size.height * [self backingScaleFactor];
+    return NSMakePoint(pos.x, deviceHeight - pos.y);
 }
 
 - (CGFloat) backingScaleFactor {
