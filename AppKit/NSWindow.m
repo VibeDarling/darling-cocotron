@@ -1328,7 +1328,10 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (void) setCollectionBehavior: (NSWindowCollectionBehavior) behavior {
-    NSUnimplementedMethod();
+    // Spaces, fullscreen and window cycling have no meaning on this backend,
+    // so the value is only stored so that it round-trips: nibs and delegates
+    // set it and read it back when deciding how a panel is presented.
+    _collectionBehavior = behavior;
 }
 
 - (void) setLevel: (NSInteger) value {
@@ -1632,8 +1635,7 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (NSWindowCollectionBehavior) collectionBehavior {
-    NSUnimplementedMethod();
-    return 0;
+    return _collectionBehavior;
 }
 
 - (NSPoint) convertBaseToScreen: (NSPoint) point {
