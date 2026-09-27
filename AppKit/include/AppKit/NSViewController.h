@@ -13,6 +13,7 @@
     NSMutableArray *_childViewControllers;
     NSViewController *_parentViewController;
     NSStoryboard *_storyboard;
+    NSSize _preferredContentSize;
 }
 
 - initWithNibName: (NSString *) name bundle: (NSBundle *) bundle;
@@ -22,6 +23,7 @@
 
 @property (retain, nonnull) NSView *view;
 @property(readonly, strong) NSStoryboard *storyboard;
+@property NSSize preferredContentSize;
 @property(copy) NSArray<__kindof NSViewController *> *childViewControllers;
 @property(readonly) NSViewController *parentViewController;
 
