@@ -43,16 +43,4 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return _size;
 }
 
-- (CGPoint) positionOfGlyph: (CGGlyph) current
-            precededByGlyph: (CGGlyph) previous
-                  isNominal: (BOOL *) isNominalp
-{
-    *isNominalp = YES;
-    if (current == CGNullGlyph)
-        return CGPointZero;
-    CGSize advance;
-    CTFontGetAdvancesForGlyphs((CTFontRef) self, kCTFontOrientationDefault, &current, &advance, 1);
-    return CGPointMake(advance.width, advance.height);
-}
-
 @end
