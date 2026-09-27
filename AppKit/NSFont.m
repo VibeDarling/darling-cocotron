@@ -921,7 +921,7 @@ static NSLock *_cacheLock = nil;
 // character to, or 0 (.notdef) when it has none.
 - (NSGlyph) _defaultGlyphForChar: (unichar) character {
     CGGlyph glyph = 0;
-    CTFontGetGlyphsForCharacters(_ctFont, &character, &glyph, 1);
+    CTFontGetGlyphsForCharacters((CTFontRef) self, &character, &glyph, 1);
     return glyph;
 }
 
