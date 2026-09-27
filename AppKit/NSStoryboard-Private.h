@@ -17,23 +17,15 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#import <AppKit/AppKitExport.h>
-#import <Foundation/Foundation.h>
+#import <AppKit/NSStoryboard.h>
 
-typedef NSString *NSStoryboardName;
-typedef NSString *NSStoryboardSceneIdentifier;
+// Name-table key for the object a scene's external placeholders stand for. NSStoryboard's API
+// gives callers no way to pass external objects, so the only one a scene can ask for is its storyboard.
+static NSString *const NSStoryboardSceneExternalObjectKey = @"NSStoryboardSceneExternalObject";
 
-@interface NSStoryboard : NSObject {
-    NSString *_path;
-    NSDictionary *_info;
-}
-
-@property(class, readonly, strong) NSStoryboard *mainStoryboard;
-
-+ (instancetype) storyboardWithName: (NSStoryboardName) name
-                             bundle: (NSBundle *) storyboardBundleOrNil;
-
-- (id) instantiateInitialController;
-- (id) instantiateControllerWithIdentifier: (NSStoryboardSceneIdentifier) identifier;
-
+@interface NSStoryboard (NSStoryboard_private)
+// The storyboard whose scene is being decoded on this thread, for controllers to record.
++ (NSStoryboard *) _instantiatingStoryboard;
+- (NSString *) _pathForNibNamed: (NSString *) name;
+- (void) _instantiateAsMainStoryboard;
 @end
