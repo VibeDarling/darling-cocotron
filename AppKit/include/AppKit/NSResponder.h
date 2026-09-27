@@ -64,6 +64,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (void) cursorUpdate: (NSEvent *) event;
 - (void) scrollWheel: (NSEvent *) event;
+- (void) magnifyWithEvent: (NSEvent *) event;
+- (void) rotateWithEvent: (NSEvent *) event;
 
 - (void) mouseUp: (NSEvent *) event;
 - (void) mouseDown: (NSEvent *) event;

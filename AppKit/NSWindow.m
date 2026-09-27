@@ -2465,6 +2465,16 @@ static BOOL _allowsAutomaticWindowTabbing;
                 scrollWheel: event];
         break;
 
+    case NSEventTypeMagnify:
+        [[_backgroundView hitTest: [event locationInWindow]]
+                magnifyWithEvent: event];
+        break;
+
+    case NSEventTypeRotate:
+        [[_backgroundView hitTest: [event locationInWindow]]
+                rotateWithEvent: event];
+        break;
+
     case NSAppKitDefined:
         // Nothing special to do.
         break;
