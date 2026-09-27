@@ -396,6 +396,7 @@ set(AppKit_sources
 	NSKeyboardBinding/NSKeyboardBindingManager.m
 	NSKeyboardBinding/NSKeyboardBinding.m
 
+	NSAdaptiveImageGlyph.m
 	NSTextAttachment.m
 
 	NSCollectionView/NSCollectionViewItem.m
