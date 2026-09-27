@@ -17,5 +17,4 @@
 #import <QuartzCore/CASpringAnimation.h>
 
 /* Undocumented */
-#import <QuartzCore/CAFilter.h>
 /* End undocumented */
