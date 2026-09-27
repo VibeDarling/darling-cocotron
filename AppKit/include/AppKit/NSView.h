@@ -184,7 +184,7 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
 - (NSScrollView *) enclosingScrollView;
 - (NSRect) adjustScroll: (NSRect) toRect;
 
-@property (copy) NSArray *subviews;
+@property (copy) NSArray<__kindof NSView *> *subviews;
 @property BOOL autoresizesSubviews;
 - (NSAutoresizingMaskOptions) autoresizingMask;
 - (NSFocusRingType) focusRingType;
@@ -266,7 +266,7 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
 - (void) setFocusRingType: (NSFocusRingType) value;
 
 - (void) setNextKeyView: (NSView *) next;
-- (BOOL) acceptsFirstMouse: (NSEvent *) event;
+- (BOOL) acceptsFirstMouse: (NSEvent *) event NS_SWIFT_NAME(acceptsFirstMouse(for:));
 - (BOOL) acceptsTouchEvents;
 - (void) setAcceptsTouchEvents: (BOOL) accepts;
 - (BOOL) wantsRestingTouches;
