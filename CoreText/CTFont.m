@@ -544,12 +544,19 @@ bool CTFontGetGlyphsForCharacters(CTFontRef font, const UniChar *characters,
 void CTFontDrawGlyphs(CTFontRef font, const CGGlyph *glyphs, const CGPoint *positions,
                       size_t count, CGContextRef context)
 {
-    CGFontRef cgFont = graphicsFont(font);
-    if (cgFont == NULL || context == NULL || count == 0 || glyphs == NULL || positions == NULL)
+    if (font == NULL || glyphs == NULL || positions == NULL || count == 0 ||
+        context == NULL)
         return;
-    CGContextSetFont(context, cgFont);
+
+    CGFontRef graphicsFont = CTFontCopyGraphicsFont(font, NULL);
+    if (graphicsFont == NULL)
+        return;
+    CGContextSaveGState(context);
+    CGContextSetFont(context, graphicsFont);
     CGContextSetFontSize(context, CTFontGetSize(font));
     CGContextShowGlyphsAtPositions(context, glyphs, positions, count);
+    CGContextRestoreGState(context);
+    CGFontRelease(graphicsFont);
 }
 
 void CTFontDrawGlyphsWithAdvances(CTFontRef font, const CGGlyph *glyphs,
