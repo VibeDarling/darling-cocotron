@@ -27,6 +27,12 @@ typedef NSString *NSColorListName;
 typedef NSString *NSColorName;
 typedef NSString *NSColorSpaceName;
 
+typedef NS_ENUM(NSInteger, NSColorType) {
+    NSColorTypeComponentBased = 0,
+    NSColorTypePattern = 1,
+    NSColorTypeCatalog = 2,
+};
+
 @class NSImage;
 @class NSPasteboard;
 
@@ -144,6 +150,7 @@ typedef NSString *NSColorSpaceName;
 @property(copy, readonly) NSColorName colorNameComponent;
 
 @property(readonly) CGColorRef CGColor;
+@property(readonly) NSColorType type;
 
 @property(class) BOOL ignoresAlpha;
 @property(copy, readonly) NSColorSpaceName colorSpaceName;
