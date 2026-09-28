@@ -11,12 +11,14 @@ abort 'temporary cache block missing' unless cache
 selection_start=source.index("- (NSImageRep *)\n        _bestUncachedFallbackCachedRepresentationForDevice:")
 selection_end=source.index("\n- (NSImageRep *) bestRepresentationForDevice:",selection_start)
 selection=source[selection_start...selection_end]
-reuse=source[/    if \(canCache\) \{\n        \/\/ If we're drawing.*?(?=\n\n    if \(cachedRep == nil\))/m]
+reuse=source[/ +if \(canCache\) \{\n +\/\/ If we're drawing.*?(?=\n\n +if \(cachedRep == nil\))/m]
 abort 'cache selection code missing' unless reuse
 cache_mode=source[/- \(void\) setCacheMode:.*?\n\}/m]
 abort 'cache mode setter missing' unless cache_mode
 # Redirect only the new ivar to subclass storage; preserve setter behavior.
 cache_mode=cache_mode.gsub('_drawingHandlerRepCache','_probeDrawingCache')
+rep_methods=File.read("#{root}/AppKit/NSImageRep.m")[/- \(BOOL\) drawAtPoint:.*?(?=\n- \(NSString \*\) description)/m]
+abort 'representation wrappers missing' unless rep_methods
 test=File.read("#{__dir__}/deferred-handler-ownership.m")
 test.sub!('../AppKit/NSCustomImageRep.m', "#{root}/AppKit/NSCustomImageRep.m")
 insertion=<<~OBJC
@@ -28,6 +30,9 @@ insertion=<<~OBJC
   #import <AppKit/NSAppearance.h>
   #import "#{root}/AppKit/NSImageDrawingCache.m"
   #include <string.h>
+  @implementation DeferredProbeImageRep (CandidateDrawingWrappers)
+  #{rep_methods}
+  @end
   // Staged NSImage does not have the candidate's new cache ivar. Supply storage
   // in this subclass; the extracted lookup/population uses the same accessor.
   @interface DeferredFactoryProbe : NSImage { NSImageDrawingCache *_probeDrawingCache; } @end
@@ -96,6 +101,7 @@ insertion=<<~OBJC
           [NSGraphicsContext setCurrentContext:context];
           __block CGFloat observed=0;
           __block unsigned renderCalls=0;
+          __block BOOL renderResult=YES, renderThrows=NO;
           DeferredFactoryProbe *scaled=[DeferredFactoryProbe imageWithSize:NSMakeSize(20,30)
               flipped:NO drawingHandler:^BOOL(NSRect rect) {
                   ++renderCalls;
@@ -108,7 +114,8 @@ insertion=<<~OBJC
                   // A low, blue band distinguishes orientation from mere extent.
                   CGContextSetRGBFillColor([[NSGraphicsContext currentContext] graphicsPort],0,0,1,1);
                   CGContextFillRect([[NSGraphicsContext currentContext] graphicsPort],CGRectMake(0,0,20,8));
-                  return YES;
+                  if (renderThrows) [NSException raise:@"CacheDrawingProbe" format:@"expected"];
+                  return renderResult;
               }];
           [scaled setFlipped:getenv("TEST_IMAGE_FLIPPED") != NULL];
           [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
@@ -166,6 +173,24 @@ insertion=<<~OBJC
               [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
               assert(renderCalls==5 && [[scaled representations] count]==1);
               puts("PASS: cache-never bypasses reuse; mode transition discards old entries");
+              [scaled setCacheMode:NSImageCacheAlways];
+              renderResult=NO;
+              memset(pixels,0,sizeof(pixels));
+              [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
+              assert(renderCalls==6 && [NSGraphicsContext currentContext]==context);
+              for (unsigned i=0;i<sizeof(pixels);++i) assert(pixels[i]==0);
+              renderThrows=YES;
+              BOOL caught=NO;
+              @try { [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination]; }
+              @catch (NSException *e) { caught=[[e name] isEqual:@"CacheDrawingProbe"]; }
+              assert(caught && renderCalls==7 && [NSGraphicsContext currentContext]==context);
+              renderThrows=NO; renderResult=YES;
+              [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
+              assert(renderCalls==8);
+              [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
+              assert(renderCalls==8 && [[scaled representations] count]==1);
+              assert(memcmp(low,reference+4,4)==0 && memcmp(high,reference,4)==0);
+              puts("PASS: failed/throwing handlers restore context, do not publish, and retry successfully");
           }
           [NSGraphicsContext setCurrentContext:nil];
           CGContextRelease(port);
