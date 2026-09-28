@@ -24,6 +24,7 @@ insertion=<<~OBJC
       BOOL canCache=NO;
       CGContextRef context;
       #{cache}
+      [cachedRep drawInRect:NSMakeRect(0,0,20,30)];
   }
   @end
   static void testFactory(void) {
@@ -53,10 +54,26 @@ insertion=<<~OBJC
           DeferredFactoryProbe *scaled=[DeferredFactoryProbe imageWithSize:NSMakeSize(20,30)
               flipped:NO drawingHandler:^BOOL(NSRect rect) {
                   observed=CGContextGetCTM([[NSGraphicsContext currentContext] graphicsPort]).a;
+                  CGContextSetRGBFillColor([[NSGraphicsContext currentContext] graphicsPort],1,0,0,1);
+                  CGContextFillRect([[NSGraphicsContext currentContext] graphicsPort],CGRectMake(0,0,20,30));
                   return YES;
               }];
           [scaled probeCache:[[scaled representations] objectAtIndex:0]];
           printf("Destination scale=2, handler cache scale=%g\\n",(double)observed);
+          unsigned painted=0,minX=64,minY=64,maxX=0,maxY=0;
+          for (unsigned y=0;y<64;++y) {
+              for (unsigned x=0;x<64;++x) {
+                  unsigned char *pixel=&pixels[(y*64+x)*4];
+                  BOOL nonzero=pixel[0] || pixel[1] || pixel[2] || pixel[3];
+                  if (nonzero) {
+                      ++painted;
+                      minX=MIN(minX,x); minY=MIN(minY,y);
+                      maxX=MAX(maxX,x); maxY=MAX(maxY,y);
+                  }
+              }
+          }
+          printf("Composited pixels=%u bounds=(%u,%u)-(%u,%u)\\n",painted,minX,minY,maxX,maxY);
+          assert(painted==2400 && maxX-minX+1==40 && maxY-minY+1==60);
           assert(observed==2);
           [NSGraphicsContext setCurrentContext:nil];
           CGContextRelease(port);
