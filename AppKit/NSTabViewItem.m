@@ -67,7 +67,10 @@ NSString *_NSTruncatedStringWithAttributesInRect(NSString *string,
     [viewController retain];
     NSViewController *previous = _viewController;
     _viewController = viewController;
-    if (_initialFirstResponder == _view)
+    // Clear the non-owning responder before releasing the retired view tree.
+    if (_initialFirstResponder == _view ||
+            (_view && [_initialFirstResponder isKindOfClass: [NSView class]] &&
+             [(NSView *)_initialFirstResponder isDescendantOf: _view]))
         _initialFirstResponder = nil;
     [_view removeFromSuperview];
     [self setView: nil];

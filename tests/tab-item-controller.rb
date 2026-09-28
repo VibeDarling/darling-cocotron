@@ -31,10 +31,14 @@ program=<<~'OBJC'
   - (void)setNeedsDisplay:(BOOL)value;
   - (void)makeFirstResponder:(id)view;
   @end
-  @interface NSView : NSObject { @public unsigned removals; } @end
+  @interface NSView : NSObject { @public unsigned removals; NSView *parent; } @end
   @implementation NSView
   - (void)removeFromSuperview { ++removals; }
   - (void)setFrame:(NSRect)frame {}
+  - (BOOL)isDescendantOf:(NSView *)view {
+    for (NSView *p=self; p; p=p->parent) if(p==view) return YES;
+    return NO;
+  }
   @end
   @interface NSViewController : NSObject { @public unsigned loads; NSView *content; id target,replacement; BOOL replaceDuringLoad,reenter,throwOnce; } @end
   @implementation NSViewController
@@ -78,8 +82,12 @@ program=<<~'OBJC'
       assert([item view]==a && first->loads==1);
       [item setViewController:first]; assert(first->loads==1);
       tab->_selectedItem=item;
+      NSView *child=[NSView new], *grandchild=[NSView new];
+      child->parent=a; grandchild->parent=child;
+      item->_initialFirstResponder=grandchild;
       [item setViewController:second];
       assert(item->_view==b && second->loads==1 && item->_initialFirstResponder==b);
+      [grandchild release]; [child release];
       [item setViewController:nil]; assert(item->_view==nil && item->_initialFirstResponder==nil);
       second->content=nil;
       [item setViewController:second]; assert(item->_view==nil); // No recursive nil-view notification.
@@ -96,6 +104,9 @@ program=<<~'OBJC'
       @catch(NSException *e) { assert([[e name] isEqual:@"ProbeLoad"]); caught=YES; }
       assert(caught && !item->_loadingControllerView && item->_view==nil);
       assert([item view]==a);
+      item->_initialFirstResponder=b; // A responder outside the retired tree survives.
+      [item setViewController:second];
+      assert(item->_initialFirstResponder==b);
       [item release]; [tab release];
       first->loads=second->loads=0;
       Item *one=[Item new], *two=[Item new]; Tab *tabs=[Tab new];
