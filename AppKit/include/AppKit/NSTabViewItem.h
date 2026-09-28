@@ -33,6 +33,7 @@ typedef enum { NSSelectedTab, NSBackgroundTab, NSPressedTab } NSTabState;
     NSTabState _state;
     NSRect _lastRect;
     NSViewController *_viewController;
+    BOOL _loadingControllerView;
 }
 
 + (instancetype) tabViewItemWithViewController: (NSViewController *) viewController;
