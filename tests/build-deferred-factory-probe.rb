@@ -75,6 +75,13 @@ insertion=<<~OBJC
       #{cache}
       CGContextRef backing=[[(NSCachedImageRep *)cachedRep window] graphicsContext].graphicsPort;
       _probeLastRasterCost=CGBitmapContextGetBytesPerRow(backing)*CGBitmapContextGetHeight(backing);
+      if (getenv("TEST_EXPECT_WINDOW_SCALE")) {
+          CGFloat expected=strtod(getenv("TEST_EXPECT_WINDOW_SCALE"),NULL);
+          NSRect backingRect=[(NSCachedImageRep *)cachedRep rect];
+          CGFloat actual=CGBitmapContextGetWidth(backing)/backingRect.size.width;
+          printf("Intermediate window backing: expected=%g actual=%g\\n",expected,actual);
+          assert(fabs(actual-expected)<0.000001);
+      }
       [cachedRep drawInRect:rect];
   }
   @end
