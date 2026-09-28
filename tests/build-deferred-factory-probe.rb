@@ -59,11 +59,13 @@ insertion=<<~OBJC
               flipped:NO drawingHandler:^BOOL(NSRect rect) {
                   observed=CGContextGetCTM([[NSGraphicsContext currentContext] graphicsPort]).a;
                   CGAffineTransform transform=CGContextGetCTM([[NSGraphicsContext currentContext] graphicsPort]);
-                  assert(transform.tx==-source.origin.x*scale && transform.ty==-source.origin.y*scale);
+                  if (!getenv("TEST_IMAGE_FLIPPED"))
+                      assert(transform.tx==-source.origin.x*scale && transform.ty==-source.origin.y*scale);
                   CGContextSetRGBFillColor([[NSGraphicsContext currentContext] graphicsPort],1,0,0,1);
                   CGContextFillRect([[NSGraphicsContext currentContext] graphicsPort],CGRectMake(0,0,20,30));
                   return YES;
               }];
+          [scaled setFlipped:getenv("TEST_IMAGE_FLIPPED") != NULL];
           [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
           printf("Destination scale=%g crop=%u, handler cache scale=%g\\n",(double)scale,crop,(double)observed);
           unsigned painted=0,minX=64,minY=64,maxX=0,maxY=0;

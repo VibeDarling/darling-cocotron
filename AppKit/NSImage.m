@@ -1419,8 +1419,10 @@ static NSUInteger scaledRepCacheBytes(NSArray *cache) {
         NSSize cachedSize = useSourceRect ? source.size : uncachedSize;
         NSSize logicalCacheSize = cachedSize;
         CGFloat cacheScaleX = 1, cacheScaleY = 1;
-        if ([uncached isKindOfClass: [NSCustomImageRep class]] &&
-            [(NSCustomImageRep *)uncached drawingHandler] != nil) {
+        BOOL usesDrawingHandler =
+                [uncached isKindOfClass: [NSCustomImageRep class]] &&
+                [(NSCustomImageRep *)uncached drawingHandler] != nil;
+        if (usesDrawingHandler) {
             CGAffineTransform destination = CGContextGetCTM(NSCurrentGraphicsPort());
             CGFloat width = ceil(ABS(rect.size.width) *
                     hypot(destination.a, destination.b));
@@ -1447,6 +1449,13 @@ static NSUInteger scaledRepCacheBytes(NSArray *cache) {
         [self lockFocusOnRepresentation: cached];
 
         context = NSCurrentGraphicsPort();
+        if (usesDrawingHandler && _isFlipped) {
+            // lockFocus installed an image-sized flip before the cache's
+            // density/crop transform. Undo it before setting up that transform;
+            // the flipped-image adjustment below is in source coordinates.
+            CGContextTranslateCTM(context, 0, [self size].height);
+            CGContextScaleCTM(context, 1, -1);
+        }
         CGContextScaleCTM(context, cacheScaleX, cacheScaleY);
         if (useSourceRect) {
             // move to the origin of the source rect - remember we've locked
