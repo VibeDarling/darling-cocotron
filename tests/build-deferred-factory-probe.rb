@@ -13,6 +13,10 @@ selection_end=source.index("\n- (NSImageRep *) bestRepresentationForDevice:",sel
 selection=source[selection_start...selection_end]
 reuse=source[/    if \(canCache\) \{\n        \/\/ If we're drawing.*?(?=\n\n    if \(cachedRep == nil\))/m]
 abort 'cache selection code missing' unless reuse
+cache_mode=source[/- \(void\) setCacheMode:.*?\n\}/m]
+abort 'cache mode setter missing' unless cache_mode
+# Redirect only the new ivar to subclass storage; preserve setter behavior.
+cache_mode=cache_mode.gsub('_drawingHandlerRepCache','_probeDrawingCache')
 test=File.read("#{__dir__}/deferred-handler-ownership.m")
 test.sub!('../AppKit/NSCustomImageRep.m', "#{root}/AppKit/NSCustomImageRep.m")
 insertion=<<~OBJC
@@ -34,6 +38,7 @@ insertion=<<~OBJC
   }
   - (void)dealloc { [_probeDrawingCache release]; [super dealloc]; }
   #{factory}
+  #{cache_mode}
   #{selection}
   - (void)probeCache:(NSImageRep *)any source:(NSRect)source destination:(NSRect)rect {
       NSImageRep *cachedRep=nil;
@@ -138,6 +143,30 @@ insertion=<<~OBJC
               low[0],low[1],low[2],low[3],high[0],high[1],high[2],high[3]);
           assert(memcmp(low,reference+4,4)==0);
           assert(memcmp(high,reference,4)==0);
+          if (getenv("TEST_CACHE_REUSE") && !crop && ![scaled isFlipped]) {
+              CGContextSaveGState(port);
+              CGContextScaleCTM(port,2,2);
+              [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
+              assert(renderCalls==2 && observed==scale*2);
+              [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
+              assert(renderCalls==2);
+              CGContextRestoreGState(port);
+              memset(pixels,0,sizeof(pixels));
+              [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
+              assert(renderCalls==2 && [[scaled representations] count]==1);
+              assert(memcmp(low,reference+4,4)==0 && memcmp(high,reference,4)==0);
+              puts("PASS: changed scale renders once; restoring scale reuses earlier raster");
+              [scaled setCacheMode:NSImageCacheNever];
+              [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
+              [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
+              assert(renderCalls==4);
+              [scaled setCacheMode:NSImageCacheAlways];
+              [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
+              assert(renderCalls==5);
+              [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
+              assert(renderCalls==5 && [[scaled representations] count]==1);
+              puts("PASS: cache-never bypasses reuse; mode transition discards old entries");
+          }
           [NSGraphicsContext setCurrentContext:nil];
           CGContextRelease(port);
           }
