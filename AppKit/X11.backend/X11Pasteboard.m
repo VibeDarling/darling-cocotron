@@ -410,29 +410,31 @@ static NSMutableDictionary<NSPasteboardName, X11Pasteboard *> *nameToPboard;
 
 - (void) propertyNotify: (XPropertyEvent *) event {
     // ICCCM paces an incremental transfer with property deletions: the receiver
-    // reads a chunk and deletes the property to ask for the next one, and a
-    // receiver that aborts deletes it without asking.
+    // reads a chunk and deletes the property to ask for the next one. The owner
+    // learns the receiver is ready from that deletion alone.
     NSNumber *requestor = [NSNumber numberWithUnsignedLong: event->window];
     X11IncrTransfer *transfer = _incrTransfers[requestor];
     if (transfer == nil || event->state != PropertyDelete ||
         transfer->_property != event->atom)
         return;
 
+    [_incrTransfers removeObjectForKey: requestor];
     NSUInteger left = [transfer->_data length] - transfer->_offset;
     NSUInteger chunk = left > X11IncrChunkSize ? X11IncrChunkSize : left;
     if (chunk == 0) {
-        // Nothing left to send: the transfer is over, and deleting the property
-        // is what tells the receiver so.
-        [_incrTransfers removeObjectForKey: requestor];
-        XDeleteProperty(_display, event->window, event->atom);
-        XFlush(_display);
-        [transfer release];
-        return;
+        // The receiver has read everything there was, so the transfer ends with a
+        // zero-length write. Deleting the property instead would be
+        // indistinguishable from the receiver asking for another chunk, and a
+        // receiver would wait for data that never comes.
+        XChangeProperty(_display, event->window, event->atom, transfer->_type, 8,
+                        PropModeReplace, NULL, 0);
+    } else {
+        XChangeProperty(_display, event->window, event->atom, transfer->_type, 8,
+                        PropModeReplace, [transfer->_data bytes] + transfer->_offset,
+                        chunk);
     }
-    XChangeProperty(_display, event->window, event->atom, transfer->_type, 8,
-                    PropModeReplace, [transfer->_data bytes] + transfer->_offset, chunk);
-    transfer->_offset += chunk;
     XFlush(_display);
+    [transfer release];
 }
 
 - (Window) windowHandle {
