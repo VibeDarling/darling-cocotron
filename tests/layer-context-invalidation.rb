@@ -11,13 +11,17 @@ program=<<~'OBJC'
   #import <Foundation/Foundation.h>
   #include <assert.h>
   static unsigned fires, deaths;
+  static BOOL cancelDuringFire;
   @interface Context : NSObject { @public NSTimer *_timer; }
   - (void)invalidate;
   - (void)startTimerIfNeeded;
   @end
   @implementation Context
   ACTUAL_METHODS
-  - (void)timer:(NSTimer *)timer { ++fires; }
+  - (void)timer:(NSTimer *)timer {
+    ++fires;
+    if (cancelDuringFire) [self invalidate];
+  }
   - (void)dealloc {
     ++deaths; [_timer invalidate]; [_timer release]; [super dealloc];
   }
@@ -37,10 +41,15 @@ program=<<~'OBJC'
       // Invalidation is cancellation, not a permanently disabled context.
       [context startTimerIfNeeded];
       assert(context->_timer && context->_timer!=timer && [context->_timer isValid]);
-      [context invalidate]; [timer release]; [context release];
+      [context invalidate];
+      cancelDuringFire=YES;
+      [context startTimerIfNeeded];
+      [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
+      assert(fires==1 && !context->_timer);
+      [timer release]; [context release];
     }
-    assert(deaths==1 && fires==0);
-    puts("PASS: real timer cancellation, repeated invalidation, no callbacks, restart and eventual deallocation");
+    assert(deaths==1 && fires==1);
+    puts("PASS: real timer cancellation, repeated invalidation, restart, in-callback cancellation and eventual deallocation");
   }
 OBJC
 program=program.sub('ACTUAL_METHODS'){methods}
