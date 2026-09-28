@@ -8,20 +8,32 @@ factory=source[/\+ \(instancetype\) imageWithSize:.*?\n\}/m]
 abort 'factory method missing' unless factory
 cache=source[/ +if \(cachedRep == nil\) \{.*?(?=\n\n +\/\/ A full bitmap)/m]
 abort 'temporary cache block missing' unless cache
+selection_start=source.index("- (NSImageRep *)\n        _bestUncachedFallbackCachedRepresentationForDevice:")
+selection_end=source.index("\n- (NSImageRep *) bestRepresentationForDevice:",selection_start)
+selection=source[selection_start...selection_end]
+reuse=source[/    if \(canCache\) \{\n        \/\/ If we're drawing.*?(?=\n\n    if \(cachedRep == nil\))/m]
+abort 'cache selection code missing' unless reuse
 test=File.read("#{__dir__}/deferred-handler-ownership.m")
 test.sub!('../AppKit/NSCustomImageRep.m', "#{root}/AppKit/NSCustomImageRep.m")
 insertion=<<~OBJC
   #import <AppKit/NSImage.h>
   #import <AppKit/NSCachedImageRep.h>
+  #import <AppKit/NSBitmapImageRep.h>
   #import "#{root}/AppKit/NSGraphicsContextFunctions.h"
   #import <AppKit/NSApplication.h>
   #include <string.h>
   @interface DeferredFactoryProbe : NSImage @end
   @implementation DeferredFactoryProbe
   #{factory}
+  #{selection}
   - (void)probeCache:(NSImageRep *)any source:(NSRect)source destination:(NSRect)rect {
       NSImageRep *cachedRep=nil;
       BOOL canCache=NO;
+      if (getenv("TEST_CACHE_REUSE")) {
+          any=[self _bestUncachedFallbackCachedRepresentationForDevice:nil size:rect.size];
+          canCache=NSIsEmptyRect(source) && ![self isFlipped];
+          #{reuse}
+      }
       CGContextRef context;
       #{cache}
       [cachedRep drawInRect:rect];
@@ -69,8 +81,10 @@ insertion=<<~OBJC
           NSGraphicsContext *context=[NSGraphicsContext graphicsContextWithGraphicsPort:port flipped:NO];
           [NSGraphicsContext setCurrentContext:context];
           __block CGFloat observed=0;
+          __block unsigned renderCalls=0;
           DeferredFactoryProbe *scaled=[DeferredFactoryProbe imageWithSize:NSMakeSize(20,30)
               flipped:NO drawingHandler:^BOOL(NSRect rect) {
+                  ++renderCalls;
                   observed=CGContextGetCTM([[NSGraphicsContext currentContext] graphicsPort]).a;
                   CGAffineTransform transform=CGContextGetCTM([[NSGraphicsContext currentContext] graphicsPort]);
                   if (!getenv("TEST_IMAGE_FLIPPED"))
@@ -84,6 +98,11 @@ insertion=<<~OBJC
               }];
           [scaled setFlipped:getenv("TEST_IMAGE_FLIPPED") != NULL];
           [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
+          if (getenv("TEST_CACHE_REUSE") && !crop && ![scaled isFlipped]) {
+              [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
+              printf("Same-destination draw calls=%u, representations=%lu\\n",renderCalls,(unsigned long)[[scaled representations] count]);
+              assert(renderCalls==1);
+          }
           printf("Destination scale=%g crop=%u, handler cache scale=%g\\n",(double)scale,crop,(double)observed);
           unsigned painted=0,minX=64,minY=64,maxX=0,maxY=0;
           for (unsigned y=0;y<64;++y) {
