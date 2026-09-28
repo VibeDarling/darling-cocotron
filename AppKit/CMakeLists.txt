@@ -343,6 +343,7 @@ set(AppKit_sources
 	NSLevelIndicator.m
 	NSDraggingManager.m
 	NSImage.m
+	NSImageDrawingCache.m
 
 	NSKeyValueBinding/NSObject+BindingSupport.m
 	NSKeyValueBinding/NSBinder.m
