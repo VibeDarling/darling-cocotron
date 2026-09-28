@@ -91,6 +91,25 @@ program=<<~'OBJC'
       v->_wantsLayer=YES; [v _removeLayerBackedViewsFromTree];
       assert(![v->_layer superlayer] && v->_layerContext && created==5);
       [v _removeLayerBackedViewsFromTree]; assert(created==5);
+      // A recursive window transition must preserve an attached child layer
+      // while only the root owns the platform context.
+      View *root=[View new], *leaf=[View new];
+      root->_layer=[CALayer new]; leaf->_layer=[CALayer new];
+      root->_subviews=@[leaf];
+      [leaf _setSuperview:root];
+      assert([leaf->_layer superlayer]==root->_layer);
+      [root _setWindow:w];
+      assert(created==6 && root->_layerContext && !leaf->_layerContext);
+      assert(leaf->_window==w && [leaf->_layer superlayer]==root->_layer);
+      [root _setWindow:w2];
+      assert(created==6 && leaf->_window==w2);
+      [root _setWindow:nil];
+      assert(!root->_layerContext && !leaf->_layerContext && !leaf->_window);
+      assert([leaf->_layer superlayer]==root->_layer);
+      [root _setWindow:w]; assert(created==7 && root->_layerContext);
+      [leaf _setSuperview:nil]; [leaf _setWindow:nil];
+      root->_subviews=nil;
+      [root release]; [leaf release];
       [v release]; [a release]; [b release]; [w release]; [w2 release];
       assert(created==destroyed);
       puts("PASS: detached/attached, repeated, cross-window, cross-parent, failure retry and child promotion");

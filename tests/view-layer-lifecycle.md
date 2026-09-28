@@ -11,6 +11,10 @@ order, context failure followed by explicit retry, and promotion of a child
 that still wants a layer after its parent's layer is removed. Allocation and
 destruction counts balance. Unchanged upstream fails detached deferral.
 
+The recursive case attaches a root and child, moves them between windows,
+detaches and reattaches the subtree, and checks that the child remains in the
+root's layer tree while only the root owns a platform context.
+
 The fake layer records a non-owning parent pointer; it is not CALayer's actual
 retaining hierarchy. Context invalidation, rendering timers, native subwindows,
 layer geometry and callback reentrancy are not validated. Failure retry uses
