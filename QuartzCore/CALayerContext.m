@@ -50,6 +50,10 @@
 - (void) dealloc {
     [_timer invalidate];
     [_timer release];
+    // Layers can outlive their context. Clear the borrowed pointer while the
+    // context can still receive texture-cleanup requests from _setContext:.
+    if ([_layer _context] == self)
+        [_layer _setContext: nil];
     [_renderer release];
     CGLReleaseContext(_glContext);
     CGLReleasePixelFormat(_pixelFormat);
@@ -67,6 +71,10 @@
 
 - (void) setLayer: (CALayer *) layer {
     layer = [layer retain];
+    // Keep self-assignment intact, and do not detach a root that has already
+    // been rebound to another context while this one still retains it.
+    if (_layer != layer && [_layer _context] == self)
+        [_layer _setContext: nil];
     [_layer release];
     _layer = layer;
 
