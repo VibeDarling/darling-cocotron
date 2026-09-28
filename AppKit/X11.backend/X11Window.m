@@ -562,7 +562,9 @@ static NSData *makeWindowIcon() {
     XMoveResizeWindow(_display, _window, deviceFrame.origin.x,
                       deviceFrame.origin.y, deviceFrame.size.width,
                       deviceFrame.size.height);
-    _frame = frame;
+    // -frame applies transformFrame:, so _frame is stored bottom-left origin. Storing
+    // the caller's frame unflipped made -frame mirror the position.
+    _frame = [self transformFrame: frame];
     [self invalidateContextWithNewSize: frame.size];
 }
 
@@ -863,29 +865,42 @@ static int ignoreBadWindow(Display *display, XErrorEvent *errorEvent) {
         unsigned int w, h, d, b, nchild;
         Window *children;
         O2Rect rect = NSZeroRect;
-        // recursively get geometry to get absolute position
-        BOOL success = YES;
-        while (window && success) {
+        // Walk up the parents to get the absolute position. QueryTree reports the root
+        // window as its own parent, so this loop is only bounded by noticing that.
+        // Ending it instead on QueryTree(root) raising BadWindow, which is what
+        // -ignoreBadWindow below swallows, makes termination depend on the server
+        // rather than on this code, and a reparenting window manager makes the chain
+        // deeper. Bound the depth as well so a server that answers QueryTree(root)
+        // successfully cannot spin here, in the ConfigureNotify path.
+        for (int depth = 0; window && depth < 64; depth++) {
             XGetGeometry(_display, window, &root, &x, &y, &w, &h, &b, &d);
-            success = XQueryTree(_display, window, &root, &parent, &children,
-                                 &nchild);
-            if (children)
-                XFree(children);
 
             // first iteration: save our own w, h
             if (window == _window)
                 rect = NSMakeRect(0, 0, w, h);
             rect.origin.x += x;
             rect.origin.y += y;
+
+            if (!XQueryTree(_display, window, &root, &parent, &children, &nchild))
+                break;
+            if (children)
+                XFree(children);
+            if (parent == window)
+                break; // reached the root, which is its own parent
             window = parent;
-        };
+        }
 
         // XGetGeometry reports device pixels; _frame is in logical points, so
         // un-scale once here rather than at every reader.
         CGFloat scale = [self backingScaleFactor];
         [self invalidateContextWithNewSize:
                  NSMakeSize(rect.size.width / scale, rect.size.height / scale)];
-        _frame = NSMakeRect(rect.origin.x / scale, rect.origin.y / scale,
+        // X geometry is top-left origin and -frame applies transformFrame:, so flip it
+        // into the bottom-left convention _frame is stored in. Storing it unflipped made
+        // -frame report screenHeight - height - y instead of y.
+        CGFloat screenHeight = DisplayHeight(_display, DefaultScreen(_display)) / scale;
+        _frame = NSMakeRect(rect.origin.x / scale,
+                            screenHeight - rect.origin.y / scale - rect.size.height / scale,
                             rect.size.width / scale, rect.size.height / scale);
     } @finally {
         XSetErrorHandler(previousHandler);
