@@ -123,6 +123,13 @@ static const char *X11CursorAliasesFor(const char *name)
     const size_t width = (size_t) fmax(floor(logicalWidth * scale + 0.5), 1.0);
     const size_t height = (size_t) fmax(floor(logicalHeight * scale + 0.5), 1.0);
 
+    // XcursorImageCreate allocates width*height*4, and nothing else bounds it, so an
+    // image with an enormous size would ask for gigabytes. libXcursor cannot address more
+    // than XCURSOR_MAX_SIZE either, so refuse before the allocation rather than after.
+    if (width > 0x7FFF || height > 0x7FFF) {
+        return [self initWithName: "left_ptr"];
+    }
+
     // libXcursor requires the hot spot to be inside the image, and converting a
     // non-finite float to int is undefined, so a NaN or infinite hot spot (or a
     // non-finite image size) has to be rejected before the cast rather than clamped.
