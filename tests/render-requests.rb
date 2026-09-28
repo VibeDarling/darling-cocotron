@@ -5,7 +5,7 @@ require 'open3'
 sdk=ARGV.fetch(0)
 path=ARGV[1] || File.expand_path('../QuartzCore/CALayerContext.m',__dir__)
 source=File.read(path)
-names=['timer: (NSTimer *) timer','startTimerIfNeeded','renderOnce: (NSTimer *) timer','scheduleRenderIfNeeded']
+names=['timer: (NSTimer *) timer','startTimerIfNeeded','renderOnce: (NSTimer *) timer','scheduleRenderIfNeeded','invalidate']
 methods=names.filter_map{|n| source[/^- \(void\) #{Regexp.escape(n)} \{.*?^\}/m]}.join("\n")
 private_scheduler=methods.include?('scheduleRenderIfNeeded')
 program=<<~'OBJC'
@@ -13,6 +13,7 @@ program=<<~'OBJC'
   #include <assert.h>
   typedef id CALayer;
   static unsigned frames, requestedFrames, animationFrames;
+  static BOOL cancelFirst;
   static BOOL layerTreeHasAnimations(id layer) { return frames < animationFrames; }
   static double CACurrentMediaTime(void) { return 0; }
   @interface Renderer : NSObject @end
@@ -25,12 +26,14 @@ program=<<~'OBJC'
   }
   - (void)timer:(NSTimer *)timer;
   - (void)startTimerIfNeeded;
+  - (void)invalidate;
   @end
   @implementation Context
   ACTUAL_METHODS
   - (id)init { if((self=[super init])) _renderer=[Renderer new]; return self; }
   - (void)render {
     ++frames;
+    if(cancelFirst && frames==1) [self invalidate];
     // Simulate one delegate invalidation after its current frame began.
     if(frames < requestedFrames) {
       for(unsigned i=0;i<10;++i) [self SCHEDULE];
@@ -59,11 +62,25 @@ program=<<~'OBJC'
       [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.2]];
       [animated stop]; [animated release];
       assert(frames==3);
+      // Enable only when testing composition with real cancellation (#266).
+      COMPOSITION_TEST
       puts("PASS: one to three frames, coalesced requests, idle stopping and animation continuation");
     }
   }
 OBJC
 program=program.sub('ACTUAL_METHODS'){methods}.gsub('SCHEDULE',private_scheduler ? 'scheduleRenderIfNeeded' : 'startTimerIfNeeded')
+composition = source[/^- \(void\) invalidate \{.*?^\}/m].to_s.include?('[_timer invalidate]')
+program=program.sub('COMPOSITION_TEST', composition ? <<~'OBJC' : '')
+  animationFrames=0; cancelFirst=YES;
+  for(requestedFrames=1; requestedFrames<=2; ++requestedFrames) {
+    frames=0;
+    Context *c=[Context new]; [c startTimerIfNeeded];
+    [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.2]];
+    [c stop]; [c release];
+    assert(frames==requestedFrames);
+  }
+  puts("PASS: actual cancellation during render, with and without a replacement request");
+OBJC
 gcc,status=Open3.capture2('gcc','-print-file-name=include')
 abort 'missing headers' unless status.success?
 Dir.mktmpdir('render-redirty') do |dir|
