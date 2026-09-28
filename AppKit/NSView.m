@@ -3202,6 +3202,24 @@ static id anchorForView(NSView *view, NSString *className,
     _needsUpdateConstraints = NO;
 }
 
+- (void) updateConstraintsForSubtreeIfNeeded {
+    if (_needsUpdateConstraints) {
+        _needsUpdateConstraints = NO;
+        [self updateConstraints];
+    }
+    // An update callback can remove or reparent a sibling. Keep the snapshot
+    // alive through callbacks, but only visit children still belonging here.
+    NSArray *children = [_subviews copy];
+    @try {
+        for (NSView *child in children) {
+            if ([child superview] == self)
+                [child updateConstraintsForSubtreeIfNeeded];
+        }
+    } @finally {
+        [children release];
+    }
+}
+
 - (void) layout {
     _needsLayout = NO;
 }
