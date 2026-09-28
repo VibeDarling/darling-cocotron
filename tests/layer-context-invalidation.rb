@@ -12,7 +12,8 @@ program=<<~'OBJC'
   #include <assert.h>
   static unsigned fires, deaths;
   static BOOL cancelDuringFire;
-  @interface Context : NSObject { @public NSTimer *_timer; }
+  // Reserved state permits composition with the pending-request PR #267.
+  @interface Context : NSObject { @public NSTimer *_timer; BOOL _renderRequested; }
   - (void)invalidate;
   - (void)startTimerIfNeeded;
   @end
