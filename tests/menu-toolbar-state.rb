@@ -67,8 +67,19 @@ program=<<~'OBJC'
   - (BOOL)isEnabled { return !disabled; }
   - (void)dealloc { [_menuFormRepresentation release]; [super dealloc]; }
   @end
+  @interface NSToolbarItemView : NSObject { @public id owner, window; }
+  - (id)toolbarItem;
+  - (id)window;
+  @end
+  @implementation NSToolbarItemView
+  - (id)toolbarItem { return owner; }
+  - (id)window { return window; }
+  @end
   SOURCE
   static NSMenuToolbarItem *activeItem;
+  static NSToolbarItemView *activeView;
+  static void replaceItem(void) { activeView->owner=nil; }
+  static void detachView(void) { activeView->window=nil; }
   static void reenterAndDisable(void) {
     assert([activeItem _trackMenuWithEvent:nil inView:nil]);
     assert(trackedMenu==nil);
@@ -114,7 +125,9 @@ program=<<~'OBJC'
       [item setShowsIndicator:NO]; assert(item->redraws==2 && ![item showsIndicator]);
       [item setShowsIndicator:NO]; assert(item->redraws==2);
       [item setMenu:nil]; assert([item menu]!=nil && representation->submenu==[item menu]);
-      id event=[NSObject new], view=[NSObject new];
+      id event=[NSObject new], window=[NSObject new];
+      NSToolbarItemView *view=[NSToolbarItemView new];
+      view->owner=item; view->window=window; activeView=view;
       assert([item _trackMenuWithEvent:event inView:view]);
       assert(trackedMenu==[item menu] && trackedEvent==event && trackedView==view);
       trackedMenu=nil; item->action=@selector(description);
@@ -130,8 +143,18 @@ program=<<~'OBJC'
       assert([item _trackMenuWithEvent:event inView:view] && trackedMenu==[item menu]);
       checkExceptionCleanup(item,event,view,NO);
       checkExceptionCleanup(item,event,view,YES);
+      // Cancellation must cover both the timeout/menu and quick/action paths.
+      for (int quick=0; quick<2; quick++) {
+        NSApp->pending=quick ? event : nil;
+        trackedMenu=nil; duringPeek=replaceItem;
+        assert([item _trackMenuWithEvent:event inView:view] && trackedMenu==nil);
+        view->owner=item; duringPeek=detachView;
+        assert([item _trackMenuWithEvent:event inView:view] && trackedMenu==nil);
+        view->window=window;
+      }
+      duringPeek=NULL;
       [NSApp release]; NSApp=nil;
-      [event release]; [view release];
+      [event release]; [view release]; [window release];
       [item release];
     }
     assert(menuDeaths==3);
