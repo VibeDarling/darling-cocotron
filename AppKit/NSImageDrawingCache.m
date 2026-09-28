@@ -17,9 +17,10 @@ static const NSUInteger drawingCacheEntryLimit = 4;
     for (NSUInteger i = 0; i < [_entries count]; ++i) {
         NSArray *entry = [_entries objectAtIndex: i];
         if ([[entry objectAtIndex: 0] isEqual: key]) {
-            [[entry retain] autorelease];
+            [entry retain];
             [_entries removeObjectAtIndex: i];
             [_entries addObject: entry];
+            [entry release];
             return [entry objectAtIndex: 1];
         }
     }
@@ -32,7 +33,7 @@ static const NSUInteger drawingCacheEntryLimit = 4;
     // Construct before removing an old entry: the caller may be replacing an
     // entry with the very same key or representation object it currently owns.
     id storedKey = [(id)key copy];
-    NSArray *entry = [NSArray arrayWithObjects: storedKey, representation,
+    NSArray *entry = [[NSArray alloc] initWithObjects: storedKey, representation,
             [NSNumber numberWithUnsignedInteger: cost], nil];
     [storedKey release];
     for (NSUInteger i = 0; i < [_entries count]; ++i) {
@@ -50,6 +51,7 @@ static const NSUInteger drawingCacheEntryLimit = 4;
         [_entries removeObjectAtIndex: 0];
     }
     [_entries addObject: entry];
+    [entry release];
     _byteCost += cost;
     return YES;
 }

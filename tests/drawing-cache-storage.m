@@ -2,6 +2,12 @@
 #include <assert.h>
 #include <stdio.h>
 
+static unsigned destroyed;
+@interface CacheLifetimeToken : NSObject @end
+@implementation CacheLifetimeToken
+- (void)dealloc { ++destroyed; [super dealloc]; }
+@end
+
 int main(void) {
     setbuf(stdout, NULL);
     NSAutoreleasePool *pool=[NSAutoreleasePool new];
@@ -27,8 +33,34 @@ int main(void) {
     [key appendString:@" changed"];
     assert([[cache representationForKey:@"original"] isEqual:@"value"]);
     assert([cache representationForKey:key]==nil);
+    [cache removeAllObjects];
+    for (unsigned i=0;i<5;++i) {
+        CacheLifetimeToken *token=[CacheLifetimeToken new];
+        assert([cache setRepresentation:token forKey:@(i) byteCost:1]);
+        [token release];
+    }
+    // Eviction must relinquish ownership even before the caller's pool drains.
+    assert(destroyed==1);
+    assert([cache representationForKey:@1]!=nil);
+    CacheLifetimeToken *last=[CacheLifetimeToken new];
+    assert([cache setRepresentation:last forKey:@5 byteCost:1]);
+    [last release];
+    assert(destroyed==2 && [cache representationForKey:@2]==nil);
+    assert([cache setRepresentation:@"replacement" forKey:@1 byteCost:1]);
+    assert(destroyed==3);
+    [cache removeAllObjects];
+    assert(destroyed==6);
+    CacheLifetimeToken *owned=[CacheLifetimeToken new];
+    assert([cache setRepresentation:owned forKey:@"owned" byteCost:1]);
+    [owned release];
+    // Replacement with a borrowed reference must retain it before removing
+    // the old entry that owns that reference.
+    assert([cache setRepresentation:[cache representationForKey:@"owned"]
+                            forKey:@"owned" byteCost:1]);
+    assert(destroyed==6);
     [cache release];
+    assert(destroyed==7);
     [pool release];
-    puts("PASS: drawing cache LRU, replacement, byte bound, overflow rejection, invalidation and key copying");
+    puts("PASS: drawing cache LRU, replacement, byte bound, overflow rejection, invalidation, key copying and prompt ownership release");
     return 0;
 }
