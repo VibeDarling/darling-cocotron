@@ -9,10 +9,16 @@ program=<<~'OBJC'
   #import <Foundation/Foundation.h>
   #include <assert.h>
   static BOOL drawResult;
+  static BOOL throwDraw;
   static unsigned draws, locks, unlocks;
+  static BOOL render(void) {
+    ++draws;
+    if (throwDraw) [NSException raise:@"DrawFailure" format:@"fixture"];
+    return drawResult;
+  }
   @interface Rep : NSObject @end
   @implementation Rep
-  - (BOOL)drawAtPoint:(NSPoint)point { ++draws; return drawResult; }
+  - (BOOL)drawAtPoint:(NSPoint)point { return render(); }
   @end
   @interface Image : NSObject { @public BOOL _cacheIsValid, scales; }
   @end
@@ -21,7 +27,7 @@ program=<<~'OBJC'
   - (BOOL)scalesWhenResized { return scales; }
   - (void)lockFocusOnRepresentation:(id)rep { ++locks; }
   - (void)unlockFocus { ++unlocks; }
-  - (BOOL)drawRepresentation:(id)rep inRect:(NSRect)rect { ++draws; return drawResult; }
+  - (BOOL)drawRepresentation:(id)rep inRect:(NSRect)rect { return render(); }
   - (void)fill:(Rep *)uncached {
     id cached=uncached;
     BLOCK
@@ -38,6 +44,13 @@ program=<<~'OBJC'
         drawResult=YES; [image fill:rep];
         assert(image->_cacheIsValid && draws==2 && locks==2 && unlocks==2);
         [image fill:rep]; assert(draws==2 && locks==2 && unlocks==2);
+        image->_cacheIsValid=NO; throwDraw=YES;
+        BOOL caught=NO;
+        @try { [image fill:rep]; }
+        @catch(NSException *exception) { caught=[[exception name] isEqual:@"DrawFailure"]; }
+        assert(caught && !image->_cacheIsValid && locks==3 && unlocks==3);
+        throwDraw=NO; [image fill:rep];
+        assert(image->_cacheIsValid && locks==4 && unlocks==4);
       }
       [rep release]; [image release];
     }
@@ -47,7 +60,7 @@ program.sub!('BLOCK'){block}
 gcc,status=Open3.capture2('gcc','-print-file-name=include'); abort unless status.success?
 Dir.mktmpdir('image-cache') do |dir|
   input="#{dir}/probe.m"; output="#{dir}/probe"; File.write(input,program)
-  log,status=Open3.capture2e('clang','-fobjc-runtime=gcc','-fconstant-string-class=NSConstantString',
+  log,status=Open3.capture2e('clang','-fobjc-runtime=gcc','-fobjc-exceptions','-fexceptions','-fconstant-string-class=NSConstantString',
     "-I#{sdk}/usr/include/GNUstep","-I#{gcc.strip}",input,"-L#{sdk}/usr/lib",
     "-Wl,-rpath,#{sdk}/usr/lib",'-lgnustep-base','-lobjc','-o',output)
   abort log unless status.success?
