@@ -7,6 +7,8 @@ sdk = File.expand_path(ARGV.fetch(0))
 source = File.read(ARGV[1] || File.expand_path('../AppKit/NSDocumentController.m', __dir__))
 method = source[/^- \(NSString \*\) typeFromFileExtension:.*?^\}/m]
 abort 'method not found' unless method
+url_method = source[/^- \(NSString \*\) typeForContentsOfURL:.*?^\}/m]
+abort 'URL method not found' unless url_method
 fixture = File.read(File.join(__dir__, 'appkit-document-uti-extensions.m'))
 fixture = fixture.lines.reject { |line| line.start_with?('#import') }.join
 prelude = <<~'OBJC'
@@ -34,6 +36,7 @@ prelude = <<~'OBJC'
       NSArray *_fileTypes;
   }
   - (NSString *)typeFromFileExtension:(NSString *)extension;
+  - (NSString *)typeForContentsOfURL:(NSURL *)url error:(NSError **)error;
   @end
   @implementation NSDocumentController
   - (void)dealloc { [_fileTypes release]; [super dealloc]; }
@@ -42,7 +45,7 @@ gcc_include, status = Open3.capture2('gcc', '-print-file-name=include')
 abort 'GCC include discovery failed' unless status.success?
 Dir.mktmpdir('document-extensions') do |dir|
   input = File.join(dir, 'probe.m'); executable = File.join(dir, 'probe')
-  File.write(input, prelude + method + "\n@end\n" + fixture)
+  File.write(input, prelude + method + "\n" + url_method + "\n@end\n" + fixture)
   variants = { 'available' => [], 'absent' => ['-DPROBE_WITHOUT_PROVIDER', '-DPROBE_NO_PROVIDER'],
                'older API' => ['-DPROBE_WITHOUT_PROVIDER', '-DPROBE_OLD_PROVIDER', '-Wno-incomplete-implementation'] }
   variants.each do |name, flags|
