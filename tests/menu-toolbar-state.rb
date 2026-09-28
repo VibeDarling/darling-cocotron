@@ -12,6 +12,18 @@ program=<<~'OBJC'
   static int menuDeaths;
   @class NSEvent, NSView;
   static id trackedMenu, trackedEvent, trackedView;
+  enum { NSLeftMouseUpMask=4, NSLeftMouseDraggedMask=8 };
+  #define NSEventTrackingRunLoopMode @"tracking"
+  @interface ProbeApplication : NSObject { @public id pending; BOOL dequeued; NSUInteger mask; NSString *mode; }
+  - (id)nextEventMatchingMask:(NSUInteger)value untilDate:(NSDate*)date inMode:(NSString*)runMode dequeue:(BOOL)remove;
+  @end
+  @implementation ProbeApplication
+  - (id)nextEventMatchingMask:(NSUInteger)value untilDate:(NSDate*)date inMode:(NSString*)runMode dequeue:(BOOL)remove {
+    assert([date timeIntervalSinceNow]>0);
+    mask=value; mode=runMode; dequeued=remove; return pending;
+  }
+  @end
+  static ProbeApplication *NSApp;
   @interface NSMenu : NSObject
   - (id)initWithTitle:(NSString*)title;
   + (void)popUpContextMenu:(id)menu withEvent:(id)event forView:(id)view;
@@ -68,7 +80,13 @@ program=<<~'OBJC'
       assert([item _trackMenuWithEvent:event inView:view]);
       assert(trackedMenu==[item menu] && trackedEvent==event && trackedView==view);
       trackedMenu=nil; item->action=@selector(description);
+      NSApp=[ProbeApplication new]; NSApp->pending=event;
       assert(![item _trackMenuWithEvent:event inView:view] && trackedMenu==nil);
+      assert(!NSApp->dequeued && NSApp->mask==(NSLeftMouseUpMask|NSLeftMouseDraggedMask));
+      assert([NSApp->mode isEqual:NSEventTrackingRunLoopMode]);
+      NSApp->pending=nil;
+      assert([item _trackMenuWithEvent:event inView:view] && trackedMenu==[item menu]);
+      [NSApp release]; NSApp=nil;
       [event release]; [view release];
       [item release];
     }

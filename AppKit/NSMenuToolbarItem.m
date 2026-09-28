@@ -21,6 +21,9 @@ SOFTWARE. */
 #import <AppKit/NSMenuToolbarItem.h>
 #import <AppKit/NSMenu.h>
 #import <AppKit/NSMenuItem.h>
+#import <AppKit/NSApplication.h>
+#import <AppKit/NSEvent.h>
+#import <Foundation/NSDate.h>
 
 @interface NSToolbarItem (NSMenuToolbarItemPrivate)
 - (void)_didChange;
@@ -30,8 +33,16 @@ SOFTWARE. */
 
 // Called by the enclosing toolbar view before its ordinary action tracking.
 - (BOOL)_trackMenuWithEvent: (NSEvent *) event inView: (NSView *) view {
-    if ([self action] != NULL)
-        return NO;
+    if ([self action] != NULL) {
+        // Leave a quick release/drag queued for the ordinary toolbar action
+        // loop. Holding without either event opens the item's menu instead.
+        NSEvent *next = [NSApp nextEventMatchingMask: NSLeftMouseUpMask | NSLeftMouseDraggedMask
+                                         untilDate: [NSDate dateWithTimeIntervalSinceNow: 0.5]
+                                            inMode: NSEventTrackingRunLoopMode
+                                           dequeue: NO];
+        if (next != nil)
+            return NO;
+    }
     [NSMenu popUpContextMenu: _menu withEvent: event forView: view];
     return YES;
 }
