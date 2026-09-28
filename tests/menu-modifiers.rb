@@ -70,11 +70,16 @@ program = <<~'OBJC'
       eventFlags|=NSShiftKeyMask; characters=@"x";
       assert(![menu performKeyEquivalent:event] && !sends);
       // Lowercase + explicit Shift must match the uppercase event spelling.
-      // This documented-equivalence regression currently fails: the production
-      // method compares character strings exactly after matching modifiers.
       item->key=@"x"; item->flags=NSCommandKeyMask|NSShiftKeyMask;
       characters=@"X"; sends=0;
       assert([menu performKeyEquivalent:event] && sends==1);
+      item->flags=NSCommandKeyMask; sends=0;
+      assert(![menu performKeyEquivalent:event] && sends==0);
+      item->key=@"é"; item->flags=NSCommandKeyMask|NSShiftKeyMask;
+      characters=@"É";
+      assert([menu performKeyEquivalent:event] && sends==1);
+      item->key=@"1"; characters=@"!"; sends=0;
+      assert(![menu performKeyEquivalent:event] && sends==0);
       item->key=@"X"; item->flags=NSCommandKeyMask; sends=0;
       characters=@"X"; item->enabled=NO;
       assert(![menu performKeyEquivalent:event] && !sends);
