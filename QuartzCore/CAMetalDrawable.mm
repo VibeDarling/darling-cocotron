@@ -24,6 +24,7 @@
 #import <QuartzCore/CAMetalLayer.h>
 #import <Metal/MTLDeviceInternal.h>
 #import <Metal/stubs.h>
+#import "CGLReporting.h"
 
 #if DARLING_METAL_ENABLED
 
@@ -33,24 +34,11 @@
 
 namespace DynamicVK = Indium::DynamicVK;
 
+// Defined here so the call sites below stay terse; the tracking itself is in
+// CGLReporting.h so the layer and the drawable cannot drift apart.
 static void reportGLErrors(void) {
-#if 0
-	GLenum err;
-
-	while ((err = glGetError()) != GL_NO_ERROR) {
-		printf("*** OPENGL ERROR: %d ***\n", err);
-	}
-#endif
-};
-
-//
-// dynamically imported
-//
-
-namespace Indium::DynamicVK {
-	static DynamicFunction<PFN_vkGetSemaphoreFdKHR> vkGetSemaphoreFdKHR("vkGetSemaphoreFdKHR");
-	static DynamicFunction<PFN_vkGetMemoryFdKHR> vkGetMemoryFdKHR("vkGetMemoryFdKHR");
-};
+	drainAndReportGLErrors("CAMetalDrawable");
+}
 
 //
 // helper classes
@@ -121,9 +109,14 @@ public:
 // with the existing CALayer implementation and just render to an image/texture.
 //
 // additionally, to avoid refactoring/reworking the existing CARenderer and CALayerContext code,
-// we render to a Vulkan image with exportable memory that we can import into an OpenGL texture,
-// along with a semaphore to synchronize the Vulkan rendering with OpenGL.
-//
+// we render to a Vulkan image and then hand its contents to an OpenGL texture. the handoff is a
+// copy through host-visible memory rather than a shared buffer handle, and that is a considered
+// choice rather than a shortcut. see -CAMetalDrawableTexture::synchronizeRender for the
+// measurement behind it; the short version is that Vulkan and OpenGL here are not necessarily
+// the same device (indium takes the first Vulkan physical device, while CGL's context comes from
+// whatever EGL display a window backend registered), no GL_EXT_semaphore exists to synchronize
+// a shared handle, and the GL_EXT_memory_object_fd import path is absent on the accelerated
+// context. so there is nothing to share; there is only a copy.
 
 //
 // texture
@@ -189,20 +182,13 @@ CAMetalDrawableTexture::CAMetalDrawableTexture(CGSize size, Indium::PixelFormat 
 		abort();
 	}
 
-	// now create the internal image (with exportable memory)
+	// now create the internal image, which precommit blits into
 	imgInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
 
-	// some drivers (e.g. AMD's drivers) don't play nice when sharing
-	// Vulkan images and OpenGL textures with optimal tiling
-	// (https://gitlab.freedesktop.org/mesa/mesa/-/issues/7657)
+	// LINEAR rather than OPTIMAL tiling, because the whole point of this image
+	// is that its contents get read on the host (see -synchronizeRender); an
+	// optimal-tiled image has no host-readable layout.
 	imgInfo.tiling = VK_IMAGE_TILING_LINEAR;
-
-	VkExternalMemoryImageCreateInfo extMemInfo {};
-
-	extMemInfo.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO;
-	extMemInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT;
-
-	imgInfo.pNext = &extMemInfo;
 
 	if (DynamicVK::vkCreateImage(_device->device(), &imgInfo, nullptr, &_internalImage) != VK_SUCCESS) {
 		// TODO
@@ -248,21 +234,17 @@ CAMetalDrawableTexture::CAMetalDrawableTexture(CGSize size, Indium::PixelFormat 
 		throw std::runtime_error("No suitable memory region found for internal image");
 	}
 
-	VkExportMemoryAllocateInfo exportAllocInfo {};
 	VkMemoryDedicatedAllocateInfo dedicatedInfo {};
 
 	allocInfo.allocationSize = reqs.size;
 	allocInfo.memoryTypeIndex = targetIndex;
 
-	exportAllocInfo.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO;
-	exportAllocInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT;
-
-	allocInfo.pNext = &exportAllocInfo;
-
+	// A dedicated allocation, and no export: this memory is read back on the
+	// host and uploaded to GL, not shared with it.
 	dedicatedInfo.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO;
 	dedicatedInfo.image = _internalImage;
 
-	exportAllocInfo.pNext = &dedicatedInfo;
+	allocInfo.pNext = &dedicatedInfo;
 
 	if (DynamicVK::vkAllocateMemory(_device->device(), &allocInfo, nullptr, &_internalMemory) != VK_SUCCESS) {
 		// TODO
@@ -362,60 +344,9 @@ CAMetalDrawableTexture::CAMetalDrawableTexture(CGSize size, Indium::PixelFormat 
 		abort();
 	}
 
-	//
-	// import the internal image into an OpenGL texture
-	//
-
-	// get an FD for the memory
-	VkMemoryGetFdInfoKHR getFDInfo {};
-
-	getFDInfo.sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR;
-	getFDInfo.memory = _internalMemory;
-	getFDInfo.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT;
-
-	int fd = -1;
-
-	if (DynamicVK::vkGetMemoryFdKHR(_device->device(), &getFDInfo, &fd) != VK_SUCCESS) {
-		// TODO
-		abort();
-	}
-
-	reportGLErrors();
-
-	// import the memory into OpenGL
-	glCreateMemoryObjectsEXT(1, &_memoryObject);
-	reportGLErrors();
-
-	// this transfers ownership of the FD to OpenGL
-	glImportMemoryFdEXT(_memoryObject, reqs.size, GL_HANDLE_TYPE_OPAQUE_FD_EXT, fd);
-	fd = -1;
-	reportGLErrors();
-
-	GLint prevTex = 0;
-	glGetIntegerv(GL_TEXTURE_BINDING_2D, &prevTex);
-
-	glCreateTextures(GL_TEXTURE_2D, 1, &_textureID);
-	reportGLErrors();
-	glTextureParameteri(_textureID, GL_TEXTURE_TILING_EXT, GL_LINEAR_TILING_EXT /*GL_OPTIMAL_TILING_EXT*/);
-	glTextureParameteri(_textureID, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTextureParameteri(_textureID, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTextureParameteri(_textureID, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTextureParameteri(_textureID, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	reportGLErrors();
-
-	glTextureStorageMem2DEXT(_textureID, 1, GL_RGBA8, _size.width, _size.height, _memoryObject, 0);
-	reportGLErrors();
-
-	glBindTexture(GL_TEXTURE_2D, prevTex);
 };
 
 CAMetalDrawableTexture::~CAMetalDrawableTexture() {
-	reportGLErrors();
-	glDeleteTextures(1, &_textureID);
-	reportGLErrors();
-	glDeleteMemoryObjectsEXT(1, &_memoryObject);
-	reportGLErrors();
-
 	DynamicVK::vkDestroyImageView(_device->device(), _imageView, nullptr);
 	DynamicVK::vkDestroyImage(_device->device(), _image, nullptr);
 	DynamicVK::vkFreeMemory(_device->device(), _memory, nullptr);
@@ -423,8 +354,125 @@ CAMetalDrawableTexture::~CAMetalDrawableTexture() {
 	DynamicVK::vkFreeMemory(_device->device(), _internalMemory, nullptr);
 };
 
-GLuint CAMetalDrawableTexture::glTexture() const {
-	return _textureID;
+// The handoff: read the rendered image back out of host-visible memory and
+// upload it into the GL texture the compositor samples.
+//
+// Why a copy and not a shared handle. Three things have to hold for a
+// zero-copy import, and none of them do on this platform:
+//
+//   - Both stacks must be on the same physical device. They are not.
+//     indium takes the first Vulkan physical device, and on an Asahi M1 that
+//     is the GPU ("Apple M1"); cocotron's CGL builds its context from the EGL
+//     display a window backend registered, and the X11/Xvfb path lands on
+//     llvmpipe, a CPU rasterizer. A dma-buf from the GPU is not memory llvmpipe
+//     can sample.
+//   - GL must have a dma-buf import path. On the accelerated context
+//     GL_EXT_memory_object and GL_EXT_memory_object_fd are both absent, so
+//     glCreateMemoryObjectsEXT fails with GL_INVALID_OPERATION. The X11 path does
+//     have them, but it is the mismatched one.
+//   - Something must synchronize the two. There is no GL_EXT_semaphore and no
+//     GL_ARB_semaphore on either context, so the old glImportSemaphoreFdEXT and
+//     glWaitSemaphoreEXT pair could not have worked even with a shared buffer.
+//
+// The old code tried this anyway, passing a Vulkan opaque fd to
+// glImportMemoryFdEXT. In GL that handle type means a dma-buf, and a Vulkan
+// opaque fd is not one, so the import silently produced a memory object with no
+// backing and glTextureStorageMem2DEXT then failed; with the errors now
+// reported that shows up as 3x GL_INVALID_OPERATION and an incomplete FBO, and
+// the layer stayed blank. A copy is slower, and it is the only thing that is
+// correct here.
+//
+// So: wait for the signal that says precommit's blit into _internalImage has
+// landed, map that image, and hand the rows to GL.
+void CAMetalDrawableTexture::synchronizeRender(GLuint texture, std::shared_ptr<Indium::BinarySemaphore> sema) {
+	if (sema) {
+		// A host-side wait, unlike the GL semaphore this replaces. The whole
+		// point of reading the image on the host is that we are on the CPU for
+		// this step anyway, so a GPU-side wait would buy nothing.
+		//
+		// The presentation semaphore is a binary one, and vkWaitSemaphores only
+		// accepts timeline semaphores, so the wait is expressed as an empty
+		// submission that waits on it and signals a fence. The queue is in
+		// order, so the fence cannot signal before the submit that carries
+		// precommit's blit -- and therefore the blit -- has completed.
+		VkFenceCreateInfo fenceInfo {};
+		fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+
+		VkFence fence = VK_NULL_HANDLE;
+		if (DynamicVK::vkCreateFence(_device->device(), &fenceInfo, nullptr, &fence) != VK_SUCCESS) {
+			NSLog(@"CAMetalDrawable: could not create a fence to wait on the drawable");
+			return;
+		}
+
+		VkSemaphore waitSemaphores[] = {sema->semaphore};
+
+		VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+
+		VkSubmitInfo submitInfo {};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.waitSemaphoreCount = 1;
+		submitInfo.pWaitSemaphores = waitSemaphores;
+		submitInfo.pWaitDstStageMask = &waitStage;
+
+		VkResult submitted = DynamicVK::vkQueueSubmit(_device->graphicsQueue(), 1, &submitInfo, fence);
+		VkResult waited = VK_SUCCESS;
+
+		if (submitted == VK_SUCCESS) {
+			waited = DynamicVK::vkWaitForFences(_device->device(), 1, &fence, VK_TRUE, UINT64_MAX);
+		}
+
+		DynamicVK::vkDestroyFence(_device->device(), fence, nullptr);
+
+		if (submitted != VK_SUCCESS || waited != VK_SUCCESS) {
+			// Returning here leaves the texture holding the previous frame,
+			// which is the failure this replaced, so say so rather than
+			// uploading stale contents silently.
+			NSLog(@"CAMetalDrawable: waiting for the drawable's render failed (submit %d, wait %d)",
+			       submitted, waited);
+			return;
+		}
+	}
+
+	// The image is LINEAR tiled, so its subresource layout is the host layout
+	// and the row pitch has to be honoured rather than assumed. It is usually
+	// width*4, but not necessarily, and assuming so would shear the image.
+	VkImageSubresource subresource {};
+	subresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	subresource.mipLevel = 0;
+	subresource.arrayLayer = 0;
+
+	VkSubresourceLayout layout {};
+	DynamicVK::vkGetImageSubresourceLayout(_device->device(), _internalImage, &subresource, &layout);
+
+	if (layout.rowPitch == 0 || layout.size == 0) {
+		NSLog(@"CAMetalDrawable: the drawable's internal image has no host layout");
+		return;
+	}
+
+	void* mapped = nullptr;
+	if (DynamicVK::vkMapMemory(_device->device(), _internalMemory, 0, VK_WHOLE_SIZE, 0, &mapped) != VK_SUCCESS) {
+		NSLog(@"CAMetalDrawable: could not map the drawable's internal image");
+		return;
+	}
+
+	// The memory is HOST_COHERENT (findSharedMemory only picks such a type), so
+	// the host sees the blit without an explicit invalidate.
+
+	const size_t rowPitch = layout.rowPitch;
+	const size_t height = _size.height;
+	const size_t width = _size.width;
+	const unsigned char* src = reinterpret_cast<const unsigned char*>(mapped) + layout.offset;
+
+
+	glPixelStorei(GL_UNPACK_ALIGNMENT, static_cast<GLint>(layout.rowPitch % 4 == 0 ? 4 : 1));
+	glPixelStorei(GL_UNPACK_ROW_LENGTH, static_cast<GLint>(rowPitch / 4));
+
+	glTextureSubImage2D(texture, 0, 0, 0, static_cast<GLsizei>(width), static_cast<GLsizei>(height),
+	                    GL_RGBA, GL_UNSIGNED_BYTE, src);
+
+	reportGLErrors();
+
+	DynamicVK::vkUnmapMemory(_device->device(), _internalMemory);
 };
 
 VkImageView CAMetalDrawableTexture::imageView() {
@@ -498,9 +546,29 @@ void CAMetalDrawableTexture::replaceRegion(Indium::Region region, size_t mipmapL
 	abort();
 };
 
+// Reading a drawable's texture back is not a thing an app can ask Metal for: the
+// drawable's texture is the layer's colour attachment, and -[MTLTexture getBytes:]
+// on it would hand back whatever the compositor has not consumed yet. Indium
+// declares these pure virtual, so a drawable texture has to answer; refuse
+// explicitly rather than return whatever happens to be in the image. Indium's own
+// failures travel as std::runtime_error, which -[MTLTexture getBytes:] turns into
+// an NSException, so throwing here surfaces as a normal Cocoa error to the caller.
+void CAMetalDrawableTexture::getBytes(Indium::Region region, size_t mipmapLevel, void* bytes, size_t bytesPerRow) {
+	throw std::runtime_error("Cannot read back a CAMetalDrawable's texture; "
+	                         "read back a texture you created instead");
+}
+
+void CAMetalDrawableTexture::getBytes(Indium::Region region, size_t mipmapLevel, size_t slice, void* bytes, size_t bytesPerRow, size_t bytesPerImage) {
+	throw std::runtime_error("Cannot read back a CAMetalDrawable's texture; "
+	                         "read back a texture you created instead");
+}
+
 void CAMetalDrawableTexture::precommit(std::shared_ptr<Indium::PrivateCommandBuffer> cmdbuf) {
-	// TODO: check if we need a barrier for the internal image as well; we probably do.
-	//       we might even need a separate semaphore for it.
+	// The blit below lands in _internalImage, which -synchronizeRender then reads
+	// on the host, so both images are transitioned and the blit is fenced by the
+	// submit this command buffer goes out in. The presentation semaphore that
+	// -synchronizeRender waits on is signalled by that same submit, which is what
+	// makes the host read of the internal image ordered after the blit.
 
 	VkImageMemoryBarrier barriers[2];
 
@@ -555,7 +623,11 @@ void CAMetalDrawableTexture::precommit(std::shared_ptr<Indium::PrivateCommandBuf
 };
 
 bool CAMetalDrawableTexture::needsExportablePresentationSemaphore() const {
-	return true;
+	// The presentation semaphore is waited on by the host in
+	// -synchronizeRender, never handed to another API, so it does not need to be
+	// exportable. It used to say yes because the semaphore was exported into a GL
+	// semaphore, which is gone along with the shared-memory handoff.
+	return false;
 };
 
 //
@@ -607,33 +679,12 @@ void CAMetalDrawableActual::present() {
 
 		[layer queuePresent: _drawableID];
 
+		// The semaphore is kept for -synchronizeRender to wait on, rather than
+		// exported into a GL semaphore. There is no GL_EXT_semaphore on either
+		// context, so the export could not have been imported; and since the
+		// handoff reads the image on the host anyway, the wait belongs on the
+		// host too.
 		_semaphore = _texture->synchronizePresentation();
-
-		if (_semaphore) {
-			int fd = -1;
-			VkSemaphoreGetFdInfoKHR info {};
-
-			info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR;
-			info.semaphore = _semaphore->semaphore;
-			info.handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT;
-
-			if (DynamicVK::vkGetSemaphoreFdKHR(_semaphore->device->device(), &info, &fd) != VK_SUCCESS) {
-				// TODO
-				abort();
-			}
-
-			CGLContextObj prev = CGLGetCurrentContext();
-			CGLSetCurrentContext(_glContext);
-
-			reportGLErrors();
-			glGenSemaphoresEXT(1, &_glSemaphore);
-			reportGLErrors();
-			glImportSemaphoreFdEXT(_glSemaphore, GL_HANDLE_TYPE_OPAQUE_FD_EXT, fd); // this consumes the FD
-			fd = -1;
-			reportGLErrors();
-
-			CGLSetCurrentContext(prev);
-		}
 	}
 }
 
@@ -687,13 +738,6 @@ void CAMetalDrawableActual::release() {
 };
 
 void CAMetalDrawableActual::reset() {
-	if (_glSemaphore != 0) {
-		reportGLErrors();
-		glDeleteSemaphoresEXT(1, &_glSemaphore);
-		_glSemaphore = 0;
-		reportGLErrors();
-	}
-
 	_semaphore = nullptr;
 	_wantsToPresentCallback = nullptr;
 	_didPresentCallback = nullptr;
@@ -701,10 +745,10 @@ void CAMetalDrawableActual::reset() {
 	_queued = false;
 };
 
-void CAMetalDrawableActual::synchronizeRender() {
-	GLuint tex = _texture->glTexture();
-	GLenum layout = GL_LAYOUT_GENERAL_EXT;
-	glWaitSemaphoreEXT(_glSemaphore, 0, NULL, 1, &tex, &layout);
+void CAMetalDrawableActual::synchronizeRender(GLuint texture) {
+	// Called from the layer context's render thread with that context's CGL
+	// context current, which is what the upload needs.
+	_texture->synchronizeRender(texture, _semaphore);
 };
 
 static void glDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* context) {
@@ -806,16 +850,37 @@ static void glDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severi
 	_drawable->present();
 }
 
+// Metal offers three ways to ask for a present, differing only in when the system
+// is asked to show the frame. This implementation has one clock: -queuePresent: hands
+// the drawable to the render timer, which composites it on the next display tick.
+// There is no timed queue, so a duration or a target time cannot be scheduled. Rather
+// than refuse a call the API treats as an ordinary present, present on that tick and
+// say once that the hint was dropped -- an app that paces itself should know its hint
+// is not being honoured instead of silently getting frames early.
+static void warnUnschedulablePresent(NSString* what, CFTimeInterval value) {
+	static int warned;
+	if (!__sync_lock_test_and_set(&warned, 1)) {
+		NSLog(@"CAMetalDrawable: %@ %.6f cannot be scheduled; presents go out on the next display tick",
+		      what, value);
+	}
+}
+
 - (void)presentAfterMinimumDuration: (CFTimeInterval)duration
 {
-	// TODO
-	abort();
+	if (duration > 0) {
+		warnUnschedulablePresent(@"presentAfterMinimumDuration:", duration);
+	}
+	[self present];
 }
 
 - (void)presentAtTime: (CFTimeInterval)presentationTime
 {
-	// TODO
-	abort();
+	// A time already in the past means "as soon as possible", which is exactly what
+	// the next tick delivers, so only a future time is a dropped hint.
+	if (presentationTime > CACurrentMediaTime()) {
+		warnUnschedulablePresent(@"presentAtTime:", presentationTime);
+	}
+	[self present];
 }
 
 - (void)addPresentedHandler: (MTLDrawablePresentedHandler)block
