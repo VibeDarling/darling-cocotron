@@ -3090,6 +3090,37 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
     [self scrollRangeToVisible: [self selectedRange]];
 }
 
+- (void) insertText: (id) object replacementRange: (NSRange) replacementRange {
+    if (![self isEditable])
+        return;
+    if (replacementRange.location == NSNotFound) {
+        [self insertText: object];
+        return;
+    }
+
+    NSUInteger length = [_textStorage length];
+    if (replacementRange.location > length ||
+        replacementRange.length > length - replacementRange.location)
+        [NSException raise: NSRangeException
+                    format: @"Text replacement range is outside the text storage"];
+
+    NSString *replacementString = [object isKindOfClass: [NSAttributedString class]]
+            ? [object string] : object;
+    if (![self shouldChangeTextInRange: replacementRange
+                    replacementString: replacementString])
+        return;
+
+    if (_rangeForUserCompletion.location != NSNotFound)
+        [self endUserCompletion];
+    // Do not set the selection to the replacement range: selection delegates
+    // may rewrite it. The existing replacement helper updates the caret later.
+    [self _replaceCharactersInRange: replacementRange
+                         withString: object
+             allowsTypingCoalescing: YES];
+    [self didChangeText];
+    [self scrollRangeToVisible: [self selectedRange]];
+}
+
 - (void) keyDown: (NSEvent *) event {
     if ([event type] == NSKeyDown && [self isEditable]) {
         _processingKeyEvent = YES;
