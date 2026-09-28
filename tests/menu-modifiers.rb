@@ -57,6 +57,8 @@ program = <<~'OBJC'
       item->key=characters=@"x";
       for(unsigned b=0;b<16;++b) for(unsigned e=0;e<16;++e) {
         item->flags=b<<17; eventFlags=(e<<17)|(1<<16)|(1<<21);
+        // Wayland retains Shift when constructing charactersIgnoringModifiers.
+        characters=(eventFlags & NSShiftKeyMask) ? @"X" : @"x";
         sends=0;
         assert([menu performKeyEquivalent:event] == (b==e));
         assert(sends == (b==e));
