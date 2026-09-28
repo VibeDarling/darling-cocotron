@@ -19,14 +19,20 @@ static void expect(BOOL condition, NSString *message) {
 
 int main(void) {
     @autoreleasepool {
+#ifndef PROBE_WITHOUT_PROVIDER
         expect([[UTType typeWithFilenameExtension:@"txt"].identifier isEqual:@"public.plain-text"],
                @"built-in plain-text registry is loaded");
+#endif
         ExtensionController *controller = [ExtensionController new];
         NSDictionary *plain = @{@"CFBundleTypeName": @"Plain document",
             @"LSItemContentTypes": @[@"public.plain-text"]};
         [controller setTypes:@[plain]];
+#ifdef PROBE_WITHOUT_PROVIDER
+        expect([controller typeFromFileExtension:@"txt"] == nil, @"optional provider unavailable");
+#else
         expect([[controller typeFromFileExtension:@"txt"] isEqual:@"Plain document"], @"UTI-only txt");
         expect([[controller typeFromFileExtension:@"TEXT"] isEqual:@"Plain document"], @"case and alias");
+#endif
         expect([controller typeFromFileExtension:@"png"] == nil, @"known but undeclared type");
         expect([controller typeFromFileExtension:@"darling-unregistered-extension-123"] == nil,
                @"dynamic UTI is not automatically a supported document type");
