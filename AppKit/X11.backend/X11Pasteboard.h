@@ -39,6 +39,12 @@ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
     NSArray<NSPasteboardType> *_remoteTypes;
     Window _remoteOwner;
     enum { WAITING, SUCCESS, NONE } _selectionNotifyResult;
+
+    // Set while a read is in flight. -propertyNotify: records that the owner
+    // wrote the receiving property, which is the only thing an INCR transfer
+    // waits for between chunks.
+    BOOL _readingProperty;
+    BOOL _propertyWritten;
 }
 
 - (instancetype) initWithName: (NSPasteboardName) name;
