@@ -41,6 +41,10 @@ FT_Face O2FontFreeTypeFace(O2Font_freetype *self);
 FT_Library O2FontSharedFreeTypeLibrary();
 FcConfig *O2FontSharedFontConfig();
 
+// Returns an owned font covering all supplied Unicode scalar values, or nil.
+O2FontRef O2FontCreateWithCodePointCoverage(const uint32_t *codePoints,
+                                           size_t count);
+
 - (O2FreeTypeCachedGlyph *) rasterizeGlyph: (O2Glyph) glyph
                                   pointSize: (O2Float) pointSize;
 
