@@ -18,14 +18,12 @@ insertion=<<~OBJC
   @interface DeferredFactoryProbe : NSImage @end
   @implementation DeferredFactoryProbe
   #{factory}
-  - (void)probeCache:(NSImageRep *)any {
+  - (void)probeCache:(NSImageRep *)any source:(NSRect)source destination:(NSRect)rect {
       NSImageRep *cachedRep=nil;
-      NSRect source=NSZeroRect;
-      NSRect rect=NSMakeRect(0,0,20,30);
       BOOL canCache=NO;
       CGContextRef context;
       #{cache}
-      [cachedRep drawInRect:NSMakeRect(0,0,20,30)];
+      [cachedRep drawInRect:rect];
   }
   @end
   static void testFactory(void) {
@@ -43,24 +41,31 @@ insertion=<<~OBJC
       puts("PASS: candidate image factory defers drawing and installs candidate representation");
       if (getenv("TEST_DESTINATION_SCALE")) {
           [NSApplication sharedApplication];
+          CGFloat scales[]={1,1.5,2};
+          for (unsigned si=0;si<3;++si) for (unsigned crop=0;crop<2;++crop) {
+          CGFloat scale=scales[si];
+          NSRect source=crop ? NSMakeRect(2,4,10,20) : NSZeroRect;
+          NSRect destination=crop ? NSMakeRect(0,0,10,20) : NSMakeRect(0,0,20,30);
           unsigned char pixels[64*64*4]={0};
           CGColorSpaceRef color=CGColorSpaceCreateDeviceRGB();
           CGContextRef port=CGBitmapContextCreate(pixels,64,64,8,64*4,color,kCGImageAlphaPremultipliedLast);
           CGColorSpaceRelease(color);
           assert(port!=NULL);
-          CGContextScaleCTM(port,2,2);
+          CGContextScaleCTM(port,scale,scale);
           NSGraphicsContext *context=[NSGraphicsContext graphicsContextWithGraphicsPort:port flipped:NO];
           [NSGraphicsContext setCurrentContext:context];
           __block CGFloat observed=0;
           DeferredFactoryProbe *scaled=[DeferredFactoryProbe imageWithSize:NSMakeSize(20,30)
               flipped:NO drawingHandler:^BOOL(NSRect rect) {
                   observed=CGContextGetCTM([[NSGraphicsContext currentContext] graphicsPort]).a;
+                  CGAffineTransform transform=CGContextGetCTM([[NSGraphicsContext currentContext] graphicsPort]);
+                  assert(transform.tx==-source.origin.x*scale && transform.ty==-source.origin.y*scale);
                   CGContextSetRGBFillColor([[NSGraphicsContext currentContext] graphicsPort],1,0,0,1);
                   CGContextFillRect([[NSGraphicsContext currentContext] graphicsPort],CGRectMake(0,0,20,30));
                   return YES;
               }];
-          [scaled probeCache:[[scaled representations] objectAtIndex:0]];
-          printf("Destination scale=2, handler cache scale=%g\\n",(double)observed);
+          [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
+          printf("Destination scale=%g crop=%u, handler cache scale=%g\\n",(double)scale,crop,(double)observed);
           unsigned painted=0,minX=64,minY=64,maxX=0,maxY=0;
           for (unsigned y=0;y<64;++y) {
               for (unsigned x=0;x<64;++x) {
@@ -74,10 +79,12 @@ insertion=<<~OBJC
               }
           }
           printf("Composited pixels=%u bounds=(%u,%u)-(%u,%u)\\n",painted,minX,minY,maxX,maxY);
-          assert(painted==2400 && maxX-minX+1==40 && maxY-minY+1==60);
-          assert(observed==2);
+          unsigned width=destination.size.width*scale, height=destination.size.height*scale;
+          assert(painted==width*height && maxX-minX+1==width && maxY-minY+1==height);
+          assert(observed==scale);
           [NSGraphicsContext setCurrentContext:nil];
           CGContextRelease(port);
+          }
           puts("PASS: temporary cache preserves destination scale");
       }
   }
