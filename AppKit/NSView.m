@@ -736,6 +736,20 @@ static inline void buildTransformsIfNeeded(NSView *self) {
     return NO;
 }
 
+- (NSUserInterfaceLayoutDirection) userInterfaceLayoutDirection {
+    if (_hasUserInterfaceLayoutDirection)
+        return _userInterfaceLayoutDirection;
+    return NSApp ? [NSApp userInterfaceLayoutDirection]
+                 : NSUserInterfaceLayoutDirectionLeftToRight;
+}
+
+- (void) setUserInterfaceLayoutDirection: (NSUserInterfaceLayoutDirection) direction {
+    _hasUserInterfaceLayoutDirection = YES;
+    _userInterfaceLayoutDirection = direction;
+    [self setNeedsLayout: YES];
+    [self setNeedsDisplay: YES];
+}
+
 - (BOOL) isOpaque {
     return NO;
 }

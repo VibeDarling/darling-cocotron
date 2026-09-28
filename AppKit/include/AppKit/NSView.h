@@ -24,6 +24,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSAnimation.h>
 #import <AppKit/NSGraphics.h>
 #import <AppKit/NSResponder.h>
+#import <AppKit/NSUserInterfaceLayout.h>
 #import <AppKit/NSUserInterfaceItemIdentification.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <AppKit/NSUserInterfaceItemIdentification.h>
@@ -152,8 +153,11 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
     BOOL _clipsToBounds;
     BOOL _hasPreparedContentRect;
     NSRect _preparedContentRect;
+    NSUserInterfaceLayoutDirection _userInterfaceLayoutDirection;
+    BOOL _hasUserInterfaceLayoutDirection;
 }
 
+@property NSUserInterfaceLayoutDirection userInterfaceLayoutDirection;
 @property(class, readonly) BOOL requiresConstraintBasedLayout;
 @property BOOL translatesAutoresizingMaskIntoConstraints;
 
