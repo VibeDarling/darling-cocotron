@@ -124,11 +124,13 @@ NSString *_NSTruncatedStringWithAttributesInRect(NSString *string,
 }
 
 - view {
-    if (_view == nil && _viewController != nil && !_loadingControllerView) {
+    while (_view == nil && _viewController != nil && !_loadingControllerView) {
         NSViewController *controller = [_viewController retain];
+        BOOL controllerChanged = NO;
         _loadingControllerView = YES;
         @try {
             NSView *view = [controller view];
+            controllerChanged = controller != _viewController;
             // Loading can replace the controller or install an explicit view.
             if (controller == _viewController && _view == nil && view != nil)
                 [self setView: view];
@@ -136,6 +138,8 @@ NSString *_NSTruncatedStringWithAttributesInRect(NSString *string,
             _loadingControllerView = NO;
             [controller release];
         }
+        if (!controllerChanged)
+            break;
     }
     return _view;
 }

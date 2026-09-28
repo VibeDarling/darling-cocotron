@@ -5,6 +5,8 @@ sdk=ARGV.fetch(0)
 root=ARGV[1] || File.expand_path('..',__dir__)
 source=File.read(File.join(root,'AppKit/NSTabViewItem.m'))
 methods=[source[/^- \(void\) setViewController:.*?^\}/m],source[/^- view \{.*?^\}/m],source[/^- \(void\) setView:.*?^\}/m]]
+methods += [source[/^\+ \(instancetype\) tabViewItemWithViewController:.*?^\}/m],
+            source[/^- initWithIdentifier:.*?^\}/m], source[/^- \(void\) dealloc.*?^\}/m]]
 abort 'missing method' if methods.any?(&:nil?)
 tab_source=File.read(File.join(root,'AppKit/NSTabView.m'))
 tab_methods=%w[selectTabViewItem _itemViewDidChange addTabViewItem].map do |name|
@@ -13,6 +15,12 @@ end
 program=<<~'OBJC'
   #import <Foundation/Foundation.h>
   #include <assert.h>
+  static unsigned controllerDeaths;
+  enum { NSBackgroundTab=1 };
+  @interface NSColor : NSObject @end
+  @implementation NSColor
+  + (id)controlColor { return [[[self alloc] init] autorelease]; }
+  @end
   @interface NSObject (ProbeCallbacks)
   - (void)setViewController:(id)value;
   - (void)_itemViewDidChange:(id)item;
@@ -30,6 +38,7 @@ program=<<~'OBJC'
   @end
   @interface NSViewController : NSObject { @public unsigned loads; NSView *content; id target,replacement; BOOL replaceDuringLoad,reenter,throwOnce; } @end
   @implementation NSViewController
+  - (void)dealloc { ++controllerDeaths; [super dealloc]; }
   - (id)view {
     ++loads;
     if(reenter) { reenter=NO; assert([target view]==nil); }
@@ -38,15 +47,15 @@ program=<<~'OBJC'
     return content;
   }
   @end
-  @interface Item : NSObject { @public NSViewController *_viewController; NSView *_view; id _initialFirstResponder,_tabView; BOOL _loadingControllerView; }
+  @interface Item : NSObject { @public NSViewController *_viewController; NSView *_view; id _initialFirstResponder,_tabView,_identifier,_label,_color; int _state; BOOL _loadingControllerView; }
+  - (id)initWithIdentifier:(id)value;
   @end
+  @compatibility_alias NSTabViewItem Item;
   @implementation Item
   METHODS
   - (id)initialFirstResponder { return _initialFirstResponder; }
   - (void)setTabView:(id)tab { _tabView=tab; }
-  - (void)dealloc { [_view release]; [_viewController release]; [super dealloc]; }
   @end
-  @compatibility_alias NSTabViewItem Item;
   @interface Tab : NSObject { @public Item *_selectedItem; id _delegate; NSMutableArray *_items; NSView *attached; } @end
   @implementation Tab
   TAB_METHODS
@@ -78,7 +87,7 @@ program=<<~'OBJC'
       second->content=b;
       first->target=item; first->replacement=second; first->replaceDuringLoad=YES;
       [item setViewController:first];
-      assert([item view]==nil); // A retired controller's returned view must not win.
+      assert([item view]==b); // Service the replacement, never install the retired result.
       assert(item->_viewController==second && [item view]==b);
       first->reenter=YES; first->throwOnce=YES;
       [item setViewController:first];
@@ -98,9 +107,23 @@ program=<<~'OBJC'
       assert(first->loads==1 && second->loads==1 && tabs->attached==b);
       [tabs selectTabViewItem:one];
       assert(first->loads==1 && second->loads==1 && tabs->attached==a);
+      first->target=two; first->replacement=second; first->replaceDuringLoad=YES;
+      [two setViewController:first];
+      [tabs selectTabViewItem:two];
+      assert(two->_viewController==second && two->_view==b && tabs->attached==b);
       one->_tabView=two->_tabView=nil;
       [one release]; [two release]; [tabs release];
       [first release]; [second release]; [a release]; [b release];
+      unsigned deaths=controllerDeaths;
+      Item *held;
+      @autoreleasepool {
+        NSViewController *owned=[NSViewController new];
+        held=[[Item tabViewItemWithViewController:owned] retain];
+        assert(owned->loads==0 && held->_viewController==owned);
+        [owned release]; assert(controllerDeaths==deaths);
+      }
+      assert(controllerDeaths==deaths); // Factory autorelease did not consume our retain.
+      [held release]; assert(controllerDeaths==deaths+1);
       puts("PASS: deferred/cached load, replacement, nil, stale-result rejection, recursive load and exception recovery");
     }
   }
