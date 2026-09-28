@@ -32,6 +32,16 @@ program=<<~'OBJC'
   @implementation NSAppearance
   + (id)currentAppearance { abort(); }
   @end
+  @interface HandlerCache : NSObject
+  - (NSUInteger)generation;
+  - (id)representationForKey:(id)key;
+  - (BOOL)setRepresentation:(id)rep forKey:(id)key byteCost:(NSUInteger)cost;
+  @end
+  @implementation HandlerCache
+  - (NSUInteger)generation { abort(); }
+  - (id)representationForKey:(id)key { abort(); }
+  - (BOOL)setRepresentation:(id)rep forKey:(id)key byteCost:(NSUInteger)cost { abort(); }
+  @end
   static BOOL drawResult;
   static BOOL throwDraw;
   static BOOL throwSize;
@@ -75,6 +85,7 @@ program=<<~'OBJC'
   @interface Image : NSObject { @public BOOL _cacheIsValid, scales, _isFlipped; id cachedRep, _backgroundColor; int _cacheMode; NSMutableArray *_scaledRepCache; }
   @end
   @implementation Image
+  - (HandlerCache *)_drawingHandlerCache { abort(); }
   - (NSSize)size {
     if (throwSize) [NSException raise:@"SizeFailure" format:@"fixture"];
     return NSMakeSize(20,20);
