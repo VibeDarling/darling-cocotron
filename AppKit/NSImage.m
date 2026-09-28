@@ -25,6 +25,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSEPSImageRep.h>
 #import <AppKit/NSGraphicsContextFunctions.h>
 #import <AppKit/NSImage.h>
+#import <AppKit/NSAppearance.h>
+#import "NSImageDrawingCache.h"
 #import <AppKit/NSImageRep.h>
 #import <AppKit/NSPDFImageRep.h>
 #import <AppKit/NSPasteboard.h>
@@ -626,6 +628,7 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
     [_accessibilityDescription release];
     [_symbolConfiguration release];
     [_scaledRepCache release];
+    [_drawingHandlerRepCache release];
     [super dealloc];
 }
 
@@ -638,6 +641,7 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
     result->_accessibilityDescription = [_accessibilityDescription copy];
     result->_symbolConfiguration = [_symbolConfiguration retain];
     result->_scaledRepCache = nil;
+    result->_drawingHandlerRepCache = nil;
 
     return result;
 }
@@ -748,12 +752,14 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
 }
 
 - (void) setBackgroundColor: (NSColor *) value {
+    [_drawingHandlerRepCache removeAllObjects];
     value = [value copy];
     [_backgroundColor release];
     _backgroundColor = value;
 }
 
 - (void) setFlipped: (BOOL) value {
+    [_drawingHandlerRepCache removeAllObjects];
     _isFlipped = value;
 }
 
@@ -778,6 +784,7 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
 }
 
 - (void) setCacheMode: (NSImageCacheMode) value {
+    [_drawingHandlerRepCache removeAllObjects];
     _cacheMode = value;
 }
 
@@ -809,6 +816,7 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
 - (void) addRepresentation: (NSImageRep *) representation {
     if (representation != nil) {
         [_representations addObject: representation];
+        [_drawingHandlerRepCache removeAllObjects];
         [_scaledRepCache removeAllObjects];
     }
 }
@@ -821,6 +829,7 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
 }
 
 - (void) removeRepresentation: (NSImageRep *) representation {
+    [_drawingHandlerRepCache removeAllObjects];
     [_representations removeObjectIdenticalTo: representation];
     [_scaledRepCache removeAllObjects];
 }
@@ -998,6 +1007,7 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
 }
 
 - (void) recache {
+    [_drawingHandlerRepCache removeAllObjects];
     // This doesn't actually remove the cache, it just marks it as invalid
     // This is important because you can change the size of a drawn image
     // and it doesn't destroy the cache. It is recached next time it is drawn.
@@ -1383,6 +1393,12 @@ static NSUInteger scaledRepCacheBytes(NSArray *cache) {
     return scaled;
 }
 
+- (NSImageDrawingCache *) _drawingHandlerCache {
+    if (_drawingHandlerRepCache == nil)
+        _drawingHandlerRepCache = [NSImageDrawingCache new];
+    return _drawingHandlerRepCache;
+}
+
 - (void) drawInRect: (NSRect) rect
            fromRect: (NSRect) source
           operation: (NSCompositingOperation) operation
@@ -1419,6 +1435,7 @@ static NSUInteger scaledRepCacheBytes(NSArray *cache) {
         NSSize cachedSize = useSourceRect ? source.size : uncachedSize;
         NSSize logicalCacheSize = cachedSize;
         CGFloat cacheScaleX = 1, cacheScaleY = 1;
+        NSArray *drawingCacheKey = nil;
         BOOL usesDrawingHandler =
                 [uncached isKindOfClass: [NSCustomImageRep class]] &&
                 [(NSCustomImageRep *)uncached drawingHandler] != nil;
@@ -1434,52 +1451,74 @@ static NSUInteger scaledRepCacheBytes(NSArray *cache) {
                 cachedSize = NSMakeSize(width, height);
                 cacheScaleX = width / logicalCacheSize.width;
                 cacheScaleY = height / logicalCacheSize.height;
+                if (_cacheMode != NSImageCacheNever &&
+                    [NSGraphicsContext currentContext] != nil) {
+                    drawingCacheKey = @[
+                        uncached, [NSGraphicsContext currentContext],
+                        [NSValue valueWithRect: source], [NSValue valueWithRect: rect],
+                        [NSValue valueWithSize: [self size]],
+                        [NSValue valueWithSize: uncachedSize],
+                        @(destination.a), @(destination.b), @(destination.c),
+                        @(destination.d), @(destination.tx), @(destination.ty),
+                        @(_isFlipped), _backgroundColor ?: (id)[NSNull null],
+                        [NSAppearance currentAppearance] ?: (id)[NSNull null]
+                    ];
+                    cachedRep = [[self _drawingHandlerCache]
+                            representationForKey: drawingCacheKey];
+                }
             }
         }
 
-        // Create a cached image rep to hold our image
-        NSCachedImageRep *cached =
-                [[[NSCachedImageRep alloc] initWithSize: cachedSize
-                                                  depth: 0
-                                               separate: YES
-                                                  alpha: YES]
-                        autorelease]; // remember that pool we created earlier
+        if (cachedRep == nil) {
+            // Create a cached image rep to hold our image
+            NSCachedImageRep *cached =
+                    [[[NSCachedImageRep alloc] initWithSize: cachedSize
+                                                      depth: 0
+                                                   separate: YES
+                                                      alpha: YES]
+                            autorelease]; // remember that pool we created earlier
 
-        // a non-nil object passed here means we need to manually add the rep
-        [self lockFocusOnRepresentation: cached];
+            // a non-nil object passed here means we need to manually add the rep
+            [self lockFocusOnRepresentation: cached];
 
-        context = NSCurrentGraphicsPort();
-        if (usesDrawingHandler && _isFlipped) {
-            // lockFocus installed an image-sized flip before the cache's
-            // density/crop transform. Undo it before setting up that transform;
-            // the flipped-image adjustment below is in source coordinates.
-            CGContextTranslateCTM(context, 0, [self size].height);
-            CGContextScaleCTM(context, 1, -1);
+            context = NSCurrentGraphicsPort();
+            if (usesDrawingHandler && _isFlipped) {
+                // lockFocus installed an image-sized flip before the cache's
+                // density/crop transform. Undo it before setting up that transform;
+                // the flipped-image adjustment below is in source coordinates.
+                CGContextTranslateCTM(context, 0, [self size].height);
+                CGContextScaleCTM(context, 1, -1);
+            }
+            CGContextScaleCTM(context, cacheScaleX, cacheScaleY);
+            if (useSourceRect) {
+                // move to the origin of the source rect - remember we've locked
+                // focus so we've got a fresh CTM to work with
+                CGContextTranslateCTM(context, -source.origin.x, -source.origin.y);
+            }
+            if (_isFlipped) {
+                // Flip the CTM so the image is drawn the right way up in the cache
+                CGContextTranslateCTM(context, 0, uncachedSize.height);
+                CGContextScaleCTM(context, 1, -1);
+            }
+            // Draw into the new cache rep
+            BOOL rendered = [self drawRepresentation: uncached
+                              inRect: NSMakeRect(0, 0, uncachedSize.width,
+                                                 uncachedSize.height)];
+
+            [self unlockFocus];
+
+            // And keep it if it makes sense
+            if (usesDrawingHandler) {
+                if (rendered && drawingCacheKey != nil)
+                    [[self _drawingHandlerCache] setRepresentation: cached
+                            forKey: drawingCacheKey
+                            byteCost: (NSUInteger)cachedSize.width * (NSUInteger)cachedSize.height * 4];
+            } else if (canCache) {
+                [self addRepresentation: cached];
+            }
+
+            cachedRep = cached;
         }
-        CGContextScaleCTM(context, cacheScaleX, cacheScaleY);
-        if (useSourceRect) {
-            // move to the origin of the source rect - remember we've locked
-            // focus so we've got a fresh CTM to work with
-            CGContextTranslateCTM(context, -source.origin.x, -source.origin.y);
-        }
-        if (_isFlipped) {
-            // Flip the CTM so the image is drawn the right way up in the cache
-            CGContextTranslateCTM(context, 0, uncachedSize.height);
-            CGContextScaleCTM(context, 1, -1);
-        }
-        // Draw into the new cache rep
-        [self drawRepresentation: uncached
-                          inRect: NSMakeRect(0, 0, uncachedSize.width,
-                                             uncachedSize.height)];
-
-        [self unlockFocus];
-
-        // And keep it if it makes sense
-        if (canCache) {
-            [self addRepresentation: cached];
-        }
-
-        cachedRep = cached;
     }
 
     // A full bitmap drawn scaled this frame is very likely to be drawn at the

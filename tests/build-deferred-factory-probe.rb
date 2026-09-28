@@ -21,9 +21,18 @@ insertion=<<~OBJC
   #import <AppKit/NSBitmapImageRep.h>
   #import "#{root}/AppKit/NSGraphicsContextFunctions.h"
   #import <AppKit/NSApplication.h>
+  #import <AppKit/NSAppearance.h>
+  #import "#{root}/AppKit/NSImageDrawingCache.m"
   #include <string.h>
-  @interface DeferredFactoryProbe : NSImage @end
+  // Staged NSImage does not have the candidate's new cache ivar. Supply storage
+  // in this subclass; the extracted lookup/population uses the same accessor.
+  @interface DeferredFactoryProbe : NSImage { NSImageDrawingCache *_probeDrawingCache; } @end
   @implementation DeferredFactoryProbe
+  - (NSImageDrawingCache *)_drawingHandlerCache {
+      if (_probeDrawingCache==nil) _probeDrawingCache=[NSImageDrawingCache new];
+      return _probeDrawingCache;
+  }
+  - (void)dealloc { [_probeDrawingCache release]; [super dealloc]; }
   #{factory}
   #{selection}
   - (void)probeCache:(NSImageRep *)any source:(NSRect)source destination:(NSRect)rect {

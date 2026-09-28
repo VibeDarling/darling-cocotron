@@ -56,6 +56,7 @@ typedef enum {
     NSString *_accessibilityDescription;
     NSImageSymbolConfiguration *_symbolConfiguration;
     NSMutableArray *_scaledRepCache;
+    id _drawingHandlerRepCache;
 }
 
 + (NSArray *) imageFileTypes;
