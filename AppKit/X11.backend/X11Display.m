@@ -1532,6 +1532,10 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
                 [window setLastKnownCursorPosition: devicePos];
             }
 
+            // Button2Mask is the middle button, not the right one, so reading
+            // it as a right drag made a middle-button drag indistinguishable
+            // from a right-button one. AppKit has no NSOtherMouseDragged, so
+            // the other buttons only move the mouse, as on macOS.
             type = NSMouseMoved;
 
             if (ev->xmotion.state & Button1Mask) {
