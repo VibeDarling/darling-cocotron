@@ -1417,6 +1417,23 @@ static NSUInteger scaledRepCacheBytes(NSArray *cache) {
         NSSize uncachedSize = [uncached size];
         BOOL useSourceRect = NSIsEmptyRect(source) ? NO : YES;
         NSSize cachedSize = useSourceRect ? source.size : uncachedSize;
+        NSSize logicalCacheSize = cachedSize;
+        CGFloat cacheScaleX = 1, cacheScaleY = 1;
+        if ([uncached isKindOfClass: [NSCustomImageRep class]] &&
+            [(NSCustomImageRep *)uncached drawingHandler] != nil) {
+            CGAffineTransform destination = CGContextGetCTM(NSCurrentGraphicsPort());
+            CGFloat width = ceil(ABS(rect.size.width) *
+                    hypot(destination.a, destination.b));
+            CGFloat height = ceil(ABS(rect.size.height) *
+                    hypot(destination.c, destination.d));
+            if (logicalCacheSize.width > 0 && logicalCacheSize.height > 0 &&
+                width >= 1 && height >= 1 &&
+                width * height <= 16 * 1024 * 1024 / 4) {
+                cachedSize = NSMakeSize(width, height);
+                cacheScaleX = width / logicalCacheSize.width;
+                cacheScaleY = height / logicalCacheSize.height;
+            }
+        }
 
         // Create a cached image rep to hold our image
         NSCachedImageRep *cached =
@@ -1430,6 +1447,7 @@ static NSUInteger scaledRepCacheBytes(NSArray *cache) {
         [self lockFocusOnRepresentation: cached];
 
         context = NSCurrentGraphicsPort();
+        CGContextScaleCTM(context, cacheScaleX, cacheScaleY);
         if (useSourceRect) {
             // move to the origin of the source rect - remember we've locked
             // focus so we've got a fresh CTM to work with

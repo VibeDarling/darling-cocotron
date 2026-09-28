@@ -21,6 +21,7 @@ insertion=<<~OBJC
   - (void)probeCache:(NSImageRep *)any {
       NSImageRep *cachedRep=nil;
       NSRect source=NSZeroRect;
+      NSRect rect=NSMakeRect(0,0,20,30);
       BOOL canCache=NO;
       CGContextRef context;
       #{cache}
