@@ -20,6 +20,14 @@ program=<<~'OBJC'
   - (NSPoint)locationInWindow { return point; }
   @end
   static int fills, strokes;
+  static BOOL checkPoints;
+  static NSRect drawingBounds;
+  static void checkPoint(NSPoint p) {
+    if (checkPoints) {
+      assert(p.x>=NSMinX(drawingBounds) && p.x<=NSMaxX(drawingBounds));
+      assert(p.y>=NSMinY(drawingBounds) && p.y<=NSMaxY(drawingBounds));
+    }
+  }
   @interface NSColor : NSObject
   + (id)controlTextColor;
   + (id)disabledControlTextColor;
@@ -40,8 +48,8 @@ program=<<~'OBJC'
   @end
   @implementation NSBezierPath
   + (id)bezierPath { return [[[self alloc] init] autorelease]; }
-  - (void)moveToPoint:(NSPoint)p {}
-  - (void)lineToPoint:(NSPoint)p {}
+  - (void)moveToPoint:(NSPoint)p { checkPoint(p); }
+  - (void)lineToPoint:(NSPoint)p { checkPoint(p); }
   - (void)closePath {}
   - (void)fill { fills++; }
   - (void)stroke { strokes++; }
@@ -119,7 +127,11 @@ program=<<~'OBJC'
   - (BOOL)validateUserInterfaceItem:(id)item { return YES; }
   BASE_VALIDATION
   - (void)drawInRect:(NSRect)bounds highlighted:(BOOL)highlighted {}
-  - (NSSize)sizeForSizeMode:(NSToolbarSizeMode)s displayMode:(NSToolbarDisplayMode)d minSize:(NSSize)a maxSize:(NSSize)b { return NSMakeSize(40,32); }
+  - (NSSize)sizeForSizeMode:(NSToolbarSizeMode)s displayMode:(NSToolbarDisplayMode)d minSize:(NSSize)a maxSize:(NSSize)b {
+    CGFloat width=MAX(40,a.width);
+    if (b.width>0) width=MIN(width,b.width);
+    return NSMakeSize(width,32);
+  }
   - (void)dealloc { [_menuFormRepresentation release]; [super dealloc]; }
   @end
   @interface NSToolbarItemView : NSObject { @public id owner, window; }
@@ -231,6 +243,19 @@ program=<<~'OBJC'
       [item drawInRect:[view bounds] highlighted:NO];
       assert(fills==1 && strokes==1);
       item->action=NULL;
+      [item setShowsIndicator:YES];
+      assert([item sizeForSizeMode:0 displayMode:0 minSize:NSMakeSize(60,0) maxSize:NSZeroSize].width==60);
+      assert([item sizeForSizeMode:0 displayMode:0 minSize:NSZeroSize maxSize:NSMakeSize(48,0)].width==48);
+      assert([item sizeForSizeMode:0 displayMode:0 minSize:NSZeroSize maxSize:NSMakeSize(4,0)].width==4);
+      drawingBounds=NSMakeRect(10,20,4,1); checkPoints=YES;
+      [item drawInRect:drawingBounds highlighted:NO];
+      assert(fills==2 && strokes==1); // decorative menu-only indicator
+      item->action=@selector(description);
+      [item drawInRect:drawingBounds highlighted:NO];
+      assert(fills==3 && strokes==2);
+      [item drawInRect:NSZeroRect highlighted:NO];
+      assert(fills==3 && strokes==2);
+      checkPoints=NO; item->action=NULL;
       [item validate]; assert([item isEnabled]);
       [item setEnabled:NO]; [item validate]; assert(![item isEnabled]);
       [item setEnabled:YES]; item->action=@selector(description);
