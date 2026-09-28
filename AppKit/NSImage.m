@@ -1464,15 +1464,17 @@ static NSUInteger scaledRepCacheBytes(NSArray *cache) {
                 if (!isfinite(logicalCacheSize.width) ||
                     !isfinite(logicalCacheSize.height) ||
                     logicalCacheSize.width <= 0 || logicalCacheSize.height <= 0 ||
-                    !isfinite(width) || !isfinite(height) || width < 1 || height < 1)
+                    !isfinite(width) || !isfinite(height) || width < 1 || height < 1 ||
+                    width > INT32_MAX || height > INT32_MAX)
                     return;
-                if (logicalCacheSize.width > 0 && logicalCacheSize.height > 0 &&
-                    width >= 1 && height >= 1 &&
-                    width * height <= 16 * 1024 * 1024 / 4) {
+                {
+                    // Retention policy must not reduce rendering resolution.
+                    // Oversized rasters are transient, not logical-size fallbacks.
                     cachedSize = NSMakeSize(width, height);
                     cacheScaleX = width / logicalCacheSize.width;
                     cacheScaleY = height / logicalCacheSize.height;
-                    if (_cacheMode != NSImageCacheNever &&
+                    if (width * height <= 16 * 1024 * 1024 / 4 &&
+                        _cacheMode != NSImageCacheNever &&
                         [NSGraphicsContext currentContext] != nil) {
                         drawingCacheKey = @[
                             uncached, [NSGraphicsContext currentContext],
