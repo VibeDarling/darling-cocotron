@@ -10,11 +10,17 @@ program=<<~'OBJC'
   #include <assert.h>
   typedef NSString *NSToolbarItemIdentifier;
   static int menuDeaths;
+  @class NSEvent, NSView;
+  static id trackedMenu, trackedEvent, trackedView;
   @interface NSMenu : NSObject
   - (id)initWithTitle:(NSString*)title;
+  + (void)popUpContextMenu:(id)menu withEvent:(id)event forView:(id)view;
   @end
   @implementation NSMenu
   - (id)initWithTitle:(NSString*)title { return [super init]; }
+  + (void)popUpContextMenu:(id)menu withEvent:(id)event forView:(id)view {
+    trackedMenu=menu; trackedEvent=event; trackedView=view;
+  }
   - (void)dealloc { menuDeaths++; [super dealloc]; }
   @end
   @interface NSMenuItem : NSObject { @public NSMenu *submenu; }
@@ -25,11 +31,12 @@ program=<<~'OBJC'
   - (void)dealloc { [submenu release]; [super dealloc]; }
   @end
   @interface NSToolbarItem : NSObject {
-    @public NSMenuItem *_menuFormRepresentation; int redraws;
+    @public NSMenuItem *_menuFormRepresentation; int redraws; SEL action;
   }
   - (id)initWithItemIdentifier:(NSString*)identifier;
   - (NSMenuItem*)menuFormRepresentation;
   - (void)_didChange;
+  - (SEL)action;
   @end
   @implementation NSToolbarItem
   - (id)initWithItemIdentifier:(NSString*)identifier { return [super init]; }
@@ -38,6 +45,7 @@ program=<<~'OBJC'
     return _menuFormRepresentation;
   }
   - (void)_didChange { redraws++; }
+  - (SEL)action { return action; }
   - (void)dealloc { [_menuFormRepresentation release]; [super dealloc]; }
   @end
   SOURCE
@@ -56,6 +64,12 @@ program=<<~'OBJC'
       [item setShowsIndicator:NO]; assert(item->redraws==2 && ![item showsIndicator]);
       [item setShowsIndicator:NO]; assert(item->redraws==2);
       [item setMenu:nil]; assert([item menu]!=nil && representation->submenu==[item menu]);
+      id event=[NSObject new], view=[NSObject new];
+      assert([item _trackMenuWithEvent:event inView:view]);
+      assert(trackedMenu==[item menu] && trackedEvent==event && trackedView==view);
+      trackedMenu=nil; item->action=@selector(description);
+      assert(![item _trackMenuWithEvent:event inView:view] && trackedMenu==nil);
+      [event release]; [view release];
       [item release];
     }
     assert(menuDeaths==3);
