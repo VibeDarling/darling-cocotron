@@ -215,10 +215,27 @@ static const NSTimeInterval SelectionTimeout = 5;
 // An owner that is gone, or that ignores the request, never answers at all, so
 // the wait is bounded by a deadline the caller shares across its attempts
 // instead of hanging the caller forever.
-- (NSData *) receiveDataForTarget: (Atom) target
+ - (NSData *) receiveDataForTarget: (Atom) target
                           format: (int) format
                         deadline: (NSTimeInterval) deadline
 {
+    // This method pumps the whole run loop, so any other pasteboard read reached from a
+    // run-loop callback would nest inside it. There is one receiving property and one
+    // outstanding-reply slot per object, so a nested read would delete the property the
+    // outer call is waiting on and leave the outer loop reading a reply state it did not
+    // set - it could return the nested call's bytes as its own. Refuse instead, loudly,
+    // rather than corrupt either call. Serving concurrent requests properly needs a
+    // property per in-flight transfer, which is a design change to request correlation.
+    if (_awaitingTarget != None) {
+        char *rawTarget = XGetAtomName(_display, target);
+        NSLog(@"X11 pasteboard: refusing a re-entrant request for target %s on %@, "
+              "another transfer is already in flight",
+              rawTarget ? rawTarget : "?", _name);
+        if (rawTarget != NULL)
+            XFree(rawTarget);
+        return nil;
+    }
+
     if ([NSDate timeIntervalSinceReferenceDate] >= deadline)
         return nil;
 
