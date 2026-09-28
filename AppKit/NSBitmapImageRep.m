@@ -232,12 +232,23 @@ NSBitmapImageRepPropertyKey NSImageCurrentFrame = @"NSImageCurrentFrame";
     }
 
     _bitmapPlanes = NSZoneCalloc(NULL, numberOfPlanes, sizeof(unsigned char *));
+    if (_bitmapPlanes == NULL) {
+        [self release];
+        return nil;
+    }
     for (i = 0; i < numberOfPlanes; i++) {
         if (!_freeWhenDone)
             _bitmapPlanes[i] = planes[i];
-        else
+        else {
             _bitmapPlanes[i] =
                     NSZoneCalloc(NULL, _bytesPerRow * _pixelsHigh, 1);
+            if (_bitmapPlanes[i] == NULL) {
+                // The table is zero-initialized: dealloc safely frees only
+                // the owned planes allocated before this failure.
+                [self release];
+                return nil;
+            }
+        }
     }
 
     return self;
