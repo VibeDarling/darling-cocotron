@@ -28,6 +28,14 @@ SOFTWARE. */
 
 @implementation NSMenuToolbarItem
 
+// Called by the enclosing toolbar view before its ordinary action tracking.
+- (BOOL)_trackMenuWithEvent: (NSEvent *) event inView: (NSView *) view {
+    if ([self action] != NULL)
+        return NO;
+    [NSMenu popUpContextMenu: _menu withEvent: event forView: view];
+    return YES;
+}
+
 - (instancetype)initWithItemIdentifier: (NSToolbarItemIdentifier) identifier {
     if ((self = [super initWithItemIdentifier: identifier])) {
         _menu = [[NSMenu alloc] initWithTitle: @""];
