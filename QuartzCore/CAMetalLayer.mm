@@ -564,12 +564,16 @@ static void reportGLErrors(void) {
 	[_drawableCondition unlock];
 
 	if (drawable) {
-		// wait for the drawable to be fully rendered before copying it to the render texture
-		// (this is a GPU-side wait)
-		drawable->synchronizeRender();
-
-		reportGLErrors();
-		glCopyImageSubData(drawable->texture()->glTexture(), GL_TEXTURE_2D, 0, 0, 0, 0, _tex, GL_TEXTURE_2D, 0, 0, 0, 0, _drawableSize.width, _drawableSize.height, 1);
+		// The drawable's rendered contents go straight into _tex, which is what
+		// -_drawLayerContents:bounds:opacity: binds and what -_textureId hands
+		// out, so the composite sees them.
+		//
+		// This used to be a glCopyImageSubData from a GL texture the drawable
+		// owned into _tex. That call fails here with GL_INVALID_ENUM and copies
+		// nothing, so even a correct handoff into the drawable's own texture
+		// would have left _tex empty. Handing the destination to the upload is
+		// also one copy fewer per frame.
+		drawable->synchronizeRender(_tex);
 		reportGLErrors();
 	}
 

@@ -34,9 +34,10 @@ class CAMetalDrawableTexture: public Indium::PrivateTexture {
 	VkImage _image = VK_NULL_HANDLE;
 	VkDeviceMemory _memory = VK_NULL_HANDLE;
 	VkImageView _imageView = VK_NULL_HANDLE;
-	GLuint _textureID = 0;
-	GLuint _memoryObject = 0;
 	Indium::PixelFormat _pixelFormat;
+	// A linear, RGBA8 image that precommit blits into, and whose memory is host
+	// visible so its contents can be read back and handed to GL. See
+	// -synchronizeRender for why the handoff is a copy and not a shared handle.
 	VkImage _internalImage = VK_NULL_HANDLE;
 	VkDeviceMemory _internalMemory = VK_NULL_HANDLE;
 	bool _framebufferOnly = false;
@@ -45,7 +46,17 @@ public:
 	CAMetalDrawableTexture(CGSize size, Indium::PixelFormat pixelFormat, bool framebufferOnly, std::shared_ptr<Indium::PrivateDevice> privateDevice);
 	virtual ~CAMetalDrawableTexture();
 
-	GLuint glTexture() const;
+	// Reads the rendered contents of this drawable out of the host-visible
+	// internal image and uploads them into `texture`, after waiting for
+	// whatever `sema` covers. Called from the layer context's render thread
+	// with that context's CGL context current.
+	//
+	// The destination is the layer's own composite texture rather than a
+	// texture of our own, because the copy that used to follow this upload went
+	// through glCopyImageSubData, which does not work here: it fails with
+	// GL_INVALID_ENUM and copies nothing. Uploading straight into the texture
+	// that gets bound for the composite also saves a full-size copy per frame.
+	void synchronizeRender(GLuint texture, std::shared_ptr<Indium::BinarySemaphore> sema);
 
 	virtual VkImageView imageView() override;
 	virtual VkImage image() override;
@@ -76,7 +87,6 @@ private:
 	std::shared_ptr<CAMetalDrawableTexture> _texture = nullptr;
 	CAMetalLayerInternal* _layer = nil;
 	std::shared_ptr<Indium::BinarySemaphore> _semaphore = nullptr;
-	GLuint _glSemaphore = 0;
 	std::function<void()> _wantsToPresentCallback = nullptr;
 	std::function<void()> _didPresentCallback = nullptr;
 	NSUInteger _drawableID = NSUIntegerMax;
@@ -99,7 +109,7 @@ public:
 
 	void disown();
 
-	void synchronizeRender();
+	void synchronizeRender(GLuint texture);
 
 	void didPresent();
 	void didDrop();
