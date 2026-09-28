@@ -108,6 +108,30 @@ insertion=<<~OBJC
           CGContextFillRect(referencePort,CGRectMake(2,0,1,1));
           assert(memcmp(reference,reference+4,4)!=0);
           CGContextRelease(referencePort);
+          // Opt-in regression: currently fails because the retention budget
+          // incorrectly controls rendering density. Keep the correct expectation.
+          if (getenv("TEST_LARGE_DESTINATION")) {
+              unsigned char pixel[4]={0};
+              CGColorSpaceRef space=CGColorSpaceCreateDeviceRGB();
+              CGContextRef largePort=CGBitmapContextCreate(pixel,1,1,8,4,space,kCGImageAlphaPremultipliedLast);
+              CGColorSpaceRelease(space);
+              assert(largePort!=NULL);
+              [NSGraphicsContext setCurrentContext:[NSGraphicsContext graphicsContextWithGraphicsPort:largePort flipped:NO]];
+              __block CGFloat density=0;
+              DeferredFactoryProbe *large=[DeferredFactoryProbe imageWithSize:NSMakeSize(20,20)
+                  flipped:NO drawingHandler:^BOOL(NSRect rect) {
+                      density=CGContextGetCTM(NSCurrentGraphicsPort()).a;
+                      return YES;
+                  }];
+              [large probeCache:[[large representations] objectAtIndex:0]
+                  source:NSZeroRect destination:NSMakeRect(0,0,2049,2049)];
+              printf("Large destination: expected density=102.45 observed=%g\\n",density);
+              assert(fabs(density-102.45)<0.000001);
+              assert([[large _drawingHandlerCache] byteCost]==0);
+              [NSGraphicsContext setCurrentContext:nil];
+              CGContextRelease(largePort);
+              puts("PASS: over-budget destination preserves density without retaining raster");
+          }
           CGFloat scales[]={1,1.5,2};
           for (unsigned si=0;si<3;++si) for (unsigned crop=0;crop<2;++crop) {
           CGFloat scale=scales[si];
