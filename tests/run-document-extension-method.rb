@@ -16,7 +16,9 @@ prelude = <<~'OBJC'
   - (NSString *)identifier;
   @end
   static NSString *resolved;
+  #ifndef PROBE_NO_PROVIDER
   @implementation UTType
+  #ifndef PROBE_OLD_PROVIDER
   + (instancetype)typeWithFilenameExtension:(NSString *)extension {
       NSString *lower = [extension lowercaseString];
       resolved = ([lower isEqual:@"txt"] || [lower isEqual:@"text"]) ? @"public.plain-text" :
@@ -24,7 +26,9 @@ prelude = <<~'OBJC'
       return [[[self alloc] init] autorelease];
   }
   - (NSString *)identifier { return resolved; }
+  #endif
   @end
+  #endif
   @interface NSDocumentController : NSObject {
   @protected
       NSArray *_fileTypes;
@@ -39,9 +43,14 @@ abort 'GCC include discovery failed' unless status.success?
 Dir.mktmpdir('document-extensions') do |dir|
   input = File.join(dir, 'probe.m'); executable = File.join(dir, 'probe')
   File.write(input, prelude + method + "\n@end\n" + fixture)
-  abort 'compile failed' unless system(ENV.fetch('CC', 'clang'), '-O2', '-fobjc-runtime=gcc',
+  variants = { 'available' => [], 'absent' => ['-DPROBE_WITHOUT_PROVIDER', '-DPROBE_NO_PROVIDER'],
+               'older API' => ['-DPROBE_WITHOUT_PROVIDER', '-DPROBE_OLD_PROVIDER', '-Wno-incomplete-implementation'] }
+  variants.each do |name, flags|
+  puts "Provider: #{name}"
+  abort 'compile failed' unless system(ENV.fetch('CC', 'clang'), *flags, '-O2', '-fobjc-runtime=gcc',
     '-fconstant-string-class=NSConstantString', "-I#{sdk}/usr/include/GNUstep",
     "-I#{gcc_include.strip}", input, "-L#{sdk}/usr/lib", "-Wl,-rpath,#{sdk}/usr/lib",
     '-lgnustep-base', '-lobjc', '-o', executable)
   abort 'method test failed' unless system(executable, rlimit_core: 0)
+  end
 end
