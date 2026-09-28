@@ -548,10 +548,17 @@ static NSData *makeWindowIcon() {
 }
 
 - (void) setTitle: (NSString *) title {
-    XTextProperty prop;
-    const char *text = [title cString];
-    XStringListToTextProperty((char **) &text, 1, &prop);
-    XSetWMName(_display, _window, &prop);
+    NSData *utf8 = [(title ?: @"") dataUsingEncoding: NSUTF8StringEncoding
+                                     allowLossyConversion: YES];
+    Atom utf8String = XInternAtom(_display, "UTF8_STRING", False);
+    const unsigned char *bytes = [utf8 bytes];
+    int length = (int) [utf8 length];
+
+    XChangeProperty(_display, _window, XInternAtom(_display, "WM_NAME", False),
+                    utf8String, 8, PropModeReplace, bytes, length);
+    XChangeProperty(_display, _window,
+                    XInternAtom(_display, "_NET_WM_NAME", False), utf8String,
+                    8, PropModeReplace, bytes, length);
 }
 
 - (void) setFrame: (O2Rect) frame {
