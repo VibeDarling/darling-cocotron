@@ -133,9 +133,11 @@ insertion=<<~OBJC
           }
           // Opt-in because this regression allocates an over-budget raster.
           if (getenv("TEST_LARGE_DESTINATION")) {
-              unsigned char pixel[4]={0};
+              const size_t side=2051, raster=2049;
+              unsigned char *pixel=calloc(side*side,4);
+              assert(pixel!=NULL);
               CGColorSpaceRef space=CGColorSpaceCreateDeviceRGB();
-              CGContextRef largePort=CGBitmapContextCreate(pixel,1,1,8,4,space,kCGImageAlphaPremultipliedLast);
+              CGContextRef largePort=CGBitmapContextCreate(pixel,side,side,8,side*4,space,kCGImageAlphaPremultipliedLast);
               CGColorSpaceRelease(space);
               assert(largePort!=NULL);
               [NSGraphicsContext setCurrentContext:[NSGraphicsContext graphicsContextWithGraphicsPort:largePort flipped:NO]];
@@ -145,19 +147,42 @@ insertion=<<~OBJC
                   flipped:NO drawingHandler:^BOOL(NSRect rect) {
                       ++largeCalls;
                       density=CGContextGetCTM(NSCurrentGraphicsPort()).a;
+                      CGContextSetRGBFillColor(NSCurrentGraphicsPort(),1,0,0,1);
+                      CGContextFillRect(NSCurrentGraphicsPort(),CGRectMake(0,0,20,20));
+                      CGContextSetRGBFillColor(NSCurrentGraphicsPort(),0,0,1,1);
+                      CGContextFillRect(NSCurrentGraphicsPort(),CGRectMake(0,0,20,8));
+                      CGContextSetRGBFillColor(NSCurrentGraphicsPort(),0,1,0,1);
+                      CGContextFillRect(NSCurrentGraphicsPort(),CGRectMake(1000.0/102.45,0,1.0/102.45,20));
                       return YES;
                   }];
               [large probeCache:[[large representations] objectAtIndex:0]
-                  source:NSZeroRect destination:NSMakeRect(0,0,2049,2049)];
+                  source:NSZeroRect destination:NSMakeRect(1,1,raster,raster)];
               printf("Large destination: expected density=102.45 observed=%g\\n",density);
               assert(fabs(density-102.45)<0.000001);
               assert([[large _drawingHandlerCache] byteCost]==0);
+              size_t painted=0;
+              for (size_t y=0;y<side;++y) for (size_t x=0;x<side;++x) {
+                  unsigned char *p=pixel+(y*side+x)*4;
+                  BOOL nonzero=p[0]||p[1]||p[2]||p[3];
+                  assert(nonzero==(x>0 && x<side-1 && y>0 && y<side-1));
+                  if (nonzero) ++painted;
+              }
+              assert(painted==raster*raster);
+              assert(memcmp(pixel+(10*side+10)*4,reference,4)==0);
+              assert(memcmp(pixel+((side-10)*side+10)*4,reference+4,4)==0);
+              assert(memcmp(pixel+(10*side+1001)*4,reference+8,4)==0);
+              assert(memcmp(pixel+(10*side+1000)*4,reference,4)==0);
+              assert(memcmp(pixel+(10*side+1002)*4,reference,4)==0);
+              memset(pixel,0,side*side*4);
               [large probeCache:[[large representations] objectAtIndex:0]
-                  source:NSZeroRect destination:NSMakeRect(0,0,2049,2049)];
+                  source:NSZeroRect destination:NSMakeRect(1,1,raster,raster)];
               assert(largeCalls==2 && fabs(density-102.45)<0.000001);
               assert([[large _drawingHandlerCache] byteCost]==0);
+              assert(memcmp(pixel+(10*side+1001)*4,reference+8,4)==0);
               [NSGraphicsContext setCurrentContext:nil];
               CGContextRelease(largePort);
+              free(pixel);
+              puts("PASS: full over-budget raster extent, orientation and single-pixel detail");
               puts("PASS: over-budget destination preserves density without retaining raster");
           }
           CGFloat scales[]={1,1.5,2};
