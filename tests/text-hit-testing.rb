@@ -2,11 +2,12 @@
 require 'tmpdir'
 require 'open3'
 sdk = ARGV.fetch(0)
-source = File.read(File.expand_path('../AppKit/NSTextView.subproj/NSTextView.m', __dir__))
+source = File.read(ARGV[1] || File.expand_path('../AppKit/NSTextView.subproj/NSTextView.m', __dir__))
 method = source[/^- \(NSUInteger\) characterIndexForPoint:.*?^\}/m] or abort 'method missing'
 program = <<~'OBJC'
   #import <Foundation/Foundation.h>
   #include <assert.h>
+  #define NSUnimplementedMethod() ((void)0)
   @interface NSWindow : NSObject @end
   @implementation NSWindow
   - (NSPoint)convertScreenToBase:(NSPoint)p { return NSMakePoint(p.x-100,p.y-200); }
@@ -39,6 +40,12 @@ program = <<~'OBJC'
   - (NSPoint)textContainerOrigin { return NSMakePoint(3,7); }
   - (NSPoint)convertPoint:(NSPoint)p fromView:(id)v {
     assert(v==nil); return NSMakePoint(p.x-10,80-p.y);
+  }
+  // Adapter for the private implementation's view-level glyph lookup.
+  - (NSUInteger)glyphIndexForPoint:(NSPoint)p fractionOfDistanceThroughGlyph:(CGFloat *)f {
+    NSPoint origin=[self textContainerOrigin];
+    p.x-=origin.x; p.y-=origin.y;
+    return [manager glyphIndexForPoint:p inTextContainer:container fractionOfDistanceThroughGlyph:f];
   }
   ACTUAL_METHOD
   @end
@@ -73,5 +80,6 @@ Dir.mktmpdir('text-hit-testing') do |dir|
   abort 'compile failed' unless system('clang','-fobjc-runtime=gcc','-fconstant-string-class=NSConstantString',
     "-I#{sdk}/usr/include/GNUstep","-I#{gcc.strip}",input,"-L#{sdk}/usr/lib",
     "-Wl,-rpath,#{sdk}/usr/lib",'-lgnustep-base','-lobjc','-o',output)
+  Process.setrlimit(Process::RLIMIT_CORE, 0)
   abort 'probe failed' unless system(output)
 end
