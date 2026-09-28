@@ -89,14 +89,19 @@ static const NSTimeInterval SelectionTimeout = 5;
     _changeCount++;
 }
 
-- (NSInteger) clearContents {
+ - (NSInteger) clearContents {
     [self ensureSelectionOwner];
 
-    for (id owner in [_typeToOwner allValues]) {
-        [owner pasteboardChangedOwner: self];
-    }
+    // Notify from a snapshot, after the table is already empty. A pasteboard owner is
+    // client code and may write to the pasteboard from its own callback, which would
+    // otherwise mutate _typeToOwner while -allValues is still iterating it.
+    NSArray *owners = [_typeToOwner allValues];
     [_typeToOwner removeAllObjects];
     [_typeToData removeAllObjects];
+
+    for (id owner in owners) {
+        [owner pasteboardChangedOwner: self];
+    }
 
     return _changeCount;
 }
