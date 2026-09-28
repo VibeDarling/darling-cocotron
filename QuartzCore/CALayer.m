@@ -8,6 +8,7 @@
 #import <Onyx2D/O2Image.h>
 #import "CACoding.h"
 #import <objc/runtime.h>
+#import "CATransactionInternal.h"
 
 NSString *const kCAFilterLinear = @"linear";
 NSString *const kCAFilterNearest = @"nearest";
@@ -155,7 +156,8 @@ static char swiftUIViewTestPropertiesAssociationKey;
 - (void) setPosition: (CGPoint) value {
     CAAnimation *animation = [self animationForKey: @"position"];
 
-    if (animation == nil && ![CATransaction disableActions]) {
+    if (animation == nil && [CATransaction hasOpenTransaction] &&
+        ![CATransaction disableActions]) {
         id action = [self actionForKey: @"position"];
 
         if (action != nil)
@@ -172,7 +174,8 @@ static char swiftUIViewTestPropertiesAssociationKey;
 - (void) setBounds: (CGRect) value {
     CAAnimation *animation = [self animationForKey: @"bounds"];
 
-    if (animation == nil && ![CATransaction disableActions]) {
+    if (animation == nil && [CATransaction hasOpenTransaction] &&
+        ![CATransaction disableActions]) {
         id action = [self actionForKey: @"bounds"];
 
         if (action != nil)
@@ -220,7 +223,8 @@ static char swiftUIViewTestPropertiesAssociationKey;
 - (void) setOpacity: (CGFloat) value {
     CAAnimation *animation = [self animationForKey: @"opacity"];
 
-    if (animation == nil && ![CATransaction disableActions]) {
+    if (animation == nil && [CATransaction hasOpenTransaction] &&
+        ![CATransaction disableActions]) {
         id action = [self actionForKey: @"opacity"];
 
         if (action != nil)
