@@ -24,6 +24,7 @@ SOFTWARE. */
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSEvent.h>
 #import <AppKit/NSView.h>
+#import "NSToolbar.subproj/NSToolbarItemView.h"
 #import <Foundation/NSDate.h>
 
 @interface NSToolbarItem (NSMenuToolbarItemPrivate)
@@ -33,9 +34,14 @@ SOFTWARE. */
 @implementation NSMenuToolbarItem
 
 // Called by the enclosing toolbar view before its ordinary action tracking.
-- (BOOL)_trackMenuWithEvent: (NSEvent *) event inView: (NSView *) view {
+- (BOOL)_trackMenuWithEvent: (NSEvent *) event inView: (NSToolbarItemView *) view {
     if (_trackingMenu || ![self isEnabled])
         return YES;
+    id window = [[view window] retain];
+    if (window == nil || [view toolbarItem] != self) {
+        [window release];
+        return YES;
+    }
     [self retain];
     [event retain];
     [view retain];
@@ -48,7 +54,8 @@ SOFTWARE. */
                                          untilDate: [NSDate dateWithTimeIntervalSinceNow: 0.5]
                                             inMode: NSEventTrackingRunLoopMode
                                            dequeue: NO];
-        if (![self isEnabled])
+        if (![self isEnabled] || [view window] != window ||
+            [view toolbarItem] != self)
             return YES;
         if (next != nil)
             return NO;
@@ -62,6 +69,7 @@ SOFTWARE. */
     return YES;
     } @finally {
         _trackingMenu = NO;
+        [window release];
         [view release];
         [event release];
         [self release];

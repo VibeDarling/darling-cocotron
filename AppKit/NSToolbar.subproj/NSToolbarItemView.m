@@ -38,7 +38,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @end
 
 @interface NSMenuToolbarItem (NSToolbarItemViewTracking)
-- (BOOL)_trackMenuWithEvent: (NSEvent *)event inView: (NSView *)view;
+- (BOOL)_trackMenuWithEvent: (NSEvent *)event inView: (NSToolbarItemView *)view;
 @end
 
 @implementation NSToolbarItemView
@@ -56,6 +56,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (void) setToolbarItem: (NSToolbarItem *) item {
     _toolbarItem = item;
+}
+
+- (NSToolbarItem *) toolbarItem {
+    return _toolbarItem;
 }
 
 - (void) setSubview: (NSView *) view {
