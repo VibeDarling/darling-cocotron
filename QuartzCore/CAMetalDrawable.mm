@@ -442,7 +442,14 @@ void CAMetalDrawableTexture::synchronizeRender(GLuint texture, std::shared_ptr<I
 	subresource.arrayLayer = 0;
 
 	VkSubresourceLayout layout {};
-	DynamicVK::vkGetImageSubresourceLayout(_device->device(), _internalImage, &subresource, &layout);
+	static PFN_vkGetImageSubresourceLayout pfnGetLayout = nullptr;
+	if (!pfnGetLayout) {
+		pfnGetLayout = (PFN_vkGetImageSubresourceLayout)DynamicVK::vkGetInstanceProcAddr(
+			Indium::globalInstance, "vkGetImageSubresourceLayout");
+	}
+	if (pfnGetLayout) {
+		pfnGetLayout(_device->device(), _internalImage, &subresource, &layout);
+	}
 
 	if (layout.rowPitch == 0 || layout.size == 0) {
 		NSLog(@"CAMetalDrawable: the drawable's internal image has no host layout");
