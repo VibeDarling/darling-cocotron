@@ -1517,12 +1517,14 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
         NSLog(@"ReparentNotify");
         break;
 
-    case ConfigureNotify:
+    case ConfigureNotify: {
+        NSSize oldSize = [window lastReportedSize];
         [window frameChanged];
         [delegate platformWindow: window
                     frameChanged: [window frame]
-                         didSize: YES];
+                         didSize: !NSEqualSizes(oldSize, [window lastReportedSize])];
         break;
+    }
 
     case ConfigureRequest:
         NSLog(@"ConfigureRequest");

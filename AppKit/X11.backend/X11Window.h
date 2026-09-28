@@ -43,6 +43,7 @@
 
     NSMutableDictionary *_deviceDictionary;
     O2Rect _frame;
+    NSSize _lastReportedSize;
     NSUInteger _styleMask;
     BOOL _mapped;
     CGPoint _lastMotionPos;
@@ -60,6 +61,7 @@
 + (void) removeDecorationForWindow: (Window) w onDisplay: (Display *) dpy;
 - (instancetype) initWithDelegate: (NSWindow *) delegate;
 - (O2Rect) frame;
+- (NSSize) lastReportedSize;
 - (Visual *) visual;
 - (Drawable) drawable;
 - (NSPoint) transformPoint: (NSPoint) pos;
