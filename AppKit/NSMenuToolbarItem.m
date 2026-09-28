@@ -22,6 +22,10 @@ SOFTWARE. */
 #import <AppKit/NSMenu.h>
 #import <AppKit/NSMenuItem.h>
 
+@interface NSToolbarItem (NSMenuToolbarItemPrivate)
+- (void)_didChange;
+@end
+
 @implementation NSMenuToolbarItem
 
 - (instancetype)initWithItemIdentifier: (NSToolbarItemIdentifier) identifier {
@@ -47,6 +51,24 @@ SOFTWARE. */
 - (void)dealloc {
     [_menu release];
     [super dealloc];
+}
+
+- (void)setMenu: (NSMenu *) menu {
+    if (menu == _menu)
+        return;
+    NSMenu *replacement = menu ? [menu retain] : [[NSMenu alloc] initWithTitle: @""];
+    NSMenu *previous = _menu;
+    _menu = replacement;
+    [_menuFormRepresentation setSubmenu: _menu];
+    [previous release];
+    [self _didChange];
+}
+
+- (void)setShowsIndicator: (BOOL) showsIndicator {
+    if (_showsIndicator == showsIndicator)
+        return;
+    _showsIndicator = showsIndicator;
+    [self _didChange];
 }
 
 @synthesize menu = _menu;
