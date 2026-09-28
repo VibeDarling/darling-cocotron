@@ -56,7 +56,11 @@ static const NSUInteger drawingCacheEntryLimit = 4;
     return YES;
 }
 - (void) removeAllObjects {
+    ++_generation;
     [_entries removeAllObjects];
     _byteCost = 0;
+}
+- (NSUInteger) generation {
+    return _generation;
 }
 @end

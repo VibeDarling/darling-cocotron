@@ -5,9 +5,11 @@
 @interface NSImageDrawingCache : NSObject {
     NSMutableArray *_entries;
     NSUInteger _byteCost;
+    NSUInteger _generation;
 }
 - (id) representationForKey: (id) key;
 - (BOOL) setRepresentation: (id) representation forKey: (id<NSCopying>) key
                  byteCost: (NSUInteger) cost;
 - (void) removeAllObjects;
+- (NSUInteger) generation;
 @end

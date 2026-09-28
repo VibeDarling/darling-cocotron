@@ -1449,6 +1449,7 @@ static NSUInteger scaledRepCacheBytes(NSArray *cache) {
             NSSize logicalCacheSize = cachedSize;
             CGFloat cacheScaleX = 1, cacheScaleY = 1;
             NSArray *drawingCacheKey = nil;
+            NSUInteger drawingCacheGeneration = 0;
             BOOL usesDrawingHandler =
                     [uncached isKindOfClass: [NSCustomImageRep class]] &&
                     [(NSCustomImageRep *)uncached drawingHandler] != nil;
@@ -1478,6 +1479,7 @@ static NSUInteger scaledRepCacheBytes(NSArray *cache) {
                         ];
                         cachedRep = [[self _drawingHandlerCache]
                                 representationForKey: drawingCacheKey];
+                        drawingCacheGeneration = [[self _drawingHandlerCache] generation];
                     }
                 }
             }
@@ -1531,7 +1533,10 @@ static NSUInteger scaledRepCacheBytes(NSArray *cache) {
 
                 // And keep it if it makes sense
                 if (usesDrawingHandler) {
-                    if (rendered && drawingCacheKey != nil)
+                    // A handler may invalidate its image while drawing. Do not
+                    // publish a result computed before that invalidation.
+                    if (rendered && drawingCacheKey != nil &&
+                        drawingCacheGeneration == [[self _drawingHandlerCache] generation])
                         [[self _drawingHandlerCache] setRepresentation: cached
                                 forKey: drawingCacheKey
                                 byteCost: (NSUInteger)cachedSize.width * (NSUInteger)cachedSize.height * 4];

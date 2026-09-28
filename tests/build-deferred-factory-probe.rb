@@ -102,9 +102,12 @@ insertion=<<~OBJC
           __block CGFloat observed=0;
           __block unsigned renderCalls=0;
           __block BOOL renderResult=YES, renderThrows=NO;
-          DeferredFactoryProbe *scaled=[DeferredFactoryProbe imageWithSize:NSMakeSize(20,30)
+          __block BOOL invalidateDuringDraw=NO;
+          __block DeferredFactoryProbe *scaled=nil;
+          scaled=[DeferredFactoryProbe imageWithSize:NSMakeSize(20,30)
               flipped:NO drawingHandler:^BOOL(NSRect rect) {
                   ++renderCalls;
+                  if (invalidateDuringDraw) [scaled setCacheMode:NSImageCacheAlways];
                   observed=CGContextGetCTM([[NSGraphicsContext currentContext] graphicsPort]).a;
                   CGAffineTransform transform=CGContextGetCTM([[NSGraphicsContext currentContext] graphicsPort]);
                   if (!getenv("TEST_IMAGE_FLIPPED"))
@@ -191,6 +194,16 @@ insertion=<<~OBJC
               assert(renderCalls==8 && [[scaled representations] count]==1);
               assert(memcmp(low,reference+4,4)==0 && memcmp(high,reference,4)==0);
               puts("PASS: failed/throwing handlers restore context, do not publish, and retry successfully");
+              [scaled setCacheMode:NSImageCacheAlways];
+              invalidateDuringDraw=YES;
+              [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
+              assert(renderCalls==9);
+              invalidateDuringDraw=NO;
+              [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
+              assert(renderCalls==10);
+              [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
+              assert(renderCalls==10);
+              puts("PASS: invalidation during drawing prevents stale cache publication");
           }
           [NSGraphicsContext setCurrentContext:nil];
           CGContextRelease(port);
