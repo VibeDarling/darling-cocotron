@@ -860,6 +860,10 @@ static BOOL windowManagerIsRunning(Display *display) {
     return [self transformFrame: _frame];
 }
 
+- (NSSize) lastReportedSize {
+    return _lastReportedSize;
+}
+
 static int ignoreBadWindow(Display *display, XErrorEvent *errorEvent) {
     if (errorEvent->error_code == BadWindow)
         return 0;
@@ -907,6 +911,10 @@ static int ignoreBadWindow(Display *display, XErrorEvent *errorEvent) {
         // XGetGeometry reports device pixels; _frame is in logical points, so
         // un-scale once here rather than at every reader.
         CGFloat scale = [self backingScaleFactor];
+        // Keep server-observed size separate from setFrame:'s requested frame.
+        // Otherwise a programmatic resize looks unchanged when X confirms it.
+        _lastReportedSize = NSMakeSize(rect.size.width / scale,
+                                      rect.size.height / scale);
         [self invalidateContextWithNewSize:
                  NSMakeSize(rect.size.width / scale, rect.size.height / scale)];
         // X geometry is top-left origin and -frame applies transformFrame:, so flip it
