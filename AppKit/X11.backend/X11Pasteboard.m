@@ -19,15 +19,48 @@ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 
 #import "X11Pasteboard.h"
 
+// The Wayland backend bounds its clipboard transfers the same way, so the two
+// backends accept the same payloads.
+static const NSUInteger TransferLimit = 16 * 1024 * 1024;
+
+// One INCR transfer we are serving. The requestor names the property and
+// acknowledges each chunk by deleting it, so this cannot be state on the
+// pasteboard: several requestors pull at once, each with its own property on its
+// own window.
+@interface X11PasteboardIncrTransfer : NSObject {
+@public
+    Window requestor;
+    Atom property;
+    Atom type;
+    int format;
+    NSData *data;
+    NSUInteger offset;
+    NSTimeInterval deadline;
+}
+@end
+
+@implementation X11PasteboardIncrTransfer
+- (void) dealloc {
+    [data release];
+    [super dealloc];
+}
+@end
+
+// A chunk has to fit into a single ChangeProperty: the server rejects a request
+// longer than the maximum-request-length agreed during the handshake. Half of it
+// leaves room for the rest of the request, and is far more than a chunk needs.
+static size_t MaximumPropertyBytes(Display *display) {
+    long units = XExtendedMaxRequestSize(display);
+    if (units <= 0)
+        units = 65535; // what the protocol guarantees without BIG-REQUESTS
+    return (size_t) units * 4 / 2;
+}
+
 @implementation X11Pasteboard
 
 static NSMutableDictionary<NSPasteboardName, X11Pasteboard *> *nameToPboard;
 
 static const NSTimeInterval SelectionTimeout = 5;
-
-// The Wayland backend bounds its clipboard transfers the same way, so the two
-// backends accept the same payloads.
-static const NSUInteger TransferLimit = 16 * 1024 * 1024;
 
 + (X11Pasteboard *) pasteboardWithName: (NSPasteboardName) name {
     static dispatch_once_t once;
@@ -57,6 +90,7 @@ static const NSUInteger TransferLimit = 16 * 1024 * 1024;
     _receivingProperty = XInternAtom(_display, "RECEIVING_PROPERTY", False);
     _incrAtom = XInternAtom(_display, "INCR", False);
     _targetsAtom = XInternAtom(_display, "TARGETS", False);
+    _incrTransfers = [NSMutableDictionary new];
 
     int screen = DefaultScreen(_display);
     _window = XCreateSimpleWindow(_display, RootWindow(_display, screen), -10,
@@ -118,6 +152,13 @@ static const NSUInteger TransferLimit = 16 * 1024 * 1024;
     // -clearContents below accounts for the change, and it runs either way.
     [self clearContents];
 
+    // Whatever a requestor is part-way through pulling, we are about to stop
+    // being able to finish: say so instead of leaving it waiting.
+    for (X11PasteboardIncrTransfer *transfer in [_incrTransfers allValues]) {
+        [self endIncrementalTransfer: transfer
+                              reason: @"the pasteboard is no longer the selection owner"];
+    }
+
     [_typeToOwner release];
     _typeToOwner = nil;
 
@@ -141,6 +182,7 @@ static const NSUInteger TransferLimit = 16 * 1024 * 1024;
     XDestroyWindow(_display, _window);
 
     [_remoteTypes release];
+    [_incrTransfers release];
     [_name release];
     [super dealloc];
 }
@@ -631,12 +673,154 @@ static const NSUInteger TransferLimit = 16 * 1024 * 1024;
         return;
     }
 
-    // TODO: INCR
+    if ([data length] > MaximumPropertyBytes(_display)) {
+        // ICCCM 2.7.2: too much for one property write, so hand it over as INCR.
+        // The marker and the reply go out now, and the requestor's
+        // acknowledgements drive the rest, so nothing here waits on the peer.
+        [self startIncrementalTransferForRequest: event format: 8 data: data];
+        reply(YES);
+        return;
+    }
 
     XChangeProperty(_display, event->requestor, event->property, event->target,
                     8, PropModeReplace, [data bytes], [data length]);
 
     reply(YES);
+}
+
+// Every path out of a transfer goes through here, which stops claiming the
+// requestor's window: its acknowledgements have stopped mattering, and leaving
+// the claim in place would keep the pasteboard receiving events for a transfer
+// that is over. A nil reason means the transfer finished on its own terms.
+- (void) endIncrementalTransfer: (X11PasteboardIncrTransfer *) transfer
+                         reason: (NSString *) reason
+{
+    XSelectInput(_display, transfer->requestor, NoEventMask);
+    [(X11Display *) [NSDisplay currentDisplay] setWindow: nil
+                                                 forID: transfer->requestor];
+    [_incrTransfers removeObjectForKey:
+            [NSNumber numberWithUnsignedLong: transfer->requestor]];
+
+    if (reason != nil) {
+        NSLog(@"X11 pasteboard: abandoning an incremental transfer of %@ to window "
+              "%lu, %@", _name, (unsigned long) transfer->requestor, reason);
+    }
+}
+
+- (void) startIncrementalTransferForRequest: (XSelectionRequestEvent *) request
+                                     format: (int) format
+                                      data: (NSData *) data
+{
+    X11PasteboardIncrTransfer *transfer =
+            [[[X11PasteboardIncrTransfer alloc] init] autorelease];
+    transfer->requestor = request->requestor;
+    transfer->property = request->property;
+    transfer->type = request->target;
+    transfer->format = format;
+    transfer->data = [data retain];
+    transfer->deadline = [NSDate timeIntervalSinceReferenceDate] + SelectionTimeout;
+
+    NSNumber *key = [NSNumber numberWithUnsignedLong: transfer->requestor];
+    X11PasteboardIncrTransfer *previous = [_incrTransfers objectForKey: key];
+    if (previous != nil) {
+        [self endIncrementalTransfer: previous
+                              reason: @"the requestor asked for the transfer again"];
+    }
+    // Before any request below: the marker releases the requestor, and its
+    // acknowledgement must find the transfer already in the table.
+    [_incrTransfers setObject: transfer forKey: key];
+
+    // The acknowledgements arrive as PropertyNotify events on the requestor's
+    // own window, which the pasteboard does not own and so would never be
+    // dispatched. Claiming the window is the same mechanism - and the only one
+    // - by which -propertyNotify: is reached at all: X11Display hands every
+    // event it receives to the object registered for the event's window, and
+    // drops it otherwise. Only PropertyChangeMask is selected on it, so the only
+    // events that window can produce are the ones this transfer waits for.
+    [(X11Display *) [NSDisplay currentDisplay] setWindow: self
+                                                 forID: transfer->requestor];
+    // Before the marker is written, or the acknowledgement that releases the
+    // first chunk could arrive before we are listening for it.
+    XSelectInput(_display, transfer->requestor, PropertyChangeMask);
+
+    // The marker has to be in place before the caller sends the reply: the
+    // requestor reads the property as soon as it sees one.
+    XChangeProperty(_display, transfer->requestor, transfer->property, _incrAtom,
+                    8, PropModeReplace, NULL, 0);
+    XFlush(_display);
+
+    [self scheduleIncrementalTransferExpiry];
+}
+
+// The requestor deleted the property, so it has read the chunk and is ready for
+// the next one.
+- (void) sendNextIncrementalChunk: (X11PasteboardIncrTransfer *) transfer {
+    NSUInteger remaining = [transfer->data length] - transfer->offset;
+
+    if (remaining == 0) {
+        // A zero-length property of the real type is what ends the transfer. A
+        // chunk is never empty, so the requestor cannot confuse the two.
+        XChangeProperty(_display, transfer->requestor, transfer->property,
+                        transfer->type, transfer->format, PropModeReplace, NULL, 0);
+        XFlush(_display);
+        [self endIncrementalTransfer: transfer reason: nil];
+        return;
+    }
+
+    // A property holds whole items - a 32-format property moves 4 bytes per
+    // item - so a chunk that split one would not be what the requestor expects.
+    NSUInteger itemSize = transfer->format / 8;
+    if (itemSize == 0)
+        itemSize = 1;
+    NSUInteger perChunk = MaximumPropertyBytes(_display) / itemSize;
+    NSUInteger items = remaining / itemSize;
+    if (items > perChunk)
+        items = perChunk;
+    if (items == 0) {
+        // Bytes left over that are shorter than one item cannot go into a property
+        // at all, and an empty chunk is what the requestor reads as the end of
+        // the transfer - so it would lose the tail without either side noticing.
+        [self endIncrementalTransfer: transfer
+                              reason: @"the data does not end on an item boundary"];
+        return;
+    }
+
+    XChangeProperty(_display, transfer->requestor, transfer->property,
+                    transfer->type, transfer->format, PropModeReplace,
+                    (const unsigned char *) [transfer->data bytes] + transfer->offset,
+                    (int) items);
+    transfer->offset += items * itemSize;
+    XFlush(_display);
+
+    // The requestor is alive and reading, so the deadline bounds the wait for
+    // the next chunk rather than the whole transfer.
+    transfer->deadline = [NSDate timeIntervalSinceReferenceDate] + SelectionTimeout;
+}
+
+// Nothing else will notice a transfer whose requestor walked away: it has
+// stopped asking, so no further event arrives for it. The run loop has to be
+// what comes back for it.
+- (void) scheduleIncrementalTransferExpiry {
+    [[NSRunLoop currentRunLoop] performSelector: @selector(expireIncrementalTransfers:)
+                                      withObject: nil
+                                         afterDelay: SelectionTimeout
+                                            inModes: @[NSDefaultRunLoopMode]];
+}
+
+- (void) expireIncrementalTransfers: (id) unused {
+    NSTimeInterval now = [NSDate timeIntervalSinceReferenceDate];
+    // -allValues hands back a fresh array, which is what lets ending a transfer
+    // take it out of the table without disturbing this walk.
+    for (X11PasteboardIncrTransfer *transfer in [_incrTransfers allValues]) {
+        if (transfer->deadline > now)
+            continue;
+
+        [self endIncrementalTransfer: transfer
+                              reason: @"the requestor stopped asking for data"];
+    }
+
+    if ([_incrTransfers count] > 0)
+        [self scheduleIncrementalTransferExpiry];
 }
 
 - (void) propertyNotify: (XPropertyEvent *) event {
@@ -646,6 +830,26 @@ static const NSUInteger TransferLimit = 16 * 1024 * 1024;
             && event->atom == _receivingProperty
             && event->state == PropertyNewValue)
         _propertyWritten = YES;
+
+    X11PasteboardIncrTransfer *transfer = _incrTransfers[
+            [NSNumber numberWithUnsignedLong: event->window]];
+    if (transfer == nil || transfer->property != event->atom)
+        return;
+
+    // The requestor acknowledges a chunk by deleting the property, and that is
+    // the only thing that means it is ready for more. The NewValue on that window
+    // is our own chunk write coming back to us, and acting on it would replace a
+    // chunk the requestor has not read yet, so that chunk would be lost.
+    if (event->state != PropertyDelete)
+        return;
+
+    if ([NSDate timeIntervalSinceReferenceDate] >= transfer->deadline) {
+        [self endIncrementalTransfer: transfer
+                              reason: @"the requestor acknowledged too late"];
+        return;
+    }
+
+    [self sendNextIncrementalChunk: transfer];
 }
 
 - (id) delegate {

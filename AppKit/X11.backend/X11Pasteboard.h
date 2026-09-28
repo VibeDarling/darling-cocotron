@@ -45,6 +45,10 @@ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
     // waits for between chunks.
     BOOL _readingProperty;
     BOOL _propertyWritten;
+
+    // INCR transfers we are serving, keyed by the requestor's window. The
+    // values are X11PasteboardIncrTransfer, which the .m defines.
+    NSMutableDictionary<NSNumber *, id> *_incrTransfers;
 }
 
 - (instancetype) initWithName: (NSPasteboardName) name;
