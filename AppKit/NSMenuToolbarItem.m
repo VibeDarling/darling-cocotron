@@ -40,6 +40,14 @@ SOFTWARE. */
 
 @implementation NSMenuToolbarItem
 
+- (void)validate {
+    // A menu-only item has no primary action for superclass validation to
+    // resolve. Preserve its explicit enabled state; menu entries validate when
+    // the menu opens. Action-bearing items use ordinary toolbar validation.
+    if ([self action] != NULL)
+        [super validate];
+}
+
 - (NSRect)_menuIndicatorRectForBounds: (NSRect)bounds {
     if (!_showsIndicator || NSWidth(bounds) <= 0 || NSHeight(bounds) <= 0)
         return NSZeroRect;

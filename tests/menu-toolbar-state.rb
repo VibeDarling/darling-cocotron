@@ -5,6 +5,8 @@ require 'tmpdir'
 sdk=ARGV.fetch(0)
 root=File.expand_path('..',__dir__)
 source=%w[AppKit/include/AppKit/NSMenuToolbarItem.h AppKit/NSMenuToolbarItem.m].map { |f| File.read("#{root}/#{f}").gsub(/^#import.*\n/,'') }.join("\n")
+base=File.read("#{root}/AppKit/NSToolbar.subproj/NSToolbarItem.m")
+validation=base[/^- \(void\) validate \{.*?^\}/m] or abort 'missing base validation'
 program=<<~'OBJC'
   #import <Foundation/Foundation.h>
   #include <assert.h>
@@ -53,8 +55,10 @@ program=<<~'OBJC'
   #define NSEventTrackingRunLoopMode @"tracking"
   @interface ProbeApplication : NSObject { @public id pending; BOOL dequeued; NSUInteger mask; NSString *mode; }
   - (id)nextEventMatchingMask:(NSUInteger)value untilDate:(NSDate*)date inMode:(NSString*)runMode dequeue:(BOOL)remove;
+  - (id)targetForAction:(SEL)action to:(id)target from:(id)sender;
   @end
   @implementation ProbeApplication
+  - (id)targetForAction:(SEL)action to:(id)target from:(id)sender { return target; }
   - (id)nextEventMatchingMask:(NSUInteger)value untilDate:(NSDate*)date inMode:(NSString*)runMode dequeue:(BOOL)remove {
     assert([date timeIntervalSinceNow]>0);
     mask=value; mode=runMode; dequeued=remove;
@@ -83,13 +87,19 @@ program=<<~'OBJC'
   - (void)dealloc { [submenu release]; [super dealloc]; }
   @end
   @interface NSToolbarItem : NSObject {
-    @public NSMenuItem *_menuFormRepresentation; int redraws; SEL action; BOOL disabled;
+    @public NSMenuItem *_menuFormRepresentation; int redraws; SEL action; BOOL disabled; id target;
   }
   - (id)initWithItemIdentifier:(NSString*)identifier;
   - (NSMenuItem*)menuFormRepresentation;
   - (void)_didChange;
   - (SEL)action;
   - (BOOL)isEnabled;
+  - (void)setEnabled:(BOOL)enabled;
+  - (id)target;
+  - (id)view;
+  - (void)validate;
+  - (BOOL)validateToolbarItem:(id)item;
+  - (BOOL)validateUserInterfaceItem:(id)item;
   - (void)drawInRect:(NSRect)bounds highlighted:(BOOL)highlighted;
   - (NSSize)sizeForSizeMode:(NSToolbarSizeMode)s displayMode:(NSToolbarDisplayMode)d minSize:(NSSize)a maxSize:(NSSize)b;
   @end
@@ -102,6 +112,12 @@ program=<<~'OBJC'
   - (void)_didChange { redraws++; }
   - (SEL)action { return action; }
   - (BOOL)isEnabled { return !disabled; }
+  - (void)setEnabled:(BOOL)enabled { disabled=!enabled; }
+  - (id)target { return target; }
+  - (id)view { return nil; }
+  - (BOOL)validateToolbarItem:(id)item { return YES; }
+  - (BOOL)validateUserInterfaceItem:(id)item { return YES; }
+  BASE_VALIDATION
   - (void)drawInRect:(NSRect)bounds highlighted:(BOOL)highlighted {}
   - (NSSize)sizeForSizeMode:(NSToolbarSizeMode)s displayMode:(NSToolbarDisplayMode)d minSize:(NSSize)a maxSize:(NSSize)b { return NSMakeSize(40,32); }
   - (void)dealloc { [_menuFormRepresentation release]; [super dealloc]; }
@@ -214,6 +230,16 @@ program=<<~'OBJC'
       assert(![item _trackMenuWithEvent:event inView:view] && trackedMenu==nil);
       [item drawInRect:[view bounds] highlighted:NO];
       assert(fills==1 && strokes==1);
+      item->action=NULL;
+      [item validate]; assert([item isEnabled]);
+      [item setEnabled:NO]; [item validate]; assert(![item isEnabled]);
+      [item setEnabled:YES]; item->action=@selector(description);
+      [item validate]; assert(![item isEnabled]);
+      item->target=event;
+      [item validate]; assert([item isEnabled]);
+      // The unmodified superclass disables the identical menu-only setup.
+      NSToolbarItem *baseItem=[[NSToolbarItem alloc] initWithItemIdentifier:@"baseline"];
+      [baseItem validate]; assert(![baseItem isEnabled]); [baseItem release];
       [NSApp release]; NSApp=nil;
       [event release]; [view release]; [window release];
       [item release];
@@ -223,6 +249,7 @@ program=<<~'OBJC'
   }
 OBJC
 program.sub!('SOURCE') { source }
+program.sub!('BASE_VALIDATION') { validation }
 gcc,status=Open3.capture2('gcc','-print-file-name=include'); abort unless status.success?
 Dir.mktmpdir('menu-toolbar-state') do |dir|
   input="#{dir}/probe.m"; output="#{dir}/probe"; File.write(input,program)
