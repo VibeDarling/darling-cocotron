@@ -9,8 +9,9 @@ names=['resetToDefaultValues','setTitle: (NSString *) title',
  'setNameFieldStringValue: (NSString *) value','_setFilename: (NSString *) filename',
  'setDirectory: (NSString *) directory','setRequiredFileType: (NSString *) type',
  'setAllowedContentTypes: (NSArray *) types','setAllowedFileTypes: (NSArray *) value',
- 'setAllowsOtherFileTypes: (BOOL) value','setAccessoryView: (NSView *) view']
-methods=names.map{|n|source[/^- \((?:id|void)\) #{Regexp.escape(n)} \{.*?^\}/m] or abort "missing #{n}"}.join("\n")
+ 'setAllowsOtherFileTypes: (BOOL) value','setAccessoryView: (NSView *) view',
+ 'allowedFileTypes','_nameWithAllowedExtension: (NSString *) name']
+methods=names.map{|n|source[/^- \([^\n]+?\) #{Regexp.escape(n)} \{.*?^\}/m] or abort "missing #{n}"}.join("\n")
 program=<<~'OBJC'
   #import <Foundation/Foundation.h>
   #include <assert.h>
@@ -22,6 +23,10 @@ program=<<~'OBJC'
   - (NSString *)preferredFilenameExtension;
   @end
   @interface Tracked : NSObject @end
+  @interface ContentType : NSObject @end
+  @implementation ContentType
+  - (NSString *)preferredFilenameExtension { return @"txt"; }
+  @end
   @implementation Tracked
   - (void)dealloc { ++deaths; [super dealloc]; }
   @end
@@ -66,6 +71,20 @@ program=<<~'OBJC'
       assert(!p->_allowedFileTypes && !p->_allowedContentTypes && !p->_accessoryView);
       assert(!p->_allowsOtherFileTypes && !p->_showsHiddenFiles && !p->_treatsFilePackagesAsDirectories);
       for(unsigned i=0;i<10;++i) [p resetToDefaultValues];
+      ContentType *type=[ContentType new];
+      [p setAllowedContentTypes:[NSArray arrayWithObject:type]]; [type release];
+      assert([[p _nameWithAllowedExtension:@"report"] isEqual:@"report.txt"]);
+      [p setAllowsOtherFileTypes:YES];
+      assert([[p _nameWithAllowedExtension:@"report.md"] isEqual:@"report.md"]);
+      [p resetToDefaultValues];
+      assert([[p _nameWithAllowedExtension:@"report"] isEqual:@"report"]);
+      [p setAllowedFileTypes:[NSArray arrayWithObject:@"log"]];
+      assert([[p _nameWithAllowedExtension:@"report.md"] isEqual:@"report.md.log"]);
+      [p resetToDefaultValues];
+      [p setRequiredFileType:@"text"];
+      assert([[p _nameWithAllowedExtension:@"report"] isEqual:@"report.text"]);
+      [p resetToDefaultValues];
+      assert([[p _nameWithAllowedExtension:@"report"] isEqual:@"report"]);
       [p release]; assert(deaths==8);
       // A custom backend can have no text field.
       p=[Panel new]; [p resetToDefaultValues]; [p resetToDefaultValues]; [p release];
