@@ -8,13 +8,27 @@ source=File.read(path)
 names=['timer: (NSTimer *) timer','startTimerIfNeeded','renderOnce: (NSTimer *) timer','scheduleRenderIfNeeded','invalidate']
 methods=names.filter_map{|n| source[/^- \(void\) #{Regexp.escape(n)} \{.*?^\}/m]}.join("\n")
 private_scheduler=methods.include?('scheduleRenderIfNeeded')
+predicate=source[/^static BOOL layerTreeNeedsAnotherFrame\(.*?^\}/m] or abort 'missing frame predicate'
 program=<<~'OBJC'
   #import <Foundation/Foundation.h>
   #include <assert.h>
-  typedef id CALayer;
-  static unsigned frames, requestedFrames, animationFrames;
+  static unsigned frames, requestedFrames, animationFrames, metalFrames;
   static BOOL cancelFirst;
-  static BOOL layerTreeHasAnimations(id layer) { return frames < animationFrames; }
+  @interface CALayer : NSObject
+  - (NSArray *)animationKeys;
+  - (NSArray *)sublayers;
+  @end
+  @implementation CALayer
+  - (NSArray *)animationKeys { return frames < animationFrames ? @[@1] : @[]; }
+  - (NSArray *)sublayers { return @[]; }
+  @end
+  @interface CAMetalLayerInternal : CALayer
+  - (BOOL)hasQueuedDrawables;
+  @end
+  @implementation CAMetalLayerInternal
+  - (BOOL)hasQueuedDrawables { return frames < metalFrames; }
+  @end
+  ACTUAL_PREDICATE
   static double CACurrentMediaTime(void) { return 0; }
   @interface Renderer : NSObject @end
   @implementation Renderer
@@ -30,7 +44,7 @@ program=<<~'OBJC'
   @end
   @implementation Context
   ACTUAL_METHODS
-  - (id)init { if((self=[super init])) _renderer=[Renderer new]; return self; }
+  - (id)init { if((self=[super init])) { _renderer=[Renderer new]; _layer=[CAMetalLayerInternal new]; } return self; }
   - (void)render {
     ++frames;
     if(cancelFirst && frames==1) [self invalidate];
@@ -44,7 +58,7 @@ program=<<~'OBJC'
     [_timer invalidate]; [_timer release]; _timer=nil;
     [_renderTimer invalidate]; [_renderTimer release]; _renderTimer=nil;
   }
-  - (void)dealloc { [self stop]; [_renderer release]; [super dealloc]; }
+  - (void)dealloc { [self stop]; [_renderer release]; [_layer release]; [super dealloc]; }
   @end
   int main(void) {
     @autoreleasepool {
@@ -62,6 +76,10 @@ program=<<~'OBJC'
       [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.2]];
       [animated stop]; [animated release];
       assert(frames==3);
+      frames=0; animationFrames=0; metalFrames=3;
+      Context *metal=[Context new]; [metal startTimerIfNeeded];
+      [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.2]];
+      [metal stop]; [metal release]; assert(frames==3); metalFrames=0;
       // Enable only when testing composition with real cancellation (#266).
       COMPOSITION_TEST
       puts("PASS: one to three frames, coalesced requests, idle stopping and animation continuation");
@@ -69,6 +87,7 @@ program=<<~'OBJC'
   }
 OBJC
 program=program.sub('ACTUAL_METHODS'){methods}.gsub('SCHEDULE',private_scheduler ? 'scheduleRenderIfNeeded' : 'startTimerIfNeeded')
+program=program.sub('ACTUAL_PREDICATE'){predicate}
 composition = source[/^- \(void\) invalidate \{.*?^\}/m].to_s.include?('[_timer invalidate]')
 program=program.sub('COMPOSITION_TEST', composition ? <<~'OBJC' : '')
   animationFrames=0; cancelFirst=YES;

@@ -1388,8 +1388,10 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
 
             if (ev->xmotion.state & Button1Mask) {
                 type = NSLeftMouseDragged;
-            } else if (ev->xmotion.state & Button2Mask) {
+            } else if (ev->xmotion.state & Button3Mask) {
                 type = NSRightMouseDragged;
+            } else if (ev->xmotion.state & Button2Mask) {
+                type = NSOtherMouseDragged;
             }
 
             if (type == NSMouseMoved && ![delegate acceptsMouseMovedEvents])
@@ -1517,12 +1519,14 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
         NSLog(@"ReparentNotify");
         break;
 
-    case ConfigureNotify:
+    case ConfigureNotify: {
+        NSSize oldSize = [window lastReportedSize];
         [window frameChanged];
         [delegate platformWindow: window
                     frameChanged: [window frame]
-                         didSize: YES];
+                         didSize: !NSEqualSizes(oldSize, [window lastReportedSize])];
         break;
+    }
 
     case ConfigureRequest:
         NSLog(@"ConfigureRequest");
