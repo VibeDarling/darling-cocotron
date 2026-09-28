@@ -9,6 +9,9 @@ scaled_block=source[/    \[self lockFocusOnRepresentation: scaled\];.*?\n    ret
 abort 'scaled cache block missing' unless scaled_block
 temporary_block=source[/ +if \(cachedRep == nil\) \{.*?(?=\n\n +\/\/ A full bitmap)/m]
 abort 'temporary cache block missing' unless temporary_block
+rep_source=File.read(File.expand_path('../AppKit/NSImageRep.m',__dir__))
+rep_methods=rep_source[/- \(BOOL\) drawAtPoint:.*?(?=\n- \(NSString \*\) description)/m]
+abort 'representation drawing methods missing' unless rep_methods
 program=<<~'OBJC'
   #import <Foundation/Foundation.h>
   #include <assert.h>
@@ -17,8 +20,11 @@ program=<<~'OBJC'
   static BOOL throwSize;
   static unsigned draws, locks, unlocks, removals;
   static unsigned additions;
+  static unsigned graphicsDepth;
   typedef void *CGContextRef;
   static CGContextRef NSCurrentGraphicsPort(void) { return NULL; }
+  static void CGContextSaveGState(CGContextRef c) { ++graphicsDepth; }
+  static void CGContextRestoreGState(CGContextRef c) { assert(graphicsDepth>0); --graphicsDepth; }
   static void CGContextTranslateCTM(CGContextRef c, CGFloat x, CGFloat y) {}
   static void CGContextScaleCTM(CGContextRef c, CGFloat x, CGFloat y) {}
   enum { scaledRepCacheCapacity=4, scaledRepCacheByteBudget=1024 };
@@ -31,8 +37,8 @@ program=<<~'OBJC'
   }
   @interface Rep : NSObject @end
   @implementation Rep
-  - (BOOL)drawAtPoint:(NSPoint)point { return render(); }
-  - (BOOL)drawInRect:(NSRect)rect { return render(); }
+  REP_METHODS
+  - (BOOL)draw { assert(graphicsDepth==2); return render(); }
   - (NSSize)size { return NSMakeSize(20,20); }
   @end
   typedef Rep NSImageRep;
@@ -50,11 +56,15 @@ program=<<~'OBJC'
     return NSMakeSize(20,20);
   }
   - (BOOL)scalesWhenResized { return scales; }
-  - (void)lockFocusOnRepresentation:(id)rep { ++locks; }
-  - (void)unlockFocus { ++unlocks; }
+  - (void)lockFocusOnRepresentation:(id)rep {
+    assert(graphicsDepth==0); ++locks; CGContextSaveGState(NULL);
+  }
+  - (void)unlockFocus {
+    assert(graphicsDepth==1); ++unlocks; CGContextRestoreGState(NULL);
+  }
   - (void)removeRepresentation:(id)rep { assert(rep==cachedRep); ++removals; }
   - (void)addRepresentation:(id)rep { ++additions; }
-  - (BOOL)drawRepresentation:(id)rep inRect:(NSRect)rect { return render(); }
+  - (BOOL)drawRepresentation:(id)rep inRect:(NSRect)rect { return [rep drawInRect:rect]; }
   - (id)fill:(Rep *)uncached {
     id cached=cachedRep;
     BLOCK
@@ -137,6 +147,7 @@ OBJC
 program.sub!('BLOCK'){block}
 program.sub!('SCALED_BLOCK'){scaled_block}
 program.sub!('TEMPORARY_BLOCK'){temporary_block}
+program.sub!('REP_METHODS'){rep_methods}
 gcc,status=Open3.capture2('gcc','-print-file-name=include'); abort unless status.success?
 Dir.mktmpdir('image-cache') do |dir|
   input="#{dir}/probe.m"; output="#{dir}/probe"; File.write(input,program)
