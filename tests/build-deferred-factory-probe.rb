@@ -75,15 +75,17 @@ insertion=<<~OBJC
           [NSApplication sharedApplication];
           // Derive byte values through the same bitmap backend, avoiding an
           // assumption about host byte order for the default bitmap format.
-          unsigned char reference[8]={0};
+          unsigned char reference[12]={0};
           CGColorSpaceRef referenceColor=CGColorSpaceCreateDeviceRGB();
-          CGContextRef referencePort=CGBitmapContextCreate(reference,2,1,8,8,referenceColor,kCGImageAlphaPremultipliedLast);
+          CGContextRef referencePort=CGBitmapContextCreate(reference,3,1,8,12,referenceColor,kCGImageAlphaPremultipliedLast);
           CGColorSpaceRelease(referenceColor);
           assert(referencePort!=NULL);
           CGContextSetRGBFillColor(referencePort,1,0,0,1);
           CGContextFillRect(referencePort,CGRectMake(0,0,1,1));
           CGContextSetRGBFillColor(referencePort,0,0,1,1);
           CGContextFillRect(referencePort,CGRectMake(1,0,1,1));
+          CGContextSetRGBFillColor(referencePort,0,1,0,1);
+          CGContextFillRect(referencePort,CGRectMake(2,0,1,1));
           assert(memcmp(reference,reference+4,4)!=0);
           CGContextRelease(referencePort);
           CGFloat scales[]={1,1.5,2};
@@ -103,6 +105,7 @@ insertion=<<~OBJC
           __block unsigned renderCalls=0;
           __block BOOL renderResult=YES, renderThrows=NO;
           __block BOOL invalidateDuringDraw=NO;
+          NSAppearance *originalAppearance=[NSAppearance currentAppearance];
           __block DeferredFactoryProbe *scaled=nil;
           scaled=[DeferredFactoryProbe imageWithSize:NSMakeSize(20,30)
               flipped:NO drawingHandler:^BOOL(NSRect rect) {
@@ -115,7 +118,8 @@ insertion=<<~OBJC
                   CGContextSetRGBFillColor([[NSGraphicsContext currentContext] graphicsPort],1,0,0,1);
                   CGContextFillRect([[NSGraphicsContext currentContext] graphicsPort],CGRectMake(0,0,20,30));
                   // A low, blue band distinguishes orientation from mere extent.
-                  CGContextSetRGBFillColor([[NSGraphicsContext currentContext] graphicsPort],0,0,1,1);
+                  BOOL original=[NSAppearance currentAppearance]==originalAppearance;
+                  CGContextSetRGBFillColor([[NSGraphicsContext currentContext] graphicsPort],0,original?0:1,original?1:0,1);
                   CGContextFillRect([[NSGraphicsContext currentContext] graphicsPort],CGRectMake(0,0,20,8));
                   if (renderThrows) [NSException raise:@"CacheDrawingProbe" format:@"expected"];
                   return renderResult;
@@ -204,6 +208,22 @@ insertion=<<~OBJC
               [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
               assert(renderCalls==10);
               puts("PASS: invalidation during drawing prevents stale cache publication");
+              NSAppearance *previous=[[NSApp appearance] retain];
+              NSAppearance *alternate=[NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
+              [NSApp setAppearance:alternate];
+              assert([NSAppearance currentAppearance]==alternate);
+              memset(pixels,0,sizeof(pixels));
+              [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
+              assert(renderCalls==11 && memcmp(low,reference+8,4)==0);
+              [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
+              assert(renderCalls==11);
+              [NSApp setAppearance:previous];
+              [previous release];
+              assert([NSAppearance currentAppearance]==originalAppearance);
+              memset(pixels,0,sizeof(pixels));
+              [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
+              assert(renderCalls==11 && memcmp(low,reference+4,4)==0);
+              puts("PASS: appearance change renders new tint; restoring appearance reuses original tint");
           }
           [NSGraphicsContext setCurrentContext:nil];
           CGContextRelease(port);
