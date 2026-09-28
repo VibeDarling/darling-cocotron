@@ -1454,7 +1454,8 @@ static NSUInteger scaledRepCacheBytes(NSArray *cache) {
                     [uncached isKindOfClass: [NSCustomImageRep class]] &&
                     [(NSCustomImageRep *)uncached drawingHandler] != nil;
             if (usesDrawingHandler) {
-                CGAffineTransform destination = CGContextGetCTM(NSCurrentGraphicsPort());
+                CGAffineTransform destination =
+                        CGContextGetUserSpaceToDeviceSpaceTransform(NSCurrentGraphicsPort());
                 CGFloat width = ceil(ABS(rect.size.width) *
                         hypot(destination.a, destination.b));
                 CGFloat height = ceil(ABS(rect.size.height) *
@@ -1466,6 +1467,11 @@ static NSUInteger scaledRepCacheBytes(NSArray *cache) {
                     logicalCacheSize.width <= 0 || logicalCacheSize.height <= 0 ||
                     !isfinite(width) || !isfinite(height) || width < 1 || height < 1 ||
                     width > INT32_MAX || height > INT32_MAX)
+                    return;
+                // NSBitmapImageRep's row stride and allocation product use int.
+                // Supply an explicit stride and reject unrepresentable products
+                // before entering its initializer (including transient rasters).
+                if (width > INT32_MAX / 4 || height > INT32_MAX / (width * 4))
                     return;
                 {
                     // Retention policy must not reduce rendering resolution.
@@ -1495,12 +1501,29 @@ static NSUInteger scaledRepCacheBytes(NSArray *cache) {
 
             if (cachedRep == nil) {
                 // Create a cached image rep to hold our image
-                NSCachedImageRep *cached =
+                NSImageRep *cached;
+                if (usesDrawingHandler) {
+                    // A window-backed cache inherits the screen's backing scale,
+                    // even when the destination is an unrelated bitmap. Allocate
+                    // exactly the destination device footprint instead.
+                    cached = [[[NSBitmapImageRep alloc]
+                            initWithBitmapDataPlanes: NULL
+                            pixelsWide: (int)cachedSize.width
+                            pixelsHigh: (int)cachedSize.height
+                            bitsPerSample: 8 samplesPerPixel: 4
+                            hasAlpha: YES isPlanar: NO
+                            colorSpaceName: NSDeviceRGBColorSpace
+                            bitmapFormat: 0
+                            bytesPerRow: (int)cachedSize.width * 4
+                            bitsPerPixel: 32] autorelease];
+                } else {
+                    cached =
                         [[[NSCachedImageRep alloc] initWithSize: cachedSize
                                                           depth: 0
                                                        separate: YES
                                                           alpha: YES]
                                 autorelease]; // remember that pool we created earlier
+                }
 
                 if (cached == nil)
                     return;
@@ -1565,7 +1588,9 @@ static NSUInteger scaledRepCacheBytes(NSArray *cache) {
         // A full bitmap drawn scaled this frame is very likely to be drawn at the
         // same scale on the next one (a scrolling icon grid), so re-interpolating
         // it every frame is wasted work.
-        if (canCache && [cachedRep isKindOfClass: [NSBitmapImageRep class]]) {
+        if (canCache && [cachedRep isKindOfClass: [NSBitmapImageRep class]] &&
+            !([any isKindOfClass: [NSCustomImageRep class]] &&
+              [(NSCustomImageRep *)any drawingHandler] != nil)) {
             NSBitmapImageRep *scaled = [self _scaledRepresentationOf: cachedRep
                                                             destRect: rect];
 

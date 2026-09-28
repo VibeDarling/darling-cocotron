@@ -73,13 +73,15 @@ insertion=<<~OBJC
       }
       CGContextRef context;
       #{cache}
-      CGContextRef backing=[[(NSCachedImageRep *)cachedRep window] graphicsContext].graphicsPort;
+      NSGraphicsContext *backingContext=[cachedRep isKindOfClass:[NSBitmapImageRep class]] ?
+          [NSGraphicsContext graphicsContextWithBitmapImageRep:(NSBitmapImageRep *)cachedRep] :
+          [[(NSCachedImageRep *)cachedRep window] graphicsContext];
+      CGContextRef backing=backingContext.graphicsPort;
       _probeLastRasterCost=CGBitmapContextGetBytesPerRow(backing)*CGBitmapContextGetHeight(backing);
       if (getenv("TEST_EXPECT_WINDOW_SCALE")) {
           CGFloat expected=strtod(getenv("TEST_EXPECT_WINDOW_SCALE"),NULL);
-          NSRect backingRect=[(NSCachedImageRep *)cachedRep rect];
-          CGFloat actual=CGBitmapContextGetWidth(backing)/backingRect.size.width;
-          printf("Intermediate window backing: expected=%g actual=%g\\n",expected,actual);
+          CGFloat actual=CGBitmapContextGetWidth(backing)/[cachedRep size].width;
+          printf("Intermediate representation backing: expected=%g actual=%g\\n",expected,actual);
           assert(fabs(actual-expected)<0.000001);
       }
       [cachedRep drawInRect:rect];
@@ -126,8 +128,9 @@ insertion=<<~OBJC
               __block unsigned invalidCalls=0;
               DeferredFactoryProbe *invalid=[DeferredFactoryProbe imageWithSize:NSMakeSize(20,20)
                   flipped:NO drawingHandler:^BOOL(NSRect rect) { ++invalidCalls; return YES; }];
-              CGFloat invalidWidths[]={0,NAN,INFINITY,(CGFloat)INT32_MAX+1};
-              for (unsigned n=0;n<4;++n) {
+              CGFloat invalidWidths[]={0,NAN,INFINITY,(CGFloat)INT32_MAX+1,
+                  (CGFloat)(INT32_MAX/4)+1,(CGFloat)(INT32_MAX/(4*20))+1};
+              for (unsigned n=0;n<sizeof(invalidWidths)/sizeof(invalidWidths[0]);++n) {
                   [invalid probeCache:[[invalid representations] objectAtIndex:0]
                       source:NSZeroRect destination:NSMakeRect(0,0,invalidWidths[n],20)];
                   assert(invalidCalls==0);
@@ -136,7 +139,7 @@ insertion=<<~OBJC
               }
               [NSGraphicsContext setCurrentContext:nil];
               CGContextRelease(invalidPort);
-              puts("PASS: zero and non-finite destination sizes skip handler rendering");
+              puts("PASS: invalid geometry and unrepresentable bitmap allocations skip handler rendering");
           }
           // Opt-in because this regression allocates an over-budget raster.
           if (getenv("TEST_LARGE_DESTINATION")) {
