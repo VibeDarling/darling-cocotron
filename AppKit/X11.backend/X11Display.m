@@ -1430,8 +1430,6 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
                 type = NSLeftMouseDragged;
             } else if (ev->xmotion.state & Button3Mask) {
                 type = NSRightMouseDragged;
-            } else if (ev->xmotion.state & Button2Mask) {
-                type = NSOtherMouseDragged;
             }
 
             if (type == NSMouseMoved && ![delegate acceptsMouseMovedEvents])
@@ -1572,14 +1570,20 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
                               intoParent: ev->xreparent.parent];
         break;
 
-    case ConfigureNotify: {
-        NSSize oldSize = [window lastReportedSize];
-        [window frameChanged];
-        [delegate platformWindow: window
-                    frameChanged: [window frame]
-                         didSize: !NSEqualSizes(oldSize, [window lastReportedSize])];
-        break;
-    }
+    case ConfigureNotify:; {
+            // The server also sends a ConfigureNotify for a pure move, and for
+            // every pixel of a drag, so reporting a resize unconditionally
+            // posted NSWindowDidResizeNotification for all of them. NSWindow
+            // resizes its background view, resets the cursor rects and saves
+            // the frame on each of those, once per pixel of a drag.
+            O2Rect oldFrame = [window frame];
+            [window frameChanged];
+            O2Rect newFrame = [window frame];
+            [delegate platformWindow: window
+                        frameChanged: newFrame
+                             didSize: !NSEqualSizes(oldFrame.size, newFrame.size)];
+            break;
+        }
 
     case ConfigureRequest:
         NSLog(@"ConfigureRequest");
