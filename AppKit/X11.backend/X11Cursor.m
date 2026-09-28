@@ -88,12 +88,23 @@ static int X11CursorScaledSize(int nominalSize, CGFloat scale) {
     const size_t width = (size_t) fmax(floor(logicalWidth * scale + 0.5), 1.0);
     const size_t height = (size_t) fmax(floor(logicalHeight * scale + 0.5), 1.0);
 
+    // libXcursor requires the hot spot to be inside the image, and converting a
+    // non-finite float to int is undefined, so a NaN or infinite hot spot (or a
+    // non-finite image size) has to be rejected before the cast rather than clamped.
+    if (!isfinite(hotPoint.x) || !isfinite(hotPoint.y)
+            || !(logicalWidth > 0.0) || !(logicalHeight > 0.0)
+            || !isfinite(logicalWidth) || !isfinite(logicalHeight)) {
+        return [self initWithName: "left_ptr"];
+    }
+
     XcursorImage *ximage = XcursorImageCreate(width, height);
     if (!ximage)
         return [self initWithName: "left_ptr"];
 
-    ximage->xhot = (int) fmin(floor(hotPoint.x * scale), (CGFloat)width - 1);
-    ximage->yhot = (int) fmin(floor(hotPoint.y * scale), (CGFloat)height - 1);
+    ximage->xhot = (int) fmin(fmax(floor(hotPoint.x * scale), 0.0),
+                              (CGFloat) width - 1);
+    ximage->yhot = (int) fmin(fmax(floor(hotPoint.y * scale), 0.0),
+                              (CGFloat) height - 1);
 
     CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
     CGContextRef context = CGBitmapContextCreate(
