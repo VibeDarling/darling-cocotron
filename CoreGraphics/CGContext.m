@@ -24,6 +24,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <CoreGraphics/CoreGraphicsPrivate.h>
 #import <Onyx2D/O2Context.h>
 #import <Onyx2D/O2MutablePath.h>
+#include <stdint.h>
+#include <stdlib.h>
 
 CGContextRef CGContextRetain(CGContextRef context) {
     return (CGContextRef)O2ContextRetain((O2ContextRef)context);
@@ -641,10 +643,12 @@ void CGContextShowGlyphsAtPositions(CGContextRef context,
                                     const CGPoint *positions, size_t count)
 {
     if (context == NULL || glyphs == NULL || positions == NULL || count == 0 ||
-        count > UINT_MAX)
+        count > UINT_MAX || count > SIZE_MAX / sizeof(CGSize))
         return;
 
-    CGSize advances[count];
+    CGSize *advances = malloc(count * sizeof(*advances));
+    if (advances == NULL)
+        return;
     size_t i;
 
     for (i = 0; i + 1 < count; i++) {
@@ -667,4 +671,5 @@ void CGContextShowGlyphsAtPositions(CGContextRef context,
                              origin.y + offset.height);
     CGContextShowGlyphsWithAdvances(context, glyphs, advances,
                                     (unsigned) count);
+    free(advances);
 }
