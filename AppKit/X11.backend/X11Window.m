@@ -559,6 +559,13 @@ static NSData *makeWindowIcon() {
     // pixels. Assign _frame before invalidating so the rebuilt context is
     // allocated at the new size.
     O2Rect deviceFrame = [self deviceRect: [self transformFrame: frame]];
+    if (!(_styleMask & NSWindowStyleMaskResizable)) {
+        XSizeHints hints = {0};
+        hints.flags = PMinSize | PMaxSize;
+        hints.min_width = hints.max_width = deviceFrame.size.width;
+        hints.min_height = hints.max_height = deviceFrame.size.height;
+        XSetWMSizeHints(_display, _window, &hints, XA_WM_NORMAL_HINTS);
+    }
     XMoveResizeWindow(_display, _window, deviceFrame.origin.x,
                       deviceFrame.origin.y, deviceFrame.size.width,
                       deviceFrame.size.height);
