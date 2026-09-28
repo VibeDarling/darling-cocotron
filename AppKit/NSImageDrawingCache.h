@@ -12,4 +12,5 @@
                  byteCost: (NSUInteger) cost;
 - (void) removeAllObjects;
 - (NSUInteger) generation;
+- (NSUInteger) byteCost;
 @end

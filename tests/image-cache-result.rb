@@ -49,6 +49,8 @@ program=<<~'OBJC'
   static unsigned additions;
   static unsigned graphicsDepth;
   typedef void *CGContextRef;
+  static size_t CGBitmapContextGetBytesPerRow(CGContextRef c) { abort(); }
+  static size_t CGBitmapContextGetHeight(CGContextRef c) { abort(); }
   static CGAffineTransform CGContextGetCTM(CGContextRef c) { abort(); }
   static CGContextRef NSCurrentGraphicsPort(void) { return NULL; }
   static void CGContextSaveGState(CGContextRef c) { ++graphicsDepth; }

@@ -1533,13 +1533,18 @@ static NSUInteger scaledRepCacheBytes(NSArray *cache) {
 
                 // And keep it if it makes sense
                 if (usesDrawingHandler) {
+                    // Account for actual backing density and row padding, not
+                    // the requested logical size or an assumed four-byte pixel.
+                    NSUInteger rowBytes = CGBitmapContextGetBytesPerRow(context);
+                    NSUInteger rows = CGBitmapContextGetHeight(context);
                     // A handler may invalidate its image while drawing. Do not
                     // publish a result computed before that invalidation.
-                    if (rendered && drawingCacheKey != nil &&
+                    if (rowBytes != 0 && rows != 0 && rows <= NSUIntegerMax / rowBytes &&
+                        rendered && drawingCacheKey != nil &&
                         drawingCacheGeneration == [[self _drawingHandlerCache] generation])
                         [[self _drawingHandlerCache] setRepresentation: cached
                                 forKey: drawingCacheKey
-                                byteCost: (NSUInteger)cachedSize.width * (NSUInteger)cachedSize.height * 4];
+                                byteCost: rowBytes * rows];
                 } else if (canCache) {
                     [self addRepresentation: cached];
                 }

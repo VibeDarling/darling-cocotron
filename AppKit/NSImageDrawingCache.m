@@ -63,4 +63,7 @@ static const NSUInteger drawingCacheEntryLimit = 4;
 - (NSUInteger) generation {
     return _generation;
 }
+- (NSUInteger) byteCost {
+    return _byteCost;
+}
 @end

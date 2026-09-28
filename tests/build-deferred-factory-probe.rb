@@ -28,6 +28,7 @@ insertion=<<~OBJC
   #import "#{root}/AppKit/NSGraphicsContextFunctions.h"
   #import <AppKit/NSApplication.h>
   #import <AppKit/NSAppearance.h>
+  #import <AppKit/NSWindow.h>
   #import "#{root}/AppKit/NSImageDrawingCache.m"
   #include <string.h>
   @implementation DeferredProbeImageRep (CandidateDrawingWrappers)
@@ -35,13 +36,16 @@ insertion=<<~OBJC
   @end
   // Staged NSImage does not have the candidate's new cache ivar. Supply storage
   // in this subclass; the extracted lookup/population uses the same accessor.
-  @interface DeferredFactoryProbe : NSImage { NSImageDrawingCache *_probeDrawingCache; } @end
+  @interface DeferredFactoryProbe : NSImage { NSImageDrawingCache *_probeDrawingCache; NSUInteger _probeLastRasterCost; }
+  - (NSUInteger)probeLastRasterCost;
+  @end
   @implementation DeferredFactoryProbe
   - (NSImageDrawingCache *)_drawingHandlerCache {
       if (_probeDrawingCache==nil) _probeDrawingCache=[NSImageDrawingCache new];
       return _probeDrawingCache;
   }
   - (void)dealloc { [_probeDrawingCache release]; [super dealloc]; }
+  - (NSUInteger)probeLastRasterCost { return _probeLastRasterCost; }
   #{factory}
   #{cache_mode}
   #{selection}
@@ -55,6 +59,8 @@ insertion=<<~OBJC
       }
       CGContextRef context;
       #{cache}
+      CGContextRef backing=[[(NSCachedImageRep *)cachedRep window] graphicsContext].graphicsPort;
+      _probeLastRasterCost=CGBitmapContextGetBytesPerRow(backing)*CGBitmapContextGetHeight(backing);
       [cachedRep drawInRect:rect];
   }
   @end
@@ -126,6 +132,8 @@ insertion=<<~OBJC
               }];
           [scaled setFlipped:getenv("TEST_IMAGE_FLIPPED") != NULL];
           [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
+          assert([scaled probeLastRasterCost]>0);
+          assert([[scaled _drawingHandlerCache] byteCost]==[scaled probeLastRasterCost]);
           if (getenv("TEST_CACHE_REUSE") && !crop && ![scaled isFlipped]) {
               [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
               printf("Same-destination draw calls=%u, representations=%lu\\n",renderCalls,(unsigned long)[[scaled representations] count]);
