@@ -22,17 +22,11 @@
 #import "X11DragOperations.h"
 #import "X11DropSession.h"
 #import "X11Display.h"
+#import "X11Pasteboard.h"
 #import "X11Window.h"
 #import <AppKit/NSEvent.h>
 #import <AppKit/NSWindow.h>
 #import <X11/Xatom.h>
-
-// Implemented in X11Pasteboard.m but not declared there, because so far only the
-// pasteboard itself needed them. Reusing the mapping keeps XDND's MIME type names
-// and the pasteboard's X selection targets from drifting apart.
-@interface X11Pasteboard (XDNDTypes)
-+ (NSPasteboardType) typeForTarget: (NSString *) target;
-@end
 
 // XDND version 5: XdndFinished gained the performed flag and its action field.
 static const unsigned X11XdndVersion = 5;

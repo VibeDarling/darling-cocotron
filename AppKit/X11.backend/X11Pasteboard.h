@@ -33,10 +33,28 @@ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
     NSInteger _changeCount;
 
     Atom _receivingProperty;
+    Atom _incrAtom;
+    NSMutableDictionary<NSNumber *, id> *_incrTransfers;
     enum { WAITING, SUCCESS, NONE } _selectionNotifyResult;
 }
 
 - (instancetype) initWithName: (NSPasteboardName) name;
+
+// The unmapped window that owns this pasteboard's selection and answers the
+// SelectionRequests for it. A drag publishes it as its XDND source window, so
+// the properties the target reads and the data it converts come from one window.
+- (Window) windowHandle;
+
+// The X selection this pasteboard owns, which for a drag is the XdndSelection
+// the target is told to convert.
+- (Atom) selectionAtom;
+
+// The X selection target names one NSPasteboardType converts to. XDND's type
+// list is this mapping applied to the source's types, and a target asking for
+// one of those names has to land on the type it came from, so the two uses
+// cannot drift apart.
++ (NSArray<NSString *> *) targetsForType: (NSPasteboardType) type;
++ (NSPasteboardType) typeForTarget: (NSString *) target;
 
 // Sent by -[X11Display postXEvent:]
 - (void) selectionNotify: (XSelectionEvent *) event;

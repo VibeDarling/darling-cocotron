@@ -19,6 +19,50 @@ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 
 #import "X11Pasteboard.h"
 
+// A value too large for one request is transferred incrementally: the property
+// is set to the type INCR holding the total length, and the receiver deletes it
+// to ask for the next chunk. 64 KiB is comfortably inside the request size the
+// protocol guarantees without BIG-REQUESTS.
+static const NSUInteger X11IncrChunkSize = 64 * 1024;
+static const NSUInteger X11IncrThreshold = 4 * X11IncrChunkSize;
+
+// One transfer in progress. Keyed by requestor window, because a requestor that
+// has deleted the property cannot say which transfer it wants to continue.
+@interface X11IncrTransfer : NSObject {
+@public
+    Atom _property;
+    Atom _type;
+    NSData *_data;
+    NSUInteger _offset;
+}
+
+- (id) initWithProperty: (Atom) property
+                  type: (Atom) type
+                  data: (NSData *) data;
+
+@end
+
+@implementation X11IncrTransfer
+
+- (id) initWithProperty: (Atom) property
+                  type: (Atom) type
+                  data: (NSData *) data
+{
+    if ((self = [super init])) {
+        _property = property;
+        _type = type;
+        _data = [data retain];
+    }
+    return self;
+}
+
+- (void) dealloc {
+    [_data release];
+    [super dealloc];
+}
+
+@end
+
 @implementation X11Pasteboard
 
 static NSMutableDictionary<NSPasteboardName, X11Pasteboard *> *nameToPboard;
@@ -49,6 +93,7 @@ static NSMutableDictionary<NSPasteboardName, X11Pasteboard *> *nameToPboard;
     _display = [x11Display display];
     _selectionName = XInternAtom(_display, [name UTF8String], False);
     _receivingProperty = XInternAtom(_display, "RECEIVING_PROPERTY", False);
+    _incrAtom = XInternAtom(_display, "INCR", False);
 
     int screen = DefaultScreen(_display);
     _window = XCreateSimpleWindow(_display, RootWindow(_display, screen), -10,
@@ -159,7 +204,7 @@ static NSMutableDictionary<NSPasteboardName, X11Pasteboard *> *nameToPboard;
         return nil;
     }
 
-    if (type == XInternAtom(_display, "INCR", False)) {
+    if (type == _incrAtom) {
         NSLog(@"Unimplemented: INCR support");
         return nil;
     }
@@ -322,7 +367,14 @@ static NSMutableDictionary<NSPasteboardName, X11Pasteboard *> *nameToPboard;
         return;
     }
 
-    // TODO: INCR
+    if ([data length] > X11IncrThreshold) {
+        [self startTransferOfData: data
+                            type: event->target
+                     toRequestor: event->requestor
+                      onProperty: event->property];
+        reply(YES);
+        return;
+    }
 
     XChangeProperty(_display, event->requestor, event->property, event->target,
                     8, PropModeReplace, [data bytes], [data length]);
@@ -330,8 +382,61 @@ static NSMutableDictionary<NSPasteboardName, X11Pasteboard *> *nameToPboard;
     reply(YES);
 }
 
+// The property goes up as the type INCR carrying the total length, and only the
+// chunks replace it with the value's own type. Writing a chunk before the
+// receiver has read that header would hide the INCR marker, so the first chunk
+// waits for the receiver to delete the property.
+- (void) startTransferOfData: (NSData *) data
+                        type: (Atom) type
+                 toRequestor: (Window) requestor
+                  onProperty: (Atom) property
+{
+    // The receiver's window is not ours, so this is the only way to learn when it
+    // is ready for the next chunk.
+    XSelectInput(_display, requestor, PropertyChangeMask);
+    unsigned long length = (unsigned long) [data length];
+    XChangeProperty(_display, requestor, property, _incrAtom, 32, PropModeReplace,
+                    (unsigned char *) &length, 1);
+    if (_incrTransfers == nil)
+        _incrTransfers = [[NSMutableDictionary alloc] init];
+    _incrTransfers[[NSNumber numberWithUnsignedLong: requestor]] =
+            [[X11IncrTransfer alloc] initWithProperty: property type: type data: data];
+    XFlush(_display);
+}
+
 - (void) propertyNotify: (XPropertyEvent *) event {
-    // TODO
+    // ICCCM paces an incremental transfer with property deletions: the receiver
+    // reads a chunk and deletes the property to ask for the next one, and a
+    // receiver that aborts deletes it without asking.
+    NSNumber *requestor = [NSNumber numberWithUnsignedLong: event->window];
+    X11IncrTransfer *transfer = _incrTransfers[requestor];
+    if (transfer == nil || event->state != PropertyDelete ||
+        transfer->_property != event->atom)
+        return;
+
+    NSUInteger left = [transfer->_data length] - transfer->_offset;
+    NSUInteger chunk = left > X11IncrChunkSize ? X11IncrChunkSize : left;
+    if (chunk == 0) {
+        // Nothing left to send: the transfer is over, and deleting the property
+        // is what tells the receiver so.
+        [_incrTransfers removeObjectForKey: requestor];
+        XDeleteProperty(_display, event->window, event->atom);
+        XFlush(_display);
+        [transfer release];
+        return;
+    }
+    XChangeProperty(_display, event->window, event->atom, transfer->_type, 8,
+                    PropModeReplace, [transfer->_data bytes] + transfer->_offset, chunk);
+    transfer->_offset += chunk;
+    XFlush(_display);
+}
+
+- (Window) windowHandle {
+    return _window;
+}
+
+- (Atom) selectionAtom {
+    return _selectionName;
 }
 
 - (id) delegate {
