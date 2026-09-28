@@ -108,6 +108,29 @@ insertion=<<~OBJC
           CGContextFillRect(referencePort,CGRectMake(2,0,1,1));
           assert(memcmp(reference,reference+4,4)!=0);
           CGContextRelease(referencePort);
+          {
+              unsigned char pixel[4]={0};
+              CGColorSpaceRef space=CGColorSpaceCreateDeviceRGB();
+              CGContextRef invalidPort=CGBitmapContextCreate(pixel,1,1,8,4,space,kCGImageAlphaPremultipliedLast);
+              CGColorSpaceRelease(space);
+              assert(invalidPort!=NULL);
+              NSGraphicsContext *invalidContext=[NSGraphicsContext graphicsContextWithGraphicsPort:invalidPort flipped:NO];
+              [NSGraphicsContext setCurrentContext:invalidContext];
+              __block unsigned invalidCalls=0;
+              DeferredFactoryProbe *invalid=[DeferredFactoryProbe imageWithSize:NSMakeSize(20,20)
+                  flipped:NO drawingHandler:^BOOL(NSRect rect) { ++invalidCalls; return YES; }];
+              CGFloat invalidWidths[]={0,NAN,INFINITY};
+              for (unsigned n=0;n<3;++n) {
+                  [invalid probeCache:[[invalid representations] objectAtIndex:0]
+                      source:NSZeroRect destination:NSMakeRect(0,0,invalidWidths[n],20)];
+                  assert(invalidCalls==0);
+                  assert([NSGraphicsContext currentContext]==invalidContext);
+                  assert([invalid probeLastRasterCost]==0);
+              }
+              [NSGraphicsContext setCurrentContext:nil];
+              CGContextRelease(invalidPort);
+              puts("PASS: zero and non-finite destination sizes skip handler rendering");
+          }
           // Opt-in regression: currently fails because the retention budget
           // incorrectly controls rendering density. Keep the correct expectation.
           if (getenv("TEST_LARGE_DESTINATION")) {

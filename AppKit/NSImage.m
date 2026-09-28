@@ -1459,6 +1459,13 @@ static NSUInteger scaledRepCacheBytes(NSArray *cache) {
                         hypot(destination.a, destination.b));
                 CGFloat height = ceil(ABS(rect.size.height) *
                         hypot(destination.c, destination.d));
+                // Invalid geometry must not fall through to an unrelated
+                // logical-size window allocation or invoke the handler.
+                if (!isfinite(logicalCacheSize.width) ||
+                    !isfinite(logicalCacheSize.height) ||
+                    logicalCacheSize.width <= 0 || logicalCacheSize.height <= 0 ||
+                    !isfinite(width) || !isfinite(height) || width < 1 || height < 1)
+                    return;
                 if (logicalCacheSize.width > 0 && logicalCacheSize.height > 0 &&
                     width >= 1 && height >= 1 &&
                     width * height <= 16 * 1024 * 1024 / 4) {
