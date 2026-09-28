@@ -6,6 +6,51 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#import <objc/runtime.h>
+
+typedef id (*BitmapInitializer)(id,SEL,unsigned char **,int,int,int,int,BOOL,BOOL,NSString *,NSBitmapFormat,int,int);
+static BitmapInitializer originalBitmapInitializer;
+static unsigned bitmapAttempts;
+static id failFirstBitmap(id self, SEL sel, unsigned char **planes, int width,
+        int height, int bits, int samples, BOOL alpha, BOOL planar,
+        NSString *space, NSBitmapFormat format, int row, int pixel) {
+    if (++bitmapAttempts == 1) { [self release]; return nil; }
+    return originalBitmapInitializer(self,sel,planes,width,height,bits,samples,
+        alpha,planar,space,format,row,pixel);
+}
+
+static void checkBitmapFailureRetry(CGContextRef port) {
+    NSGraphicsContext *context=[NSGraphicsContext currentContext];
+    size_t bytes=CGBitmapContextGetBytesPerRow(port)*CGBitmapContextGetHeight(port);
+    void *data=CGBitmapContextGetData(port);
+    void *before=malloc(bytes);
+    assert(before && data);
+    memcpy(before,data,bytes);
+    __block unsigned calls=0;
+    NSImage *image=[NSImage imageWithSize:NSMakeSize(20,20) flipped:NO
+        drawingHandler:^BOOL(NSRect rect) {
+            ++calls; [[NSColor redColor] setFill]; NSRectFill(rect); return YES;
+        }];
+    SEL selector=@selector(initWithBitmapDataPlanes:pixelsWide:pixelsHigh:bitsPerSample:samplesPerPixel:hasAlpha:isPlanar:colorSpaceName:bitmapFormat:bytesPerRow:bitsPerPixel:);
+    Method method=class_getInstanceMethod([NSBitmapImageRep class],selector);
+    assert(method);
+    bitmapAttempts=0;
+    originalBitmapInitializer=(BitmapInitializer)method_setImplementation(method,(IMP)failFirstBitmap);
+    @try {
+        [image drawInRect:NSMakeRect(0,0,20,20) fromRect:NSZeroRect operation:NSCompositeCopy fraction:1];
+        assert(bitmapAttempts==1 && calls==0);
+        assert([NSGraphicsContext currentContext]==context && memcmp(before,data,bytes)==0);
+        [image drawInRect:NSMakeRect(0,0,20,20) fromRect:NSZeroRect operation:NSCompositeCopy fraction:1];
+        assert(bitmapAttempts==2 && calls==1);
+        [image drawInRect:NSMakeRect(0,0,20,20) fromRect:NSZeroRect operation:NSCompositeCopy fraction:1];
+        assert(bitmapAttempts==2 && calls==1);
+        assert([NSGraphicsContext currentContext]==context);
+    } @finally {
+        method_setImplementation(method,(IMP)originalBitmapInitializer);
+        free(before);
+    }
+    puts("PASS: nil bitmap leaves destination unchanged, retries, and then reuses cache");
+}
 
 static void compareAlphaCompositing(CGContextRef port) {
     const CGFloat colors[][4] = {
@@ -58,6 +103,40 @@ static void compareAlphaCompositing(CGContextRef port) {
     free(rendered);
 }
 
+static void checkFailedHandlerRetry(CGContextRef port) {
+    NSGraphicsContext *context=[NSGraphicsContext currentContext];
+    size_t bytes=CGBitmapContextGetBytesPerRow(port)*CGBitmapContextGetHeight(port);
+    void *data=CGBitmapContextGetData(port), *before=malloc(bytes);
+    assert(before && data);
+    memcpy(before,data,bytes);
+    __block unsigned calls=0, mode=0;
+    NSImage *image=[NSImage imageWithSize:NSMakeSize(20,20) flipped:NO
+        drawingHandler:^BOOL(NSRect rect) {
+            ++calls; [[NSColor blueColor] setFill]; NSRectFill(rect);
+            if (mode==1) [NSException raise:@"DeferredTestFailure" format:@"injected handler failure"];
+            return mode==2;
+        }];
+    [image drawInRect:NSMakeRect(0,0,20,20) fromRect:NSZeroRect operation:NSCompositeCopy fraction:1];
+    assert(calls==1 && [NSGraphicsContext currentContext]==context);
+    assert(memcmp(before,data,bytes)==0);
+    mode=1;
+    BOOL caught=NO;
+    @try {
+        [image drawInRect:NSMakeRect(0,0,20,20) fromRect:NSZeroRect operation:NSCompositeCopy fraction:1];
+    } @catch (NSException *error) {
+        assert([[error name] isEqualToString:@"DeferredTestFailure"]); caught=YES;
+    }
+    assert(caught && calls==2 && [NSGraphicsContext currentContext]==context);
+    assert(memcmp(before,data,bytes)==0);
+    mode=2;
+    [image drawInRect:NSMakeRect(0,0,20,20) fromRect:NSZeroRect operation:NSCompositeCopy fraction:1];
+    assert(calls==3);
+    [image drawInRect:NSMakeRect(0,0,20,20) fromRect:NSZeroRect operation:NSCompositeCopy fraction:1];
+    assert(calls==3 && [NSGraphicsContext currentContext]==context);
+    free(before);
+    puts("PASS: failed and throwing public handlers preserve destination/context and retry");
+}
+
 int main(void) {
     setbuf(stdout, NULL);
     NSAutoreleasePool *pool = [NSAutoreleasePool new];
@@ -87,6 +166,9 @@ int main(void) {
         port = bitmap;
         expected = 1;
     }
+    CGContextClearRect(port, CGRectMake(0, 0, 40, 40));
+    checkBitmapFailureRetry(port);
+    checkFailedHandlerRetry(port);
     CGContextClearRect(port, CGRectMake(0, 0, 40, 40));
     __block unsigned calls = 0;
     NSImage *image = [NSImage imageWithSize:NSMakeSize(20, 20) flipped:NO

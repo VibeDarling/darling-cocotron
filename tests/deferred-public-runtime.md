@@ -24,6 +24,16 @@ comparison of the complete destination buffer against a direct solid fill.
 The bitmap case must receive density 1 even though the window/screen is at 2.
 Before the bitmap-cache fix, that case aborts with density 2 instead of 1.
 
+Caller failure handling is tested by temporarily replacing the bitmap initializer
+with a one-shot nil result, restoring the original implementation in `@finally`.
+The failed draw must not call the handler, change destination bytes, or change
+the current graphics context. Retrying must create the bitmap and render once;
+the next draw must reuse it. This is caller-level nil injection, not heap-pressure
+testing; `bitmap-allocation-failure.m` separately checks actual initializer cleanup.
+Handlers that return NO or throw after painting their temporary context are also
+checked for unchanged destination/context, correct exception propagation, and
+successful retry followed by reuse.
+
 The probe also compares four device-RGB colors (opaque, half/quarter alpha, and
 fully transparent), each with copy and source-over compositing, under identity,
 horizontal reflection, and quarter-turn destination transforms. Both paths start
