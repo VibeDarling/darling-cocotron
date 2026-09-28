@@ -9,6 +9,41 @@ program=<<~'OBJC'
   #import <Foundation/Foundation.h>
   #include <assert.h>
   typedef NSString *NSToolbarItemIdentifier;
+  typedef NSInteger NSToolbarSizeMode, NSToolbarDisplayMode;
+  #define NSMouseInRect(point, rect, flipped) NSPointInRect(point, rect)
+  @interface NSEvent : NSObject { @public NSPoint point; }
+  - (NSPoint)locationInWindow;
+  @end
+  @implementation NSEvent
+  - (NSPoint)locationInWindow { return point; }
+  @end
+  static int fills, strokes;
+  @interface NSColor : NSObject
+  + (id)controlTextColor;
+  + (id)disabledControlTextColor;
+  - (void)set;
+  @end
+  @implementation NSColor
+  + (id)controlTextColor { return [[[self alloc] init] autorelease]; }
+  + (id)disabledControlTextColor { return [self controlTextColor]; }
+  - (void)set {}
+  @end
+  @interface NSBezierPath : NSObject
+  + (id)bezierPath;
+  - (void)moveToPoint:(NSPoint)p;
+  - (void)lineToPoint:(NSPoint)p;
+  - (void)closePath;
+  - (void)fill;
+  - (void)stroke;
+  @end
+  @implementation NSBezierPath
+  + (id)bezierPath { return [[[self alloc] init] autorelease]; }
+  - (void)moveToPoint:(NSPoint)p {}
+  - (void)lineToPoint:(NSPoint)p {}
+  - (void)closePath {}
+  - (void)fill { fills++; }
+  - (void)stroke { strokes++; }
+  @end
   static int menuDeaths;
   @class NSEvent, NSView;
   static id trackedMenu, trackedEvent, trackedView;
@@ -55,6 +90,8 @@ program=<<~'OBJC'
   - (void)_didChange;
   - (SEL)action;
   - (BOOL)isEnabled;
+  - (void)drawInRect:(NSRect)bounds highlighted:(BOOL)highlighted;
+  - (NSSize)sizeForSizeMode:(NSToolbarSizeMode)s displayMode:(NSToolbarDisplayMode)d minSize:(NSSize)a maxSize:(NSSize)b;
   @end
   @implementation NSToolbarItem
   - (id)initWithItemIdentifier:(NSString*)identifier { return [super init]; }
@@ -65,15 +102,23 @@ program=<<~'OBJC'
   - (void)_didChange { redraws++; }
   - (SEL)action { return action; }
   - (BOOL)isEnabled { return !disabled; }
+  - (void)drawInRect:(NSRect)bounds highlighted:(BOOL)highlighted {}
+  - (NSSize)sizeForSizeMode:(NSToolbarSizeMode)s displayMode:(NSToolbarDisplayMode)d minSize:(NSSize)a maxSize:(NSSize)b { return NSMakeSize(40,32); }
   - (void)dealloc { [_menuFormRepresentation release]; [super dealloc]; }
   @end
   @interface NSToolbarItemView : NSObject { @public id owner, window; }
   - (id)toolbarItem;
   - (id)window;
+  - (NSRect)bounds;
+  - (NSPoint)convertPoint:(NSPoint)p fromView:(id)view;
+  - (BOOL)isFlipped;
   @end
   @implementation NSToolbarItemView
   - (id)toolbarItem { return owner; }
   - (id)window { return window; }
+  - (NSRect)bounds { return NSMakeRect(0,0,52,32); }
+  - (NSPoint)convertPoint:(NSPoint)p fromView:(id)view { return p; }
+  - (BOOL)isFlipped { return NO; }
   @end
   SOURCE
   static NSMenuToolbarItem *activeItem;
@@ -125,7 +170,8 @@ program=<<~'OBJC'
       [item setShowsIndicator:NO]; assert(item->redraws==2 && ![item showsIndicator]);
       [item setShowsIndicator:NO]; assert(item->redraws==2);
       [item setMenu:nil]; assert([item menu]!=nil && representation->submenu==[item menu]);
-      id event=[NSObject new], window=[NSObject new];
+      NSEvent *event=[NSEvent new]; event->point=NSMakePoint(5,10);
+      id window=[NSObject new];
       NSToolbarItemView *view=[NSToolbarItemView new];
       view->owner=item; view->window=window; activeView=view;
       assert([item _trackMenuWithEvent:event inView:view]);
@@ -153,6 +199,21 @@ program=<<~'OBJC'
         view->window=window;
       }
       duringPeek=NULL;
+      [item setShowsIndicator:YES];
+      NSRect indicator=[item _menuIndicatorRectForBounds:[view bounds]];
+      assert(NSEqualRects(indicator,NSMakeRect(40,0,12,32)));
+      assert([item sizeForSizeMode:0 displayMode:0 minSize:NSZeroSize maxSize:NSZeroSize].width==52);
+      [item drawInRect:[view bounds] highlighted:NO];
+      assert(fills==1 && strokes==1);
+      // A quick click in the visible segment bypasses the hold wait entirely.
+      duringPeek=throwDuringCallback; event->point=NSMakePoint(46,10);
+      trackedMenu=nil;
+      assert([item _trackMenuWithEvent:event inView:view] && trackedMenu==[item menu]);
+      duringPeek=NULL;
+      [item setShowsIndicator:NO]; trackedMenu=nil;
+      assert(![item _trackMenuWithEvent:event inView:view] && trackedMenu==nil);
+      [item drawInRect:[view bounds] highlighted:NO];
+      assert(fills==1 && strokes==1);
       [NSApp release]; NSApp=nil;
       [event release]; [view release]; [window release];
       [item release];
