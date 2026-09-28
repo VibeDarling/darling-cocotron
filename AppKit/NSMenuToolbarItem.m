@@ -59,10 +59,20 @@ SOFTWARE. */
 - (NSSize)sizeForSizeMode: (NSToolbarSizeMode)sizeMode
              displayMode: (NSToolbarDisplayMode)displayMode
                  minSize: (NSSize)minSize maxSize: (NSSize)maxSize {
+    NSSize contentMin = minSize, contentMax = maxSize;
+    if (_showsIndicator) {
+        contentMin.width = MAX(0, minSize.width - 12);
+        contentMax.width = MAX(0, maxSize.width - 12);
+    }
     NSSize size = [super sizeForSizeMode: sizeMode displayMode: displayMode
-                               minSize: minSize maxSize: maxSize];
-    if (_showsIndicator)
+                               minSize: contentMin maxSize: contentMax];
+    if (_showsIndicator) {
         size.width += 12;
+        // Zero is the superclass's unconstrained-size sentinel. In particular,
+        // a maximum smaller than the indicator must still constrain the total.
+        if (maxSize.width > 0)
+            size.width = MIN(size.width, maxSize.width);
+    }
     return size;
 }
 
@@ -77,16 +87,18 @@ SOFTWARE. */
                       : [NSColor disabledControlTextColor] set];
     CGFloat x = NSMidX(indicator), y = NSMidY(indicator);
     CGFloat radius = MIN(3, NSWidth(indicator) / 4);
+    CGFloat halfHeight = MIN(1.5, NSHeight(indicator) / 4);
     NSBezierPath *arrow = [NSBezierPath bezierPath];
-    [arrow moveToPoint: NSMakePoint(x - radius, y + 1.5)];
-    [arrow lineToPoint: NSMakePoint(x + radius, y + 1.5)];
-    [arrow lineToPoint: NSMakePoint(x, y - 1.5)];
+    [arrow moveToPoint: NSMakePoint(x - radius, y + halfHeight)];
+    [arrow lineToPoint: NSMakePoint(x + radius, y + halfHeight)];
+    [arrow lineToPoint: NSMakePoint(x, y - halfHeight)];
     [arrow closePath];
     [arrow fill];
     if ([self action] != NULL) {
+        CGFloat inset = MIN(2, NSHeight(indicator) / 4);
         NSBezierPath *separator = [NSBezierPath bezierPath];
-        [separator moveToPoint: NSMakePoint(NSMinX(indicator), NSMinY(indicator) + 2)];
-        [separator lineToPoint: NSMakePoint(NSMinX(indicator), NSMaxY(indicator) - 2)];
+        [separator moveToPoint: NSMakePoint(NSMinX(indicator), NSMinY(indicator) + inset)];
+        [separator lineToPoint: NSMakePoint(NSMinX(indicator), NSMaxY(indicator) - inset)];
         [separator stroke];
     }
 }
