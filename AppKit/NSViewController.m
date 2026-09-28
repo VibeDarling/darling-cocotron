@@ -75,6 +75,10 @@
     return _view != nil;
 }
 
+- (void) loadViewIfNeeded {
+    (void)[self view];
+}
+
 - (NSString *) title {
     return _title;
 }
