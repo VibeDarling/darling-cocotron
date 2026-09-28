@@ -28,16 +28,13 @@
 #include <algorithm>
 
 #import "CALayerInternal.h"
+#import "CGLReporting.h"
 
+// Defined here so the call sites below stay terse; the tracking itself is in
+// CGLReporting.h so the layer and the drawable cannot drift apart.
 static void reportGLErrors(void) {
-#if 0
-	GLenum err;
-
-	while ((err = glGetError()) != GL_NO_ERROR) {
-		printf("*** OPENGL ERROR: %d ***\n", err);
-	}
-#endif
-};
+	drainAndReportGLErrors("CAMetalLayer");
+}
 
 @implementation CAMetalLayer
 
