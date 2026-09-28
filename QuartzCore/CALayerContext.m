@@ -207,6 +207,8 @@ static BOOL layerTreeHasAnimations(CALayer *layer) {
 }
 
 - (void) timer: (NSTimer *) timer {
+    // Consume requests for this frame before callbacks can request another.
+    _renderRequested = NO;
     [_renderer beginFrameAtTime: CACurrentMediaTime() timeStamp: NULL];
 
     [self render];
@@ -217,8 +219,9 @@ static BOOL layerTreeHasAnimations(CALayer *layer) {
     [self flush];
 
     // beginFrameAtTime: drops finished animations. Once none are left, the frame
-    // just drawn shows the final values: stop until an animation is added again.
-    if (!layerTreeHasAnimations(_layer)) {
+    // just drawn shows the final values. Stop unless callbacks requested a
+    // subsequent frame while rendering or presenting this one.
+    if (!_renderRequested && !layerTreeHasAnimations(_layer)) {
         [_timer invalidate];
         [_timer release];
         _timer = nil;
@@ -226,6 +229,7 @@ static BOOL layerTreeHasAnimations(CALayer *layer) {
 }
 
 - (void) startTimerIfNeeded {
+    _renderRequested = YES;
     if (_timer == nil)
         _timer = [[NSTimer scheduledTimerWithTimeInterval: 1.0 / 60.0
                                                    target: self
