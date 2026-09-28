@@ -57,7 +57,7 @@ program=program.sub('ACTUAL_GETTER') { method }
 gcc,status=Open3.capture2('gcc','-print-file-name=include'); abort unless status.success?
 Dir.mktmpdir('window-getter-host') do |dir|
   input=File.join(dir,'probe.m'); output=File.join(dir,'probe'); File.write(input,program)
-  abort 'compile failed' unless system('clang','-O2','-fobjc-runtime=gcc','-fconstant-string-class=NSConstantString',
+  abort 'compile failed' unless system('clang','-O2','-fobjc-runtime=gcc','-fobjc-exceptions','-fexceptions','-fconstant-string-class=NSConstantString',
     "-I#{sdk}/usr/include/GNUstep","-I#{gcc.strip}",input,"-L#{sdk}/usr/lib","-Wl,-rpath,#{sdk}/usr/lib",
     '-lgnustep-base','-lobjc','-o',output)
   abort 'probe failed' unless system(output,rlimit_core:0)
