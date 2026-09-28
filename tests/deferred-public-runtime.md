@@ -24,11 +24,19 @@ comparison of the complete destination buffer against a direct solid fill.
 The bitmap case must receive density 1 even though the window/screen is at 2.
 Before the bitmap-cache fix, that case aborts with density 2 instead of 1.
 
+The probe also compares four device-RGB colors (opaque, half/quarter alpha, and
+fully transparent), each with copy and source-over compositing, under identity,
+horizontal reflection, and quarter-turn destination transforms. Both paths start
+from identical zeroed storage before painting the same background: rotated edges
+may have fractional coverage and must not retain pixels from a previous case.
+The maximum accepted byte difference is one level for intermediate quantization;
+the validated four-environment matrix currently reports zero for all 96 comparisons.
+
 The extracted-method fixture in `build-deferred-factory-probe.rb` additionally
 covers patterned/cropped output, failure and exception cleanup, appearance,
 ownership, and over-budget transient rasters. Its
 `TEST_EXPECT_WINDOW_SCALE=1` setting now checks the intermediate representation's
 pixel/logical-size ratio: the intermediate is a bitmap, not a window.
 
-These tests do not establish color-space fidelity, arbitrary rotation/shear,
+These tests do not establish wide-gamut/high-depth color-space fidelity, arbitrary rotation/shear,
 allocation-failure behavior, or full iTerm2 compatibility.

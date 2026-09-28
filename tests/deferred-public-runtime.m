@@ -7,6 +7,57 @@
 #include <stdlib.h>
 #include <string.h>
 
+static void compareAlphaCompositing(CGContextRef port) {
+    const CGFloat colors[][4] = {
+        {0.125, 0.375, 0.75, 1}, {0.125, 0.375, 0.75, 0.5},
+        {1, 0.25, 0, 0.25}, {0, 1, 0.5, 0}
+    };
+    size_t bytes = CGBitmapContextGetBytesPerRow(port) * CGBitmapContextGetHeight(port);
+    unsigned char *data = CGBitmapContextGetData(port);
+    unsigned char *rendered = malloc(bytes);
+    assert(rendered != NULL && data != NULL);
+    for (unsigned c = 0; c < 4; ++c) for (unsigned over = 0; over < 2; ++over) {
+        CGFloat red=colors[c][0], green=colors[c][1], blue=colors[c][2], alpha=colors[c][3];
+        __block unsigned calls = 0;
+        NSImage *image = [NSImage imageWithSize:NSMakeSize(20,20) flipped:NO
+            drawingHandler:^BOOL(NSRect rect) {
+                ++calls;
+                CGContextRef p = [[NSGraphicsContext currentContext] graphicsPort];
+                CGContextSetRGBFillColor(p,red,green,blue,alpha);
+                CGContextFillRect(p,rect);
+                return YES;
+            }];
+        for (unsigned direct=0; direct<2; ++direct) {
+            // Start both paths from identical bytes. Rotated background edges
+            // can have fractional coverage and must not accumulate prior draws.
+            memset(data,0,bytes);
+            CGContextSaveGState(port);
+            CGContextSetBlendMode(port,kCGBlendModeCopy);
+            CGContextSetRGBFillColor(port,0.1,0.2,0.3,1);
+            CGContextFillRect(port,CGRectMake(0,0,40,40));
+            if (direct) {
+                CGContextSetBlendMode(port,over ? kCGBlendModeNormal : kCGBlendModeCopy);
+                CGContextSetRGBFillColor(port,red,green,blue,alpha);
+                CGContextFillRect(port,CGRectMake(0,0,20,20));
+            } else {
+                [image drawInRect:NSMakeRect(0,0,20,20) fromRect:NSZeroRect
+                    operation:over ? NSCompositeSourceOver : NSCompositeCopy fraction:1];
+            }
+            CGContextRestoreGState(port);
+            if (!direct) memcpy(rendered,data,bytes);
+        }
+        unsigned maxError = 0;
+        for (size_t i=0; i<bytes; ++i) {
+            unsigned error = abs((int)rendered[i]-(int)data[i]);
+            if (error > maxError) maxError = error;
+        }
+        printf("Deferred color=%u sourceOver=%u max byte error=%u\n",c,over,maxError);
+        // One byte level accommodates the additional 8-bit intermediate rounding.
+        assert(calls == 1 && maxError <= 1);
+    }
+    free(rendered);
+}
+
 int main(void) {
     setbuf(stdout, NULL);
     NSAutoreleasePool *pool = [NSAutoreleasePool new];
@@ -72,6 +123,19 @@ int main(void) {
     NSRectFill(NSMakeRect(0, 0, 20, 20));
     assert(memcmp(rendered, data, bytes) == 0);
     free(rendered);
+    compareAlphaCompositing(port);
+    CGContextSaveGState(port);
+    CGContextTranslateCTM(port,40,0);
+    CGContextScaleCTM(port,-1,1);
+    puts("Checking reflected destination");
+    compareAlphaCompositing(port);
+    CGContextRestoreGState(port);
+    CGContextSaveGState(port);
+    CGContextTranslateCTM(port,40,0);
+    CGContextRotateCTM(port,M_PI_2);
+    puts("Checking quarter-turn destination");
+    compareAlphaCompositing(port);
+    CGContextRestoreGState(port);
     if (bitmap) {
         [NSGraphicsContext restoreGraphicsState];
         CGContextRelease(bitmap);
