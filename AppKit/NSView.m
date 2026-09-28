@@ -3113,6 +3113,10 @@ static CGFloat backingScaleFactor(NSView *view) {
 
 - (void) setNeedsUpdateConstraints: (BOOL) flag {
     _needsUpdateConstraints = flag;
+    if (flag) {
+        _needsLayout = YES;
+        [[self window] setViewsNeedDisplay: YES];
+    }
 }
 
 - (BOOL) clipsToBounds {
@@ -3224,10 +3228,24 @@ static id anchorForView(NSView *view, NSString *className,
     _needsLayout = NO;
 }
 
-- (void) layoutSubtreeIfNeeded {
+- (void) _layoutSubtreeAfterUpdatingConstraints {
     if (_needsLayout)
         [self layout];
-    [_subviews makeObjectsPerformSelector: _cmd];
+    NSArray *children = [_subviews copy];
+    @try {
+        for (NSView *child in children) {
+            if ([child superview] == self)
+                [child _layoutSubtreeAfterUpdatingConstraints];
+        }
+    } @finally {
+        [children release];
+    }
+}
+
+- (void) layoutSubtreeIfNeeded {
+    // Finish the update phase for the whole subtree before laying out any view.
+    [self updateConstraintsForSubtreeIfNeeded];
+    [self _layoutSubtreeAfterUpdatingConstraints];
 }
 
 @end
