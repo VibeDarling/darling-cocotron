@@ -8,6 +8,9 @@ header = File.read(File.join(root, 'AppKit/include/AppKit/NSImage.h'))
 source = File.read(File.join(root, 'AppKit/NSImage.m'))
 interface = header[/@interface NSImageSymbolConfiguration :.*?@end/m] or abort 'interface missing'
 implementation = source[/@implementation NSImageSymbolConfiguration\n(.*?)^\+ \(void\) _drawSymbolPlaceholder:/m, 1] or abort 'implementation missing'
+image_methods = source[/^\+ \(NSImage \*\) _symbolPlaceholderWithDescription:.*?(?=^\+ \(instancetype\) imageWithSystemSymbolName:)/m].to_s +
+  source[/^- \(NSImage \*\) imageWithSymbolConfiguration:.*?(?=^@end)/m].to_s
+abort 'image methods missing' unless image_methods.include?('image->_symbolConfiguration = [configuration retain]')
 program = <<~'OBJC'
   #import <Foundation/Foundation.h>
   #include <assert.h>
@@ -19,6 +22,42 @@ program = <<~'OBJC'
   ACTUAL_INTERFACE
   @implementation NSImageSymbolConfiguration
   ACTUAL_IMPLEMENTATION
+  @end
+  // Controlled representation and image storage, not AppKit drawing. The
+  // factory, application method and configuration getter below are unmodified.
+  @interface NSCustomImageRep : NSObject
+  - (id)initWithDrawSelector:(SEL)s delegate:(id)d;
+  - (void)setSize:(NSSize)s;
+  @end
+  @implementation NSCustomImageRep
+  - (id)initWithDrawSelector:(SEL)s delegate:(id)d { return [super init]; }
+  - (void)setSize:(NSSize)s {}
+  @end
+  @interface NSImage : NSObject {
+    NSImageSymbolConfiguration *_symbolConfiguration;
+    NSString *_accessibilityDescription;
+    NSSize _size;
+    BOOL _template;
+    id _representation;
+  }
+  - (id)initWithSize:(NSSize)s;
+  - (void)addRepresentation:(id)r;
+  - (void)setTemplate:(BOOL)b;
+  - (void)setAccessibilityDescription:(NSString *)s;
+  @end
+  @implementation NSImage
+  - (id)initWithSize:(NSSize)s { self=[super init]; _size=s; return self; }
+  - (void)addRepresentation:(id)r { _representation=[r retain]; }
+  - (void)setTemplate:(BOOL)b { _template=b; }
+  - (void)setAccessibilityDescription:(NSString *)s { _accessibilityDescription=[s copy]; }
+  - (NSSize)size { return _size; }
+  - (BOOL)isTemplate { return _template; }
+  - (NSString *)accessibilityDescription { return _accessibilityDescription; }
+  - (void)dealloc {
+    [_symbolConfiguration release]; [_accessibilityDescription release];
+    [_representation release]; [super dealloc];
+  }
+  ACTUAL_IMAGE_METHODS
   @end
   static unsigned destroyed;
   @interface ColorToken : NSObject @end
@@ -64,10 +103,34 @@ program = <<~'OBJC'
     assert([palette(replaced) count]==1);
     [replaced release]; assert(destroyed==2);
     [pool drain];
+    pool = [NSAutoreleasePool new];
+    ColorToken *imageColor = [ColorToken new];
+    id imagePalette = [NSImageSymbolConfiguration configurationWithPaletteColors:(id)@[imageColor]];
+    NSImage *original = [NSImage _symbolPlaceholderWithDescription:@"Command icon"
+        configuration:[NSImageSymbolConfiguration configurationWithPointSize:22 weight:0.5 scale:3]];
+    NSImage *colored = [original imageWithSymbolConfiguration:imagePalette];
+    assert(colored!=original && [colored isTemplate]);
+    assert([[colored accessibilityDescription] isEqual:@"Command icon"]);
+    assert([colored size].width==[original size].width);
+    assert(palette([original symbolConfiguration])==nil);
+    assert([palette([colored symbolConfiguration]) objectAtIndex:0]==imageColor);
+    NSImage *small = [colored imageWithSymbolConfiguration:
+        [NSImageSymbolConfiguration configurationWithScale:1]];
+    assert([small size].width<[colored size].width);
+    assert([palette([small symbolConfiguration]) objectAtIndex:0]==imageColor);
+    assert([[[small imageWithSymbolConfiguration:nil] symbolConfiguration]
+        isEqual:[small symbolConfiguration]]);
+    [small retain]; [imageColor release]; [pool drain];
+    assert(destroyed==2); // Survives solely through the resulting image.
+    pool = [NSAutoreleasePool new];
+    assert([palette([small symbolConfiguration]) count]==1);
+    [small release]; assert(destroyed==3); [pool drain];
     puts("PASS: palette snapshot, equality, immutable merge, size/scale preservation and lifetime");
+    puts("PASS: actual image factory/application preserve palette, size, description and template state with storage adapters");
   }
 OBJC
 program = program.sub('ACTUAL_INTERFACE') { interface }.sub('ACTUAL_IMPLEMENTATION') { implementation }
+program = program.sub('ACTUAL_IMAGE_METHODS') { image_methods }
 gcc, status = Open3.capture2('gcc', '-print-file-name=include')
 abort 'GCC headers unavailable' unless status.success?
 Dir.mktmpdir('symbol-palette') do |dir|
