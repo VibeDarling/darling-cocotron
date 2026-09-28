@@ -432,6 +432,12 @@ static const NSTimeInterval SelectionTimeout = 5;
     }
 
     char *rawTarget = XGetAtomName(_display, event->target);
+    if (rawTarget == NULL) {
+        // A client can name an atom that does not exist. +stringWithUTF8String: raises on
+        // NULL, so a bogus target in a SelectionRequest would abort the process.
+        reply(NO);
+        return;
+    }
     NSString *target = [NSString stringWithUTF8String: rawTarget];
     XFree(rawTarget);
 
