@@ -156,6 +156,10 @@ static NSMutableDictionary<NSPasteboardName, X11Pasteboard *> *nameToPboard;
     XDestroyWindow(_display, _window);
 
     [self giveUpSelectionOwner];
+    // A drag that ends while the target is still reading has a transfer in
+    // flight, and its payload is retained by the transfer rather than the
+    // pasteboard, so it does not go away with the selection.
+    [_incrTransfers release];
     [_name release];
     [super dealloc];
 }
