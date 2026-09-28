@@ -5,6 +5,10 @@ sdk=ARGV.fetch(0)
 source=File.read(File.expand_path('../AppKit/NSImage.m',__dir__))
 block=source[/        if \(!_cacheIsValid\) \{.*?\n\n        return [^;]+;/m]
 abort 'cache block missing' unless block
+scaled_block=source[/    \[self lockFocusOnRepresentation: scaled\];.*?\n    return scaled;/m]
+abort 'scaled cache block missing' unless scaled_block
+temporary_block=source[/ +if \(cachedRep == nil\) \{.*?(?=\n\n +\/\/ A full bitmap)/m]
+abort 'temporary cache block missing' unless temporary_block
 program=<<~'OBJC'
   #import <Foundation/Foundation.h>
   #include <assert.h>
@@ -12,6 +16,14 @@ program=<<~'OBJC'
   static BOOL throwDraw;
   static BOOL throwSize;
   static unsigned draws, locks, unlocks, removals;
+  static unsigned additions;
+  typedef void *CGContextRef;
+  static CGContextRef NSCurrentGraphicsPort(void) { return NULL; }
+  static void CGContextTranslateCTM(CGContextRef c, CGFloat x, CGFloat y) {}
+  static void CGContextScaleCTM(CGContextRef c, CGFloat x, CGFloat y) {}
+  enum { scaledRepCacheCapacity=4, scaledRepCacheByteBudget=1024 };
+  static NSUInteger scaledRepBytes(id rep) { return 16; }
+  static NSUInteger scaledRepCacheBytes(NSArray *cache) { return [cache count]*16; }
   static BOOL render(void) {
     ++draws;
     if (throwDraw) [NSException raise:@"DrawFailure" format:@"fixture"];
@@ -20,8 +32,17 @@ program=<<~'OBJC'
   @interface Rep : NSObject @end
   @implementation Rep
   - (BOOL)drawAtPoint:(NSPoint)point { return render(); }
+  - (BOOL)drawInRect:(NSRect)rect { return render(); }
+  - (NSSize)size { return NSMakeSize(20,20); }
   @end
-  @interface Image : NSObject { @public BOOL _cacheIsValid, scales; id cachedRep; }
+  typedef Rep NSImageRep;
+  @interface NSCachedImageRep : Rep @end
+  @implementation NSCachedImageRep
+  - (id)initWithSize:(NSSize)size depth:(int)depth separate:(BOOL)separate alpha:(BOOL)alpha {
+    return [super init];
+  }
+  @end
+  @interface Image : NSObject { @public BOOL _cacheIsValid, scales, _isFlipped; id cachedRep; NSMutableArray *_scaledRepCache; }
   @end
   @implementation Image
   - (NSSize)size {
@@ -32,10 +53,22 @@ program=<<~'OBJC'
   - (void)lockFocusOnRepresentation:(id)rep { ++locks; }
   - (void)unlockFocus { ++unlocks; }
   - (void)removeRepresentation:(id)rep { assert(rep==cachedRep); ++removals; }
+  - (void)addRepresentation:(id)rep { ++additions; }
   - (BOOL)drawRepresentation:(id)rep inRect:(NSRect)rect { return render(); }
   - (id)fill:(Rep *)uncached {
     id cached=cachedRep;
     BLOCK
+  }
+  - (id)fillScaled:(Rep *)sourceRep {
+    id scaled=cachedRep;
+    int pixelsWide=2, pixelsHigh=2;
+    SCALED_BLOCK
+  }
+  - (void)fillTemporary:(Rep *)any cache:(BOOL)canCache source:(NSRect)source {
+    id cachedRep=nil;
+    CGContextRef context;
+    TEMPORARY_BLOCK
+    assert(cachedRep!=nil);
   }
   @end
   int main(void) {
@@ -66,11 +99,44 @@ program=<<~'OBJC'
         throwSize=NO; assert([image fill:rep]==image->cachedRep);
         assert(image->_cacheIsValid && locks==6 && unlocks==6 && removals==3);
       }
+      draws=locks=unlocks=0; drawResult=NO;
+      assert([image fillScaled:rep]==nil);
+      assert([image->_scaledRepCache count]==0 && locks==1 && unlocks==1);
+      throwDraw=YES; BOOL caught=NO;
+      @try { [image fillScaled:rep]; }
+      @catch(NSException *exception) { caught=[[exception name] isEqual:@"DrawFailure"]; }
+      assert(caught && [image->_scaledRepCache count]==0 && locks==2 && unlocks==2);
+      throwDraw=NO; drawResult=YES;
+      assert([image fillScaled:rep]==image->cachedRep);
+      assert([image->_scaledRepCache count]==1 && locks==3 && unlocks==3);
+      assert([[image->_scaledRepCache objectAtIndex:0] objectAtIndex:0]==rep);
+      assert([[image->_scaledRepCache objectAtIndex:0] objectAtIndex:1]==image->cachedRep);
+      [image->_scaledRepCache release];
+      for (unsigned cache=0;cache<2;++cache) {
+        for (unsigned flipped=0;flipped<2;++flipped) {
+          for (unsigned crop=0;crop<2;++crop) {
+            image->_isFlipped=flipped;
+            NSRect source=crop ? NSMakeRect(1,2,3,4) : NSZeroRect;
+            additions=draws=locks=unlocks=0; drawResult=NO;
+            [image fillTemporary:rep cache:cache source:source];
+            assert(additions==0 && draws==1 && locks==1 && unlocks==1);
+            throwDraw=YES; caught=NO;
+            @try { [image fillTemporary:rep cache:cache source:source]; }
+            @catch(NSException *exception) { caught=[[exception name] isEqual:@"DrawFailure"]; }
+            assert(caught && additions==0 && locks==2 && unlocks==2);
+            throwDraw=NO; drawResult=YES;
+            [image fillTemporary:rep cache:cache source:source];
+            assert(additions==cache && locks==3 && unlocks==3);
+          }
+        }
+      }
       [image->cachedRep release]; [rep release]; [image release];
     }
   }
 OBJC
 program.sub!('BLOCK'){block}
+program.sub!('SCALED_BLOCK'){scaled_block}
+program.sub!('TEMPORARY_BLOCK'){temporary_block}
 gcc,status=Open3.capture2('gcc','-print-file-name=include'); abort unless status.success?
 Dir.mktmpdir('image-cache') do |dir|
   input="#{dir}/probe.m"; output="#{dir}/probe"; File.write(input,program)
