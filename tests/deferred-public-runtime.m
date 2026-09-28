@@ -137,6 +137,49 @@ static void checkFailedHandlerRetry(CGContextRef port) {
     puts("PASS: failed and throwing public handlers preserve destination/context and retry");
 }
 
+static void checkTransformDensityAndReuse(CGContextRef port) {
+    CGAffineTransform transforms[]={
+        CGAffineTransformMake(1.25,0,0,0.75,3,5),
+        CGAffineTransformMake(1,0.25,0.375,1,3,5),
+        CGAffineTransformMake(cos(0.37),sin(0.37),-sin(0.37),cos(0.37),12,5)
+    };
+    const unsigned order[]={0,1,2,0};
+    __block unsigned calls=0;
+    __block size_t expectedWidth=0,expectedHeight=0;
+    NSImage *image=[NSImage imageWithSize:NSMakeSize(8,10) flipped:NO
+        drawingHandler:^BOOL(NSRect rect) {
+            ++calls;
+            CGContextRef p=[[NSGraphicsContext currentContext] graphicsPort];
+            CGAffineTransform t=CGContextGetUserSpaceToDeviceSpaceTransform(p);
+            assert(CGBitmapContextGetWidth(p)==expectedWidth);
+            assert(CGBitmapContextGetHeight(p)==expectedHeight);
+            assert(fabs(hypot(t.a,t.b)-expectedWidth/8.0)<0.000001);
+            assert(fabs(hypot(t.c,t.d)-expectedHeight/10.0)<0.000001);
+            [[NSColor redColor] setFill]; NSRectFill(rect); return YES;
+        }];
+    size_t bytes=CGBitmapContextGetBytesPerRow(port)*CGBitmapContextGetHeight(port);
+    unsigned char *data=CGBitmapContextGetData(port);
+    assert(data && bytes);
+    for (unsigned i=0;i<4;++i) {
+        memset(data,0,bytes);
+        CGContextSaveGState(port);
+        CGContextConcatCTM(port,transforms[order[i]]);
+        CGAffineTransform t=CGContextGetUserSpaceToDeviceSpaceTransform(port);
+        expectedWidth=ceil(9.5*hypot(t.a,t.b));
+        expectedHeight=ceil(7.25*hypot(t.c,t.d));
+        [image drawInRect:NSMakeRect(0,0,9.5,7.25) fromRect:NSZeroRect
+            operation:NSCompositeCopy fraction:1];
+        assert(calls==(i<3 ? i+1 : 3));
+        CGContextRestoreGState(port);
+        BOOL painted=NO;
+        for (size_t b=0;b<bytes;++b) if (data[b]) { painted=YES; break; }
+        assert(painted);
+        printf("Transform=%u raster=%zux%zu callback count=%u\n",
+            order[i],expectedWidth,expectedHeight,calls);
+    }
+    puts("PASS: nonuniform/sheared/rotated device density and transform-key reuse");
+}
+
 int main(void) {
     setbuf(stdout, NULL);
     NSAutoreleasePool *pool = [NSAutoreleasePool new];
@@ -218,6 +261,7 @@ int main(void) {
     puts("Checking quarter-turn destination");
     compareAlphaCompositing(port);
     CGContextRestoreGState(port);
+    checkTransformDensityAndReuse(port);
     if (bitmap) {
         [NSGraphicsContext restoreGraphicsState];
         CGContextRelease(bitmap);

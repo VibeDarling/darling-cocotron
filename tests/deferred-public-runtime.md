@@ -42,6 +42,14 @@ may have fractional coverage and must not retain pixels from a previous case.
 The maximum accepted byte difference is one level for intermediate quantization;
 the validated four-environment matrix currently reports zero for all 96 comparisons.
 
+A separate transform sequence draws an 8x10 image into a fractional 9.5x7.25
+destination under nonuniform scaling, shear, and a 0.37-radian rotation. The
+callback verifies physical bitmap dimensions and independent X/Y device density
+against the rounded destination-axis lengths. Returning to the first transform
+must reuse its prior raster (callback counts 1,2,3,3). Each draw must produce
+nonempty output. This checks density and cache identity, not exact edge coverage
+or interpolation quality for arbitrary transforms.
+
 The extracted-method fixture in `build-deferred-factory-probe.rb` additionally
 covers patterned/cropped output, failure and exception cleanup, appearance,
 ownership, and over-budget transient rasters. Its
