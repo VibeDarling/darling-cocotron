@@ -232,6 +232,10 @@ static NSMutableArray<_NSEventLocalMonitor *> *s_localMonitors = nil;
     return 0;
 }
 
+- (NSInteger) eventNumber {
+    return 0;
+}
+
 - (CGFloat) deltaX {
     return 0;
 }
