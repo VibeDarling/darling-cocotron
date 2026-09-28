@@ -25,6 +25,7 @@ SOFTWARE. */
 @interface NSMenuToolbarItem : NSToolbarItem {
     NSMenu *_menu;
     BOOL _showsIndicator;
+    BOOL _trackingMenu;
 }
 
 @property(retain) NSMenu *menu;
