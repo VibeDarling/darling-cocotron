@@ -204,15 +204,63 @@ CTFontRef CTFontCreateCopyWithFamily(CTFontRef font, CGFloat size,
 
 CTFontRef CTFontCreateForString(CTFontRef currentFont, CFStringRef string, CFRange range)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    return CTFontCreateForStringWithLanguage(currentFont, string, range, NULL);
 }
 
 CTFontRef CTFontCreateForStringWithLanguage(CTFontRef currentFont, CFStringRef string,
                                             CFRange range, CFStringRef language)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    if (currentFont == NULL || string == NULL || range.location < 0 ||
+        range.length < 0 || range.location > CFStringGetLength(string) ||
+        range.length > CFStringGetLength(string) - range.location)
+        return NULL;
+    if (range.length == 0)
+        return (CTFontRef)CFRetain(currentFont);
+    if ((size_t)range.length > SIZE_MAX / sizeof(uint32_t))
+        return NULL;
+
+    UniChar *characters = calloc((size_t)range.length, sizeof(*characters));
+    uint32_t *codePoints = calloc((size_t)range.length, sizeof(*codePoints));
+    if (characters == NULL || codePoints == NULL) {
+        free(characters);
+        free(codePoints);
+        return NULL;
+    }
+    CFStringGetCharacters(string, range, characters);
+    FT_Face baseFace = faceForFont(currentFont);
+    bool covered = baseFace != NULL;
+    size_t count = 0;
+    for (CFIndex i = 0; i < range.length; i++) {
+        uint32_t scalar = characters[i];
+        if (scalar >= 0xD800 && scalar <= 0xDBFF && i + 1 < range.length &&
+            characters[i + 1] >= 0xDC00 && characters[i + 1] <= 0xDFFF) {
+            scalar = 0x10000 + ((scalar - 0xD800) << 10) +
+                    (characters[++i] - 0xDC00);
+        } else if (scalar >= 0xD800 && scalar <= 0xDFFF) {
+            free(characters);
+            free(codePoints);
+            return NULL;
+        }
+        codePoints[count++] = scalar;
+        FT_UInt glyph = baseFace != NULL ? FT_Get_Char_Index(baseFace, scalar) : 0;
+        if (glyph == 0 || glyph > UINT16_MAX)
+            covered = false;
+    }
+    free(characters);
+    if (covered) {
+        free(codePoints);
+        return (CTFontRef)CFRetain(currentFont);
+    }
+
+    // Fontconfig supplies system defaults when no explicit language is given.
+    O2FontRef substitute = O2FontCreateWithCodePointCoverage(codePoints, count,
+            baseFace, language != NULL ? [(NSString *)language UTF8String] : NULL);
+    free(codePoints);
+    if (substitute == nil)
+        return NULL;
+    CTFontRef result = createFont((CGFontRef)substitute, CTFontGetSize(currentFont));
+    O2FontRelease(substitute);
+    return result;
 }
 
 CTFontDescriptorRef CTFontCopyFontDescriptor(CTFontRef font)
