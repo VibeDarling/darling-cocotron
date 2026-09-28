@@ -21,6 +21,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <CoreText/CoreText.h>
 #import <CoreText/KTFont.h>
 #import <Foundation/NSException.h>
+#import <Foundation/NSArray.h>
+#import <Foundation/NSDictionary.h>
+#import <objc/runtime.h>
 #import <Onyx2D/O2Font_freetype.h>
 #include <pthread.h>
 
@@ -74,6 +77,17 @@ const CFStringRef kCTFontFeatureTooltipTextKey = CFSTR("CTFeatureTooltipText");
 static Class fontClass;
 static BOOL fontCreated;
 static pthread_mutex_t fontClassLock = PTHREAD_MUTEX_INITIALIZER;
+static char fontCascadeKey;
+
+static NSArray *fontCascade(CTFontRef font) {
+    return objc_getAssociatedObject((id)font, &fontCascadeKey);
+}
+
+static void setFontCascade(CTFontRef font, NSArray *cascade) {
+    if (font != NULL && [cascade isKindOfClass:[NSArray class]])
+        objc_setAssociatedObject((id)font, &fontCascadeKey, cascade,
+                                 OBJC_ASSOCIATION_COPY);
+}
 
 void _CTFontSetConcreteClass(Class newClass) {
     pthread_mutex_lock(&fontClassLock);
@@ -153,7 +167,9 @@ CTFontRef CTFontCreateWithFontDescriptor(CTFontDescriptorRef descriptor, CGFloat
             }
         }
     }
-    return CTFontCreateWithName(name ?: CFSTR("Helvetica"), size, matrix);
+    CTFontRef result = CTFontCreateWithName(name ?: CFSTR("Helvetica"), size, matrix);
+    setFontCascade(result, [(NSDictionary *)descriptor objectForKey:(id)kCTFontCascadeListAttribute]);
+    return result;
 }
 
 CTFontRef CTFontCreateWithFontDescriptorAndOptions(CTFontDescriptorRef descriptor, CGFloat size,
@@ -183,7 +199,10 @@ CTFontRef CTFontCreateCopyWithAttributes(CTFontRef font, CGFloat size,
     if (size <= 0.0) {
         size = CTFontGetSize(font);
     }
-    return createFont(graphicsFont(font), size);
+    CTFontRef result = createFont(graphicsFont(font), size);
+    NSArray *cascade = [(NSDictionary *)attributes objectForKey:(id)kCTFontCascadeListAttribute];
+    setFontCascade(result, cascade ?: fontCascade(font));
+    return result;
 }
 
 CTFontRef CTFontCreateCopyWithSymbolicTraits(CTFontRef font, CGFloat size,
@@ -252,6 +271,28 @@ CTFontRef CTFontCreateForStringWithLanguage(CTFontRef currentFont, CFStringRef s
         return (CTFontRef)CFRetain(currentFont);
     }
 
+    // Explicit descriptors are tried in caller-supplied order. Do not recurse
+    // through their own cascade lists: each candidate must itself cover input.
+    for (id descriptor in fontCascade(currentFont)) {
+        if (![descriptor isKindOfClass:[NSDictionary class]])
+            continue;
+        CTFontRef candidate = CTFontCreateWithFontDescriptor(
+                (CTFontDescriptorRef)descriptor, CTFontGetSize(currentFont), NULL);
+        if (candidate == NULL)
+            continue;
+        FT_Face face = faceForFont(candidate);
+        bool candidateCovers = face != NULL;
+        for (size_t i = 0; candidateCovers && i < count; i++) {
+            FT_UInt glyph = FT_Get_Char_Index(face, codePoints[i]);
+            candidateCovers = glyph != 0 && glyph <= UINT16_MAX;
+        }
+        if (candidateCovers) {
+            free(codePoints);
+            return candidate;
+        }
+        CFRelease(candidate);
+    }
+
     // Fontconfig supplies system defaults when no explicit language is given.
     O2FontRef substitute = O2FontCreateWithCodePointCoverage(codePoints, count,
             baseFace, language != NULL ? [(NSString *)language UTF8String] : NULL);
@@ -272,6 +313,8 @@ CTFontDescriptorRef CTFontCopyFontDescriptor(CTFontRef font)
 CFTypeRef CTFontCopyAttribute(CTFontRef font, CFStringRef attribute)
 {
     if (!font || !attribute) return nil;
+    if (CFEqual(attribute, kCTFontCascadeListAttribute))
+        return (CFTypeRef)[fontCascade(font) copy];
     if (CFEqual(attribute, kCTFontNameAttribute)) {
         return CTFontCopyName(font, kCTFontFullNameKey);
     }
@@ -611,7 +654,9 @@ CTFontCreateWithGraphicsFont(CGFontRef cgFont, CGFloat size,
                              CGAffineTransform *xform,
                              CTFontDescriptorRef attributes)
 {
-    return createFont(cgFont, size);
+    CTFontRef result = createFont(cgFont, size);
+    setFontCascade(result, [(NSDictionary *)attributes objectForKey:(id)kCTFontCascadeListAttribute]);
+    return result;
 }
 
 ATSFontRef CTFontGetPlatformFont(CTFontRef font, CTFontDescriptorRef  _Nullable *attributes)

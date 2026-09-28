@@ -19,13 +19,16 @@ program = <<~'OBJC'
   typedef unichar UniChar;
   typedef NSString *CFStringRef;
   typedef struct { CFIndex location, length; } CFRange;
-  typedef id CTFontRef, CGFontRef, O2FontRef;
+  typedef id CTFontRef, CGFontRef, O2FontRef, CTFontDescriptorRef;
   static CFRange CFRangeMake(CFIndex a, CFIndex b) { return (CFRange){a,b}; }
   static CFIndex CFStringGetLength(CFStringRef s) { return [s length]; }
   static void CFStringGetCharacters(CFStringRef s, CFRange r, UniChar *out) {
       [s getCharacters:out range:NSMakeRange(r.location,r.length)];
   }
   static id CFRetain(id o) { return [o retain]; }
+  static void CFRelease(id o) { [o release]; }
+  static NSArray *cascade;
+  static NSArray *fontCascade(CTFontRef f) { return cascade; }
   @interface RegisteredFont : NSObject { @public FT_Face face; CGFloat size; } @end
   @implementation RegisteredFont @end
   static FT_Face faceForFont(CTFontRef f) { return ((RegisteredFont *)f)->face; }
@@ -50,6 +53,9 @@ program = <<~'OBJC'
       return result;
   }
   static void O2FontRelease(O2FontRef f) { releases++; [f release]; }
+  static CTFontRef CTFontCreateWithFontDescriptor(CTFontDescriptorRef descriptor, CGFloat size, void *matrix) {
+      return createFont([descriptor objectForKey:@"font"], size);
+  }
   CTFontRef CTFontCreateForStringWithLanguage(CTFontRef, CFStringRef, CFRange, CFStringRef);
   ACTUAL_METHODS
   int main(int argc, char **argv) {
@@ -90,6 +96,14 @@ program = <<~'OBJC'
           assert(!CTFontCreateForString(current,@"A",CFRangeMake(0,2)));
           assert(!CTFontCreateForString(nil,@"A",CFRangeMake(0,1)));
           assert(calls == 2 && [current retainCount] == references);
+          cascade = @[@{@"font":current}, @{@"font":substitute}, @{@"font":current}];
+          character = cp;
+          text = [NSString stringWithCharacters:&character length:1];
+          result = CTFontCreateForString(current,text,CFRangeMake(0,1));
+          assert(result && ((RegisteredFont *)result)->face == second);
+          assert(creates == 3 && calls == 2 && ((RegisteredFont *)result)->size == 17.5);
+          [result release];
+          cascade = nil;
           [current release]; [substitute release];
           FT_Done_Face(first); FT_Done_Face(second); FT_Done_FreeType(library);
           puts("Fallback caller coverage, retention, factory, size, language and failure tests passed");
