@@ -13,6 +13,7 @@ program=<<~'OBJC'
   @class NSEvent, NSView;
   static id trackedMenu, trackedEvent, trackedView;
   static void (*duringPeek)(void);
+  static void (*duringPopup)(void);
   enum { NSLeftMouseUpMask=4, NSLeftMouseDraggedMask=8 };
   #define NSEventTrackingRunLoopMode @"tracking"
   @interface ProbeApplication : NSObject { @public id pending; BOOL dequeued; NSUInteger mask; NSString *mode; }
@@ -35,6 +36,7 @@ program=<<~'OBJC'
   - (id)initWithTitle:(NSString*)title { return [super init]; }
   + (void)popUpContextMenu:(id)menu withEvent:(id)event forView:(id)view {
     trackedMenu=menu; trackedEvent=event; trackedView=view;
+    if (duringPopup) duringPopup();
   }
   - (void)dealloc { menuDeaths++; [super dealloc]; }
   @end
@@ -72,6 +74,31 @@ program=<<~'OBJC'
     assert(trackedMenu==nil);
     activeItem->disabled=YES;
   }
+  static void throwDuringCallback(void) {
+    [NSException raise:@"ProbeTrackingException" format:@"controlled callback failure"];
+  }
+  static void checkExceptionCleanup(NSMenuToolbarItem *item, id event, id view, BOOL popup) {
+    // Read the atomic getter before measuring, since it may autorelease a retain.
+    NSMenu *menu=[item menu];
+    NSUInteger itemCount=[item retainCount], eventCount=[event retainCount];
+    NSUInteger viewCount=[view retainCount], menuCount=[menu retainCount];
+    duringPeek=popup ? NULL : throwDuringCallback;
+    duringPopup=popup ? throwDuringCallback : NULL;
+    BOOL caught=NO;
+    @try {
+      [item _trackMenuWithEvent:event inView:view];
+    } @catch (NSException *exception) {
+      assert([[exception name] isEqual:@"ProbeTrackingException"]);
+      caught=YES;
+    }
+    duringPeek=NULL; duringPopup=NULL;
+    assert(caught);
+    assert([item retainCount]==itemCount && [event retainCount]==eventCount);
+    assert([view retainCount]==viewCount && [menu retainCount]==menuCount);
+    // An exception must not leave the transient tracking guard latched.
+    trackedMenu=nil;
+    assert([item _trackMenuWithEvent:event inView:view] && trackedMenu==menu);
+  }
   int main(void) {
     @autoreleasepool {
       NSMenuToolbarItem *item=[[NSMenuToolbarItem alloc] initWithItemIdentifier:@"fonts"];
@@ -101,12 +128,14 @@ program=<<~'OBJC'
       assert([item _trackMenuWithEvent:event inView:view] && trackedMenu==nil);
       duringPeek=NULL; item->disabled=NO;
       assert([item _trackMenuWithEvent:event inView:view] && trackedMenu==[item menu]);
+      checkExceptionCleanup(item,event,view,NO);
+      checkExceptionCleanup(item,event,view,YES);
       [NSApp release]; NSApp=nil;
       [event release]; [view release];
       [item release];
     }
     assert(menuDeaths==3);
-    puts("PASS: initial menu, replacement, self-assignment, representation sync, redraw, ownership after pool drain");
+    puts("PASS: menu state, representation sync, quick/held gestures, reentry, disabled state, exception cleanup, ownership after pool drain");
   }
 OBJC
 program.sub!('SOURCE') { source }
