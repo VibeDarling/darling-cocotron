@@ -118,6 +118,9 @@ int main(void) {
     testFactory();
 #endif
     [pool release];
+#ifdef TEST_DEFERRED_FACTORY
+    verifyFactoryCacheTeardown();
+#endif
     assert(destroyed == 1);
     puts("PASS: deferred invocation, escaped capture and independent representation copy lifetime");
     return 0;

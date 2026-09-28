@@ -17,6 +17,13 @@ cache_mode=source[/- \(void\) setCacheMode:.*?\n\}/m]
 abort 'cache mode setter missing' unless cache_mode
 # Redirect only the new ivar to subclass storage; preserve setter behavior.
 cache_mode=cache_mode.gsub('_drawingHandlerRepCache','_probeDrawingCache')
+image_copy=source[/- copyWithZone:.*?\n\}/m]
+abort 'image copy method missing' unless image_copy
+image_copy=image_copy.sub('NSImage *result','DeferredFactoryProbe *result')
+{'_drawingHandlerRepCache'=>'_probeDrawingCache','_scaledRepCache'=>'_probeScaledCache',
+ '_accessibilityDescription'=>'_probeDescription','_symbolConfiguration'=>'_probeSymbol'}.each do |a,b|
+  image_copy=image_copy.gsub(a,b)
+end
 rep_methods=File.read("#{root}/AppKit/NSImageRep.m")[/- \(BOOL\) drawAtPoint:.*?(?=\n- \(NSString \*\) description)/m]
 abort 'representation wrappers missing' unless rep_methods
 test=File.read("#{__dir__}/deferred-handler-ownership.m")
@@ -31,23 +38,30 @@ insertion=<<~OBJC
   #import <AppKit/NSWindow.h>
   #import "#{root}/AppKit/NSImageDrawingCache.m"
   #include <string.h>
+  static unsigned cacheInstances, cacheDestructions;
+  @interface TrackedDrawingCache : NSImageDrawingCache @end
+  @implementation TrackedDrawingCache
+  - (instancetype)init { if ((self=[super init])) ++cacheInstances; return self; }
+  - (void)dealloc { ++cacheDestructions; [super dealloc]; }
+  @end
   @implementation DeferredProbeImageRep (CandidateDrawingWrappers)
   #{rep_methods}
   @end
   // Staged NSImage does not have the candidate's new cache ivar. Supply storage
   // in this subclass; the extracted lookup/population uses the same accessor.
-  @interface DeferredFactoryProbe : NSImage { NSImageDrawingCache *_probeDrawingCache; NSUInteger _probeLastRasterCost; }
+  @interface DeferredFactoryProbe : NSImage { NSImageDrawingCache *_probeDrawingCache; NSUInteger _probeLastRasterCost; id _probeScaledCache, _probeDescription, _probeSymbol; }
   - (NSUInteger)probeLastRasterCost;
   @end
   @implementation DeferredFactoryProbe
   - (NSImageDrawingCache *)_drawingHandlerCache {
-      if (_probeDrawingCache==nil) _probeDrawingCache=[NSImageDrawingCache new];
+      if (_probeDrawingCache==nil) _probeDrawingCache=[TrackedDrawingCache new];
       return _probeDrawingCache;
   }
-  - (void)dealloc { [_probeDrawingCache release]; [super dealloc]; }
+  - (void)dealloc { [_probeDrawingCache release]; [_probeScaledCache release]; [_probeDescription release]; [_probeSymbol release]; [super dealloc]; }
   - (NSUInteger)probeLastRasterCost { return _probeLastRasterCost; }
   #{factory}
   #{cache_mode}
+  #{image_copy}
   #{selection}
   - (void)probeCache:(NSImageRep *)any source:(NSRect)source destination:(NSRect)rect {
       NSImageRep *cachedRep=nil;
@@ -232,12 +246,30 @@ insertion=<<~OBJC
               [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
               assert(renderCalls==11 && memcmp(low,reference+4,4)==0);
               puts("PASS: appearance change renders new tint; restoring appearance reuses original tint");
+              DeferredFactoryProbe *copied=[scaled copy];
+              assert([copied _drawingHandlerCache]!=[scaled _drawingHandlerCache]);
+              assert([[copied _drawingHandlerCache] byteCost]==0);
+              [copied probeCache:[[copied representations] objectAtIndex:0] source:source destination:destination];
+              assert(renderCalls==12);
+              [copied setCacheMode:NSImageCacheAlways];
+              [copied probeCache:[[copied representations] objectAtIndex:0] source:source destination:destination];
+              assert(renderCalls==13);
+              unsigned beforeDestruction=cacheDestructions;
+              [copied release];
+              assert(cacheDestructions==beforeDestruction+1);
+              [scaled probeCache:[[scaled representations] objectAtIndex:0] source:source destination:destination];
+              assert(renderCalls==13);
+              puts("PASS: copied image starts uncached, invalidates independently, and releases its cache");
           }
           [NSGraphicsContext setCurrentContext:nil];
           CGContextRelease(port);
           }
           puts("PASS: temporary cache preserves destination scale");
       }
+  }
+  static void verifyFactoryCacheTeardown(void) {
+      assert(cacheInstances==cacheDestructions);
+      puts("PASS: all image-owned caches released after pool teardown");
   }
 OBJC
 test.sub!('// FACTORY_INSERTION_POINT', insertion)
