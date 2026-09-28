@@ -31,9 +31,9 @@ source=<<~OBJC
       bytes[0]=73;
       size_t widths[]={SIZE_MAX/32+1,2};
       size_t heights[]={2,SIZE_MAX/8+1};
-      for (unsigned n=0;n<2;++n) {
+      for (unsigned mode=0;mode<2;++mode) for (unsigned n=0;n<2;++n) {
           BOOL rejected=NO;
-          @try { [surface setWidth:widths[n] height:heights[n] reallocateOnlyIfRequired:NO]; }
+          @try { [surface setWidth:widths[n] height:heights[n] reallocateOnlyIfRequired:mode]; }
           @catch (NSException *exception) {
               assert([[exception name] isEqual:NSInvalidArgumentException]);
               rejected=YES;
@@ -49,6 +49,21 @@ source=<<~OBJC
       assert(O2SurfaceGetWidth(surface)==4 && O2SurfaceGetHeight(surface)==4);
       assert([surface pixelBytes]!=NULL);
       [surface release];
+      unsigned char external[16]={91};
+      space=O2ColorSpaceCreateDeviceRGB();
+      surface=[[O2Surface alloc] initWithBytes:external width:2 height:2
+          bitsPerComponent:8 bytesPerRow:8 colorSpace:space
+          bitmapInfo:kO2ImageAlphaPremultipliedFirst|kO2BitmapByteOrder32Little];
+      O2ColorSpaceRelease(space);
+      assert(surface!=nil);
+      for (unsigned mode=0;mode<2;++mode) {
+          [surface setWidth:SIZE_MAX height:SIZE_MAX reallocateOnlyIfRequired:mode];
+          assert(O2SurfaceGetWidth(surface)==2 && O2SurfaceGetHeight(surface)==2);
+          assert([surface pixelBytes]==external && external[0]==91);
+      }
+      [surface release];
+      assert(external[0]==91);
+      puts("PASS: both resize modes reject overflow; external buffers remain untouched");
       [pool release];
       puts("PASS: resize overflow rejected before mutation; valid shrink and grow succeed");
       return 0;
