@@ -458,6 +458,19 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
     return self;
 }
 
++ (instancetype) imageWithSize: (NSSize) size
+                       flipped: (BOOL) flipped
+                drawingHandler: (BOOL (^)(NSRect)) handler {
+    NSCustomImageRep *rep = [[[NSCustomImageRep alloc]
+            initWithSize: size flipped: flipped drawingHandler: handler]
+            autorelease];
+    if (rep == nil)
+        return nil;
+    NSImage *image = [[[self alloc] initWithSize: size] autorelease];
+    [image addRepresentation: rep];
+    return image;
+}
+
 - initWithSize: (NSSize) size {
     _name = nil;
     _size = size;

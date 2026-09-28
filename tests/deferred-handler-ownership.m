@@ -99,6 +99,8 @@ static void testDrawing(void) {
     puts("PASS: four flip combinations, bitmap writes, NO/YES results and exception state restoration");
 }
 
+// FACTORY_INSERTION_POINT
+
 int main(void) {
     setbuf(stdout, NULL);
     puts("BEGIN: candidate deferred handler ownership");
@@ -112,6 +114,9 @@ int main(void) {
     assert(invoked == 1 && destroyed == 0);
     [copy release];
     testDrawing();
+#ifdef TEST_DEFERRED_FACTORY
+    testFactory();
+#endif
     [pool release];
     assert(destroyed == 1);
     puts("PASS: deferred invocation, escaped capture and independent representation copy lifetime");
