@@ -345,6 +345,10 @@ enum { NSApplicationActivated = 0, NSApplicationDeactivated = 1 };
 - (CGFloat) deltaX;
 - (CGFloat) deltaY;
 - (CGFloat) deltaZ;
+- (CGFloat) scrollingDeltaX;
+- (CGFloat) scrollingDeltaY;
+- (BOOL) hasPreciseScrollingDeltas;
++ (BOOL) isSwipeTrackingFromScrollEventsEnabled;
 
 // Set on magnify and rotate events; NSEventPhaseNone, 0 and 0 on every other event.
 @property (readonly) NSEventPhase phase;
