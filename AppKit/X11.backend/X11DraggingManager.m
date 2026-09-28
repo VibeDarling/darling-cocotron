@@ -431,7 +431,13 @@ static X11DraggingManager *X11SharedManager;
 }
 
 - (void) handlePropertyChange: (XPropertyEvent *) event {
-    [_dragPasteboard propertyNotify: event];
+    // Inside a drag the payload belongs to the drag's pasteboard. Outside one, a large
+    // clipboard paste is served by whichever X11Pasteboard owns the selection, and that
+    // one is only reachable through the registry, so ask it before giving up.
+    if (_dragPasteboard != nil)
+        [_dragPasteboard propertyNotify: event];
+    else
+        [X11Pasteboard dispatchPropertyNotify: event];
 }
 
 // ----------------------------------------------------------------- sending
