@@ -15,6 +15,7 @@ insertion=<<~OBJC
   #import <AppKit/NSCachedImageRep.h>
   #import "#{root}/AppKit/NSGraphicsContextFunctions.h"
   #import <AppKit/NSApplication.h>
+  #include <string.h>
   @interface DeferredFactoryProbe : NSImage @end
   @implementation DeferredFactoryProbe
   #{factory}
@@ -41,6 +42,19 @@ insertion=<<~OBJC
       puts("PASS: candidate image factory defers drawing and installs candidate representation");
       if (getenv("TEST_DESTINATION_SCALE")) {
           [NSApplication sharedApplication];
+          // Derive byte values through the same bitmap backend, avoiding an
+          // assumption about host byte order for the default bitmap format.
+          unsigned char reference[8]={0};
+          CGColorSpaceRef referenceColor=CGColorSpaceCreateDeviceRGB();
+          CGContextRef referencePort=CGBitmapContextCreate(reference,2,1,8,8,referenceColor,kCGImageAlphaPremultipliedLast);
+          CGColorSpaceRelease(referenceColor);
+          assert(referencePort!=NULL);
+          CGContextSetRGBFillColor(referencePort,1,0,0,1);
+          CGContextFillRect(referencePort,CGRectMake(0,0,1,1));
+          CGContextSetRGBFillColor(referencePort,0,0,1,1);
+          CGContextFillRect(referencePort,CGRectMake(1,0,1,1));
+          assert(memcmp(reference,reference+4,4)!=0);
+          CGContextRelease(referencePort);
           CGFloat scales[]={1,1.5,2};
           for (unsigned si=0;si<3;++si) for (unsigned crop=0;crop<2;++crop) {
           CGFloat scale=scales[si];
@@ -63,6 +77,9 @@ insertion=<<~OBJC
                       assert(transform.tx==-source.origin.x*scale && transform.ty==-source.origin.y*scale);
                   CGContextSetRGBFillColor([[NSGraphicsContext currentContext] graphicsPort],1,0,0,1);
                   CGContextFillRect([[NSGraphicsContext currentContext] graphicsPort],CGRectMake(0,0,20,30));
+                  // A low, blue band distinguishes orientation from mere extent.
+                  CGContextSetRGBFillColor([[NSGraphicsContext currentContext] graphicsPort],0,0,1,1);
+                  CGContextFillRect([[NSGraphicsContext currentContext] graphicsPort],CGRectMake(0,0,20,8));
                   return YES;
               }];
           [scaled setFlipped:getenv("TEST_IMAGE_FLIPPED") != NULL];
@@ -84,6 +101,15 @@ insertion=<<~OBJC
           unsigned width=destination.size.width*scale, height=destination.size.height*scale;
           assert(painted==width*height && maxX-minX+1==width && maxY-minY+1==height);
           assert(observed==scale);
+          unsigned sampleX=(unsigned)(5*scale);
+          unsigned lowRow=63-(unsigned)(2*scale);
+          unsigned highRow=63-(unsigned)((destination.size.height-2)*scale);
+          unsigned char *low=&pixels[(lowRow*64+sampleX)*4];
+          unsigned char *high=&pixels[(highRow*64+sampleX)*4];
+          printf("Pattern low bytes=%u,%u,%u,%u high=%u,%u,%u,%u\\n",
+              low[0],low[1],low[2],low[3],high[0],high[1],high[2],high[3]);
+          assert(memcmp(low,reference+4,4)==0);
+          assert(memcmp(high,reference,4)==0);
           [NSGraphicsContext setCurrentContext:nil];
           CGContextRelease(port);
           }
