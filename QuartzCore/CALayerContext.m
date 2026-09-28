@@ -105,6 +105,9 @@
 }
 
 - (void) invalidate {
+    [_timer invalidate];
+    [_timer release];
+    _timer = nil;
 }
 
 - (void) assignTextureIdsToLayerTree: (CALayer *) layer {
