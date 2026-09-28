@@ -6,16 +6,27 @@ root=ARGV[1] || File.expand_path('..',__dir__)
 source=File.read(File.join(root,'AppKit/NSTabViewItem.m'))
 methods=[source[/^- \(void\) setViewController:.*?^\}/m],source[/^- view \{.*?^\}/m],source[/^- \(void\) setView:.*?^\}/m]]
 abort 'missing method' if methods.any?(&:nil?)
+tab_source=File.read(File.join(root,'AppKit/NSTabView.m'))
+tab_methods=%w[selectTabViewItem _itemViewDidChange addTabViewItem].map do |name|
+  tab_source[/^- \(void\) #{name}:.*?^\}/m] or abort "missing #{name}"
+end
 program=<<~'OBJC'
   #import <Foundation/Foundation.h>
   #include <assert.h>
   @interface NSObject (ProbeCallbacks)
   - (void)setViewController:(id)value;
   - (void)_itemViewDidChange:(id)item;
+  - (BOOL)tabView:(id)tab shouldSelectTabViewItem:(id)item;
+  - (void)tabView:(id)tab willSelectTabViewItem:(id)item;
+  - (void)tabView:(id)tab didSelectTabViewItem:(id)item;
+  - (void)tabViewDidChangeNumberOfTabViewItems:(id)tab;
+  - (void)setNeedsDisplay:(BOOL)value;
+  - (void)makeFirstResponder:(id)view;
   @end
   @interface NSView : NSObject { @public unsigned removals; } @end
   @implementation NSView
   - (void)removeFromSuperview { ++removals; }
+  - (void)setFrame:(NSRect)frame {}
   @end
   @interface NSViewController : NSObject { @public unsigned loads; NSView *content; id target,replacement; BOOL replaceDuringLoad,reenter,throwOnce; } @end
   @implementation NSViewController
@@ -31,11 +42,21 @@ program=<<~'OBJC'
   @end
   @implementation Item
   METHODS
+  - (id)initialFirstResponder { return _initialFirstResponder; }
+  - (void)setTabView:(id)tab { _tabView=tab; }
   - (void)dealloc { [_view release]; [_viewController release]; [super dealloc]; }
   @end
-  @interface Tab : NSObject { @public Item *selected; unsigned changes; } @end
+  @compatibility_alias NSTabViewItem Item;
+  @interface Tab : NSObject { @public Item *_selectedItem; id _delegate; NSMutableArray *_items; NSView *attached; } @end
   @implementation Tab
-  - (void)_itemViewDidChange:(Item *)item { ++changes; if(item==selected) [item view]; }
+  TAB_METHODS
+  - (id)init { if((self=[super init])) _items=[NSMutableArray new]; return self; }
+  - (void)dealloc { [_items release]; [super dealloc]; }
+  - (id)window { return nil; }
+  - (id)superview { return nil; }
+  - (NSRect)contentRect { return NSZeroRect; }
+  - (void)addSubview:(NSView *)view { attached=view; }
+  - (void)setNeedsDisplay:(BOOL)value {}
   @end
   int main(void) {
     @autoreleasepool {
@@ -47,7 +68,7 @@ program=<<~'OBJC'
       assert([item view]==a && first->loads==1 && item->_initialFirstResponder==a);
       assert([item view]==a && first->loads==1);
       [item setViewController:first]; assert(first->loads==1);
-      tab->selected=item;
+      tab->_selectedItem=item;
       [item setViewController:second];
       assert(item->_view==b && second->loads==1 && item->_initialFirstResponder==b);
       [item setViewController:nil]; assert(item->_view==nil && item->_initialFirstResponder==nil);
@@ -67,12 +88,25 @@ program=<<~'OBJC'
       assert(caught && !item->_loadingControllerView && item->_view==nil);
       assert([item view]==a);
       [item release]; [tab release];
+      first->loads=second->loads=0;
+      Item *one=[Item new], *two=[Item new]; Tab *tabs=[Tab new];
+      [one setViewController:first]; [two setViewController:second];
+      assert(first->loads==0 && second->loads==0);
+      [tabs addTabViewItem:one]; [tabs addTabViewItem:two];
+      assert(first->loads==1 && second->loads==0 && tabs->attached==a);
+      [tabs selectTabViewItem:two];
+      assert(first->loads==1 && second->loads==1 && tabs->attached==b);
+      [tabs selectTabViewItem:one];
+      assert(first->loads==1 && second->loads==1 && tabs->attached==a);
+      one->_tabView=two->_tabView=nil;
+      [one release]; [two release]; [tabs release];
       [first release]; [second release]; [a release]; [b release];
       puts("PASS: deferred/cached load, replacement, nil, stale-result rejection, recursive load and exception recovery");
     }
   }
 OBJC
 program.sub!('METHODS'){methods.join("\n")}
+program.sub!('TAB_METHODS'){tab_methods.join("\n")}
 gcc,status=Open3.capture2('gcc','-print-file-name=include'); abort unless status.success?
 Dir.mktmpdir('tab-item-controller') do |dir|
   input=File.join(dir,'probe.m'); output=File.join(dir,'probe'); File.write(input,program)
