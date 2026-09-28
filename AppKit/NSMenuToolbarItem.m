@@ -23,6 +23,7 @@ SOFTWARE. */
 #import <AppKit/NSMenuItem.h>
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSEvent.h>
+#import <AppKit/NSView.h>
 #import <Foundation/NSDate.h>
 
 @interface NSToolbarItem (NSMenuToolbarItemPrivate)
@@ -33,6 +34,13 @@ SOFTWARE. */
 
 // Called by the enclosing toolbar view before its ordinary action tracking.
 - (BOOL)_trackMenuWithEvent: (NSEvent *) event inView: (NSView *) view {
+    if (_trackingMenu || ![self isEnabled])
+        return YES;
+    [self retain];
+    [event retain];
+    [view retain];
+    _trackingMenu = YES;
+    @try {
     if ([self action] != NULL) {
         // Leave a quick release/drag queued for the ordinary toolbar action
         // loop. Holding without either event opens the item's menu instead.
@@ -40,11 +48,24 @@ SOFTWARE. */
                                          untilDate: [NSDate dateWithTimeIntervalSinceNow: 0.5]
                                             inMode: NSEventTrackingRunLoopMode
                                            dequeue: NO];
+        if (![self isEnabled])
+            return YES;
         if (next != nil)
             return NO;
     }
-    [NSMenu popUpContextMenu: _menu withEvent: event forView: view];
+    NSMenu *menu = [_menu retain];
+    @try {
+        [NSMenu popUpContextMenu: menu withEvent: event forView: view];
+    } @finally {
+        [menu release];
+    }
     return YES;
+    } @finally {
+        _trackingMenu = NO;
+        [view release];
+        [event release];
+        [self release];
+    }
 }
 
 - (instancetype)initWithItemIdentifier: (NSToolbarItemIdentifier) identifier {
@@ -58,6 +79,7 @@ SOFTWARE. */
 - (id)copyWithZone: (NSZone *) zone {
     NSMenuToolbarItem *copy = [super copyWithZone: zone];
     copy->_menu = [_menu retain];
+    copy->_trackingMenu = NO;
     return copy;
 }
 

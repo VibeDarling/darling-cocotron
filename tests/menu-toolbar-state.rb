@@ -12,6 +12,7 @@ program=<<~'OBJC'
   static int menuDeaths;
   @class NSEvent, NSView;
   static id trackedMenu, trackedEvent, trackedView;
+  static void (*duringPeek)(void);
   enum { NSLeftMouseUpMask=4, NSLeftMouseDraggedMask=8 };
   #define NSEventTrackingRunLoopMode @"tracking"
   @interface ProbeApplication : NSObject { @public id pending; BOOL dequeued; NSUInteger mask; NSString *mode; }
@@ -20,7 +21,9 @@ program=<<~'OBJC'
   @implementation ProbeApplication
   - (id)nextEventMatchingMask:(NSUInteger)value untilDate:(NSDate*)date inMode:(NSString*)runMode dequeue:(BOOL)remove {
     assert([date timeIntervalSinceNow]>0);
-    mask=value; mode=runMode; dequeued=remove; return pending;
+    mask=value; mode=runMode; dequeued=remove;
+    if (duringPeek) duringPeek();
+    return pending;
   }
   @end
   static ProbeApplication *NSApp;
@@ -43,12 +46,13 @@ program=<<~'OBJC'
   - (void)dealloc { [submenu release]; [super dealloc]; }
   @end
   @interface NSToolbarItem : NSObject {
-    @public NSMenuItem *_menuFormRepresentation; int redraws; SEL action;
+    @public NSMenuItem *_menuFormRepresentation; int redraws; SEL action; BOOL disabled;
   }
   - (id)initWithItemIdentifier:(NSString*)identifier;
   - (NSMenuItem*)menuFormRepresentation;
   - (void)_didChange;
   - (SEL)action;
+  - (BOOL)isEnabled;
   @end
   @implementation NSToolbarItem
   - (id)initWithItemIdentifier:(NSString*)identifier { return [super init]; }
@@ -58,9 +62,16 @@ program=<<~'OBJC'
   }
   - (void)_didChange { redraws++; }
   - (SEL)action { return action; }
+  - (BOOL)isEnabled { return !disabled; }
   - (void)dealloc { [_menuFormRepresentation release]; [super dealloc]; }
   @end
   SOURCE
+  static NSMenuToolbarItem *activeItem;
+  static void reenterAndDisable(void) {
+    assert([activeItem _trackMenuWithEvent:nil inView:nil]);
+    assert(trackedMenu==nil);
+    activeItem->disabled=YES;
+  }
   int main(void) {
     @autoreleasepool {
       NSMenuToolbarItem *item=[[NSMenuToolbarItem alloc] initWithItemIdentifier:@"fonts"];
@@ -86,6 +97,10 @@ program=<<~'OBJC'
       assert([NSApp->mode isEqual:NSEventTrackingRunLoopMode]);
       NSApp->pending=nil;
       assert([item _trackMenuWithEvent:event inView:view] && trackedMenu==[item menu]);
+      trackedMenu=nil; activeItem=item; duringPeek=reenterAndDisable;
+      assert([item _trackMenuWithEvent:event inView:view] && trackedMenu==nil);
+      duringPeek=NULL; item->disabled=NO;
+      assert([item _trackMenuWithEvent:event inView:view] && trackedMenu==[item menu]);
       [NSApp release]; NSApp=nil;
       [event release]; [view release];
       [item release];
@@ -98,7 +113,7 @@ program.sub!('SOURCE') { source }
 gcc,status=Open3.capture2('gcc','-print-file-name=include'); abort unless status.success?
 Dir.mktmpdir('menu-toolbar-state') do |dir|
   input="#{dir}/probe.m"; output="#{dir}/probe"; File.write(input,program)
-  log,status=Open3.capture2e('clang','-fobjc-runtime=gcc','-fconstant-string-class=NSConstantString',
+  log,status=Open3.capture2e('clang','-fobjc-runtime=gcc','-fobjc-exceptions','-fexceptions','-fconstant-string-class=NSConstantString',
     "-I#{sdk}/usr/include/GNUstep","-I#{gcc.strip}",input,"-L#{sdk}/usr/lib",
     "-Wl,-rpath,#{sdk}/usr/lib",'-lgnustep-base','-lobjc','-o',output)
   abort log unless status.success?
