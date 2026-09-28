@@ -11,8 +11,19 @@ end.join.gsub('_Nullable','')
 internal=File.read("#{root}/CoreText/KTCoreTextInternal.h").gsub(/^#import.*\n/,'')
 program=File.read(File.join(__dir__,'line-host-support.h'))+declarations+internal+sources
 program += <<~'OBJC'
+  static void *registerTypes(void *unused) {
+      for (int i=0;i<10000;i++) {
+          assert(CTLineGetTypeID()!=CTRunGetTypeID());
+          assert(CTLineGetTypeID()!=0 && CTRunGetTypeID()!=0);
+      }
+      return NULL;
+  }
   int main(void) {
       @autoreleasepool {
+          pthread_t workers[8];
+          for (int i=0;i<8;i++) assert(pthread_create(&workers[i],NULL,registerTypes,NULL)==0);
+          for (int i=0;i<8;i++) assert(pthread_join(workers[i],NULL)==0);
+          assert(registeredClasses==2);
           NSMutableAttributedString *text = [[NSMutableAttributedString alloc] initWithString:@"abcd" attributes:@{@"font":@5}];
           [text addAttribute:@"font" value:@7 range:NSMakeRange(2,2)];
           CTLineRef line=CTLineCreateWithAttributedString(text);
@@ -35,6 +46,32 @@ program += <<~'OBJC'
           line=CTLineCreateWithAttributedString(text);
           assert(line && CTLineGetGlyphCount(line)==0);
           CFRelease(line); [text release]; assert(liveObjects==0);
+          // Normalization may change glyph count, not the source UTF-16 range.
+          NSAttributedString *composed=[[NSAttributedString alloc] initWithString:@"\u00e9" attributes:@{@"font":@5}];
+          NSAttributedString *decomposed=[[NSAttributedString alloc] initWithString:@"e\u0301" attributes:@{@"font":@5}];
+          CTLineRef a=CTLineCreateWithAttributedString(composed);
+          CTLineRef b=CTLineCreateWithAttributedString(decomposed);
+          assert(CTLineGetGlyphCount(a)==1 && CTLineGetGlyphCount(b)==1);
+          assert(CTLineGetStringRange(a).length==1 && CTLineGetStringRange(b).length==2);
+          CTRunRef ar=CFArrayGetValueAtIndex(CTLineGetGlyphRuns(a),0);
+          CTRunRef br=CFArrayGetValueAtIndex(CTLineGetGlyphRuns(b),0);
+          assert(CTRunGetGlyphsPtr(ar)[0]==CTRunGetGlyphsPtr(br)[0]);
+          assert(CTRunGetStringRange(br).length==2 && CTRunGetStringIndicesPtr(br)[0]==0);
+          CFRelease(a); CFRelease(b); [composed release]; [decomposed release];
+          text=[[NSMutableAttributedString alloc] initWithString:@"e\u0301b" attributes:@{@"font":@5}];
+          [text addAttribute:@"font" value:@7 range:NSMakeRange(1,2)];
+          line=CTLineCreateWithAttributedString(text);
+          runs=CTLineGetGlyphRuns(line); assert(CFArrayGetCount(runs)==3);
+          for (CFIndex i=0;i<3;i++) {
+              run=CFArrayGetValueAtIndex(runs,i);
+              CFRange range=CTRunGetStringRange(run);
+              assert(range.location==i && range.length==1);
+          }
+          // The line owns an immutable input snapshot, not the mutable source.
+          [text replaceCharactersInRange:NSMakeRange(0,3) withString:@"z"];
+          assert(CTLineGetStringRange(line).length==3);
+          CFRelease(line); [text release]; assert(liveObjects==0);
+          puts("Concurrent registration, NFC/source-index preservation, split-cluster ranges and input snapshot tests passed (host adapters)");
           puts("Whole-source ASCII runs, type separation, metrics, empty lines and wrapper-failure cleanup passed (host adapters)");
       }
   }
