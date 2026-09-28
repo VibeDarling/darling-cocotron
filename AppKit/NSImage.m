@@ -1103,7 +1103,7 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
 
     if (context == nil) {
         [NSException raise: NSInvalidArgumentException
-                    format: @"NSImageRep %@ can not be lockFocus'd"];
+                    format: @"NSImageRep %@ can not be lockFocus'd", representation];
         return;
     }
 
