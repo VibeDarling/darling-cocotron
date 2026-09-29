@@ -900,6 +900,10 @@ static BOOL windowManagerIsRunning(Display *display) {
     _lastMotionPos = point;
 }
 
+- (NSSize) lastReportedSize {
+    return _frame.size;
+}
+
 - (NSPoint) mouseLocationOutsideOfEventStream {
     Window root, child;
     int root_x, root_y, win_x, win_y;
