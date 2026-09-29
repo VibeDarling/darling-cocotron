@@ -129,8 +129,8 @@ static int X11CursorScaledSize(int nominalSize, CGFloat scale) {
     // pixel into a per-row destination, overrunning the buffer.
     for (size_t row = 0; row < height; row++, rowBytes += bytesPerRow)
         for (size_t column = 0; column < width; column++)
-            memcpy(ximage->pixels + (row * width + column) * 4,
-                   &rowBytes[column * 4], 4);
+            memcpy(ximage->pixels + row * width + column,
+                   &rowBytes[column * sizeof(XcursorPixel)], sizeof(XcursorPixel));
 
     CGContextRelease(context);
 
