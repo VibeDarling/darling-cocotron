@@ -225,9 +225,12 @@ static NSImage *ImageForGenericIcon(NSString *name) {
 }
 
 - (BOOL) type: (NSString *) type conformsToType: (NSString *) conformsToType {
-    // TODO: call UTTypeConformsTo()
-    NSUnimplementedMethod();
-    return NO;
+    if (type == nil || conformsToType == nil)
+        return NO;
+    if ([type isEqualToString: conformsToType])
+        return YES;
+    return [[UTType typeWithIdentifier: type]
+            conformsToType: [UTType typeWithIdentifier: conformsToType]];
 }
 
 - (NSString *) typeOfFile: (NSString *) path error: (NSError **) error {

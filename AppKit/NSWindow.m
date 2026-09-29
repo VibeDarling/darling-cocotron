@@ -256,13 +256,13 @@ static BOOL _allowsAutomaticWindowTabbing;
     return 0;
 }
 
-/* This method is Cococtron specific and can be override by subclasses, do not
+/* This method is Cocotron specific and can be overridden by subclasses, do not
  * change method name */
 + (BOOL) hasMainMenuForStyleMask: (NSWindowStyleMask) styleMask {
-    return styleMask & NSTitledWindowMask;
+    return NO;
 }
 
-/* This method is Cococtron specific and can be override by subclasses, do not
+/* This method is Cocotron specific and can be overridden by subclasses, do not
  * change method name. */
 - (BOOL) hasMainMenu {
     return [[self class] hasMainMenuForStyleMask: _styleMask];
@@ -1176,7 +1176,11 @@ static BOOL _allowsAutomaticWindowTabbing;
 
 - (void) setContentView: (NSView *) view {
     view = [view retain];
-    [view setFrame: [_contentView frame]];
+    if ([self hasMainMenu] == NO) {
+        [view setFrame: [_backgroundView bounds]];
+    } else {
+        [view setFrame: [_contentView frame]];
+    }
 
     [_contentView removeFromSuperview];
     [_contentView release];
@@ -1498,8 +1502,11 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (NSButton *) standardWindowButton: (NSWindowButton) value {
-    NSUnimplementedMethod();
-    return nil;
+    static NSButton *dummyButton = nil;
+    if (!dummyButton) {
+        dummyButton = [[NSButton alloc] init];
+    }
+    return dummyButton;
 }
 
 - (NSButtonCell *) defaultButtonCell {
@@ -2376,15 +2383,16 @@ static BOOL _allowsAutomaticWindowTabbing;
     case NSEventTypeLeftMouseDown:
     case NSEventTypeRightMouseDown:
     case NSEventTypeOtherMouseDown:
-    case NSEventTypeOtherMouseUp:
     case NSEventTypeMagnify:
     case NSEventTypeRotate:
         location = [event locationInWindow];
         break;
     case NSEventTypeLeftMouseUp:
     case NSEventTypeRightMouseUp:
+    case NSEventTypeOtherMouseUp:
     case NSEventTypeLeftMouseDragged:
     case NSEventTypeRightMouseDragged:
+    case NSEventTypeOtherMouseDragged:
         location = _mouseDownLocationInWindow;
         break;
     default:
@@ -2443,12 +2451,17 @@ static BOOL _allowsAutomaticWindowTabbing;
     switch ([event type]) {
 
     case NSLeftMouseDown: {
+        if (![self isKeyWindow]) {
+            [self makeKeyAndOrderFront: nil];
+        }
         NSView *view = [_backgroundView hitTest: [event locationInWindow]];
+        if (view == nil || view == _backgroundView)
+            view = _contentView;
 
         if ([view acceptsFirstResponder]) {
-            if ([view needsPanelToBecomeKey]) {
-                [self makeFirstResponder: view];
-            }
+            [self makeFirstResponder: view];
+        } else if (_contentView != nil && [_contentView acceptsFirstResponder]) {
+            [self makeFirstResponder: _contentView];
         }
 
         // Event goes to view, not first responder.
@@ -2457,42 +2470,75 @@ static BOOL _allowsAutomaticWindowTabbing;
         break;
     }
 
-    case NSLeftMouseUp:
-        [[_backgroundView hitTest: _mouseDownLocationInWindow] mouseUp: event];
+    case NSLeftMouseUp: {
+        NSView *view = [_backgroundView hitTest: _mouseDownLocationInWindow];
+        if (view == nil || view == _backgroundView)
+            view = _contentView;
+        [view mouseUp: event];
         _mouseDownLocationInWindow = NSMakePoint(NAN, NAN);
         break;
+    }
 
-    case NSRightMouseDown:
+    case NSRightMouseDown: {
+        if (![self isKeyWindow]) {
+            [self makeKeyAndOrderFront: nil];
+        }
+        _mouseDownLocationInWindow = [event locationInWindow];
+        NSView *rview = [_backgroundView hitTest: [event locationInWindow]];
+        if (rview == nil || rview == _backgroundView)
+            rview = _contentView;
+        [rview rightMouseDown: event];
+        break;
+    }
+
+    case NSRightMouseUp: {
+        NSView *view = [_backgroundView hitTest: _mouseDownLocationInWindow];
+        if (view == nil || view == _backgroundView)
+            view = _contentView;
+        [view rightMouseUp: event];
+        _mouseDownLocationInWindow = NSMakePoint(NAN, NAN);
+        break;
+    }
+
+    case NSOtherMouseDown:
         _mouseDownLocationInWindow = [event locationInWindow];
         [[_backgroundView hitTest: [event locationInWindow]]
-                rightMouseDown: event];
+                otherMouseDown: event];
         break;
 
-    case NSRightMouseUp:
+    case NSOtherMouseUp:
         [[_backgroundView hitTest: _mouseDownLocationInWindow]
-                rightMouseUp: event];
+                otherMouseUp: event];
         _mouseDownLocationInWindow = NSMakePoint(NAN, NAN);
         break;
 
     case NSMouseMoved: {
         NSView *hit = [_backgroundView hitTest: [event locationInWindow]];
-
-        if (hit == nil) {
-            [self mouseMoved: event];
-        } else {
-            [hit mouseMoved: event];
-        }
+        if (hit == nil || hit == _backgroundView)
+            hit = _contentView;
+        [hit mouseMoved: event];
         break;
     }
 
-    case NSLeftMouseDragged:
-        [[_backgroundView hitTest: _mouseDownLocationInWindow]
-                mouseDragged: event];
+    case NSLeftMouseDragged: {
+        NSView *view = [_backgroundView hitTest: _mouseDownLocationInWindow];
+        if (view == nil || view == _backgroundView)
+            view = _contentView;
+        [view mouseDragged: event];
         break;
+    }
 
-    case NSRightMouseDragged:
+    case NSRightMouseDragged: {
+        NSView *view = [_backgroundView hitTest: _mouseDownLocationInWindow];
+        if (view == nil || view == _backgroundView)
+            view = _contentView;
+        [view rightMouseDragged: event];
+        break;
+    }
+
+    case NSOtherMouseDragged:
         [[_backgroundView hitTest: _mouseDownLocationInWindow]
-                rightMouseDragged: event];
+                otherMouseDragged: event];
         break;
 
     case NSMouseEntered:
@@ -2506,14 +2552,32 @@ static BOOL _allowsAutomaticWindowTabbing;
         break;
 
     case NSKeyDown:
+        if (_firstResponder == nil || _firstResponder == self) {
+            if (_contentView != nil) {
+                [_contentView keyDown: event];
+                break;
+            }
+        }
         [_firstResponder keyDown: event];
         break;
 
     case NSKeyUp:
+        if (_firstResponder == nil || _firstResponder == self) {
+            if (_contentView != nil) {
+                [_contentView keyUp: event];
+                break;
+            }
+        }
         [_firstResponder keyUp: event];
         break;
 
     case NSFlagsChanged:
+        if (_firstResponder == nil || _firstResponder == self) {
+            if (_contentView != nil) {
+                [_contentView flagsChanged: event];
+                break;
+            }
+        }
         [_firstResponder flagsChanged: event];
         break;
 
@@ -2522,10 +2586,13 @@ static BOOL _allowsAutomaticWindowTabbing;
                 sendEvent: [(NSEvent_CoreGraphics *) event coreGraphicsEvent]];
         break;
 
-    case NSScrollWheel:
-        [[_backgroundView hitTest: [event locationInWindow]]
-                scrollWheel: event];
+    case NSScrollWheel: {
+        NSView *view = [_backgroundView hitTest: [event locationInWindow]];
+        if (view == nil || view == _backgroundView)
+            view = _contentView;
+        [view scrollWheel: event];
         break;
+    }
 
     case NSEventTypeMagnify:
         [[_backgroundView hitTest: [event locationInWindow]]
@@ -3643,20 +3710,26 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (NSPoint) convertPointToScreen: (NSPoint) point {
-    return [self convertBaseToScreen: point];
+    point.x += _frame.origin.x;
+    point.y += _frame.origin.y;
+    return point;
 }
 
 - (NSPoint) convertPointFromScreen: (NSPoint) point {
-    return [self convertScreenToBase: point];
+    point.x -= _frame.origin.x;
+    point.y -= _frame.origin.y;
+    return point;
 }
 
 - (NSRect) convertRectToScreen: (NSRect) rect {
-    rect.origin = [self convertBaseToScreen: rect.origin];
+    rect.origin.x += _frame.origin.x;
+    rect.origin.y += _frame.origin.y;
     return rect;
 }
 
 - (NSRect) convertRectFromScreen: (NSRect) rect {
-    rect.origin = [self convertScreenToBase: rect.origin];
+    rect.origin.x -= _frame.origin.x;
+    rect.origin.y -= _frame.origin.y;
     return rect;
 }
 

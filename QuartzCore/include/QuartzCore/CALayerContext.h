@@ -18,6 +18,7 @@
     CGSubWindow* _subwindow;
     void* _cglWindow;
     BOOL _rendered;
+    BOOL _renderRequested;
 }
 
 @property(readonly) CGLContextObj glContext;

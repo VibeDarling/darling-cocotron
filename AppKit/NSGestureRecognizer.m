@@ -181,6 +181,7 @@
     case NSEventTypeOtherMouseUp: [self otherMouseUp: event]; break;
     case NSEventTypeLeftMouseDragged: [self mouseDragged: event]; break;
     case NSEventTypeRightMouseDragged: [self rightMouseDragged: event]; break;
+    case NSEventTypeOtherMouseDragged: [self otherMouseDragged: event]; break;
     case NSEventTypeMagnify: [self magnifyWithEvent: event]; break;
     case NSEventTypeRotate: [self rotateWithEvent: event]; break;
     default: return NO;

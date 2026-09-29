@@ -17,7 +17,12 @@ static NSArray *defaultAvailableFontDescriptors(void) {
             "Courier", "Courier-Bold", "Courier-Oblique", "Courier-BoldOblique",
             "ArialMT", "Arial-BoldMT", "Arial-ItalicMT", "Arial-BoldItalicMT",
             "Menlo-Regular", "Menlo-Bold", "Menlo-Italic", "Menlo-BoldItalic",
-            "Monaco", "Geneva", "Symbol", "Apple Color Emoji"
+            "Monaco", "Geneva", "Symbol", "Apple Color Emoji",
+            "DejaVu Sans", "DejaVu Sans Bold", "DejaVu Sans Oblique", "DejaVu Sans Bold Oblique",
+            "DejaVu Serif", "DejaVu Serif Bold", "DejaVu Serif Italic", "DejaVu Serif Bold Italic",
+            "DejaVu Sans Mono", "DejaVu Sans Mono Bold", "DejaVu Sans Mono Oblique", "DejaVu Sans Mono Bold Oblique",
+            "Liberation Sans", "Liberation Serif", "Liberation Mono",
+            "Roboto", "San Francisco"
         };
         static const char * const fontFamilies[] = {
             "Helvetica", "Helvetica", "Helvetica", "Helvetica",
@@ -25,7 +30,12 @@ static NSArray *defaultAvailableFontDescriptors(void) {
             "Courier", "Courier", "Courier", "Courier",
             "Arial", "Arial", "Arial", "Arial",
             "Menlo", "Menlo", "Menlo", "Menlo",
-            "Monaco", "Geneva", "Symbol", "Apple Color Emoji"
+            "Monaco", "Geneva", "Symbol", "Apple Color Emoji",
+            "DejaVu Sans", "DejaVu Sans", "DejaVu Sans", "DejaVu Sans",
+            "DejaVu Serif", "DejaVu Serif", "DejaVu Serif", "DejaVu Serif",
+            "DejaVu Sans Mono", "DejaVu Sans Mono", "DejaVu Sans Mono", "DejaVu Sans Mono",
+            "Liberation Sans", "Liberation Serif", "Liberation Mono",
+            "Roboto", "San Francisco"
         };
         NSMutableArray *list = [NSMutableArray array];
         size_t count = sizeof(fontNames) / sizeof(fontNames[0]);

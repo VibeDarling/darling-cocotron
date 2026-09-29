@@ -21,6 +21,7 @@
 #import "X11Display.h"
 #import "NSEvent_mouse.h"
 #import "X11Cursor.h"
+#import "X11DraggingManager.h"
 #import "X11Pasteboard.h"
 #import "X11Window.h"
 #import <AppKit/NSApplication.h>
@@ -604,8 +605,7 @@ static NSDictionary *modeInfoToDictionary(const XRRModeInfo *mi, int depth) {
 }
 
 - (NSDraggingManager *) draggingManager {
-    //   NSUnimplementedMethod();
-    return nil;
+    return [X11DraggingManager sharedManager];
 }
 
 - (NSColor *) colorWithName: (NSString *) colorName {
@@ -993,7 +993,7 @@ static int compareFontPatterns(const void *a, const void *b) {
 }
 
 - (CGFloat) doubleClickInterval {
-    return 1.0;
+    return 0.4;
 }
 
 - (int) runModalPageLayoutWithPrintInfo: (NSPrintInfo *) printInfo {
@@ -1042,8 +1042,6 @@ static int compareFontPatterns(const void *a, const void *b) {
     XQueryPointer(_display, root, &root, &child, &root_x, &root_y, &win_x,
                   &win_y, &mask);
     int height = DisplayHeight(_display, DefaultScreen(_display));
-    // XQueryPointer reports device pixels, while NSScreen.frame is in points,
-    // so this has to be un-scaled or +[NSApp mouseLocation] is off by the scale.
     CGFloat scale = [self backingScale];
     return NSMakePoint(root_x / scale, (height - root_y) / scale);
 }
@@ -1099,7 +1097,7 @@ static int compareFontPatterns(const void *a, const void *b) {
     if (state & ShiftMask)
         ret |= NSShiftKeyMask;
     if (state & ControlMask)
-        ret |= NSControlKeyMask;
+        ret |= NSCommandKeyMask;
     // if (state & Mod2Mask) // Mod2Mask is numlock
     //   ret |= NSCommandKeyMask;
     if (state & LockMask)
@@ -1222,15 +1220,26 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
             buf[strLen] = 0;
         }
 
-        id str = [[NSString alloc] initWithCString: text
-                                          encoding: NSUTF8StringEncoding];
-        if (text != buf)
-            free(text);
-        NSPoint pos =
-                [window logicalPoint: NSMakePoint(ev->xkey.x, ev->xkey.y)];
-
         uint16_t ucsCode = (uint16_t) X11KeySymToUCS(keySym); // All defined codes in the table fit into 16 bits
         NSString* strIg = [NSString stringWithCharacters: &ucsCode length: 1];
+
+        id str = nil;
+        if (((ev->xkey.state & ControlMask) || (ev->xkey.state & Mod4Mask)) && ucsCode != 0) {
+            str = [strIg retain];
+        } else if (strLen > 0) {
+            str = [[NSString alloc] initWithCString: text
+                                              encoding: NSUTF8StringEncoding];
+        }
+        if (str == nil && ucsCode != 0) {
+            str = [strIg retain];
+        }
+        if (str == nil) {
+            str = [@"" retain];
+        }
+        if (text != buf)
+            free(text);
+
+        NSPoint pos = [window logicalPoint: NSMakePoint(ev->xkey.x, ev->xkey.y)];
 
         // If there's an app that uses constants from HIToolbox/Events.h (e.g.
         // kVK_ANSI_A), this gives it a chance to work.
@@ -1265,29 +1274,50 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
     case ButtonPress:;
         NSTimeInterval now = [[NSDate date] timeIntervalSinceReferenceDate];
 
-        if (now - lastClickTimeStamp < [self doubleClickInterval]) {
+        if (window != nil) {
+            [window setLastKnownCursorPosition: NSMakePoint(ev->xbutton.x, ev->xbutton.y)];
+        }
+
+        pos = [window
+                logicalPoint: NSMakePoint(ev->xbutton.x, ev->xbutton.y)];
+
+        static NSPoint lastClickPos;
+        static unsigned int lastClickButton = 0;
+
+        if (ev->xbutton.button == lastClickButton &&
+            (now - lastClickTimeStamp) < [self doubleClickInterval] &&
+            fabs(pos.x - lastClickPos.x) < 5.0 && fabs(pos.y - lastClickPos.y) < 5.0) {
             clickCount++;
         } else {
             clickCount = 1;
         }
         lastClickTimeStamp = now;
+        lastClickPos = pos;
+        lastClickButton = ev->xbutton.button;
 
-        pos = [window
-                logicalPoint: NSMakePoint(ev->xbutton.x, ev->xbutton.y)];
-
+        NSInteger buttonNumber = 0;
         switch (ev->xbutton.button) {
         case Button1:
             type = NSLeftMouseDown;
+            buttonNumber = 0;
+            break;
+        case Button2:
+            type = NSOtherMouseDown;
+            buttonNumber = 2;
             break;
         case Button3:
             type = NSRightMouseDown;
+            buttonNumber = 1;
             break;
         case Button4:
         case Button5:
+        case 6:
+        case 7:
             // Skip these, we'll send NSScrollWheel on release.
             return;
         default:
             type = NSOtherMouseDown;
+            buttonNumber = ev->xbutton.button > 0 ? ev->xbutton.button - 1 : 0;
         }
 
         event = [NSEvent
@@ -1299,22 +1329,34 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
                         clickCount: clickCount
                             deltaX: 0.0
                             deltaY: 0.0];
-        [(NSEvent_mouse *) event _setButtonNumber: ev->xbutton.button];
+        [(NSEvent_mouse *) event _setButtonNumber: buttonNumber];
         [self postEvent: event atStart: NO];
         break;
 
     case ButtonRelease:
+        if (window != nil) {
+            [window setLastKnownCursorPosition: NSMakePoint(ev->xbutton.x, ev->xbutton.y)];
+        }
+
         pos = [window
                 logicalPoint: NSMakePoint(ev->xbutton.x, ev->xbutton.y)];
 
+        CGFloat deltaX = 0.0;
         CGFloat deltaY = 0.0;
+        buttonNumber = 0;
 
         switch (ev->xbutton.button) {
         case Button1:
             type = NSLeftMouseUp;
+            buttonNumber = 0;
+            break;
+        case Button2:
+            type = NSOtherMouseUp;
+            buttonNumber = 2;
             break;
         case Button3:
             type = NSRightMouseUp;
+            buttonNumber = 1;
             break;
         case Button4:
             type = NSScrollWheel;
@@ -1324,8 +1366,17 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
             type = NSScrollWheel;
             deltaY = -1.0;
             break;
+        case 6:
+            type = NSScrollWheel;
+            deltaX = -1.0;
+            break;
+        case 7:
+            type = NSScrollWheel;
+            deltaX = 1.0;
+            break;
         default:
             type = NSOtherMouseUp;
+            buttonNumber = ev->xbutton.button > 0 ? ev->xbutton.button - 1 : 0;
         }
 
         event = [NSEvent
@@ -1335,9 +1386,9 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
                                                                          .state]
                             window: delegate
                         clickCount: clickCount
-                            deltaX: 0.0
+                            deltaX: deltaX
                             deltaY: deltaY];
-        [event _setButtonNumber: ev->xbutton.button];
+        [event _setButtonNumber: buttonNumber];
         [self postEvent: event atStart: NO];
         break;
 
@@ -1388,7 +1439,7 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
 
             if (ev->xmotion.state & Button1Mask) {
                 type = NSLeftMouseDragged;
-            } else if (ev->xmotion.state & Button2Mask) {
+            } else if (ev->xmotion.state & Button3Mask) {
                 type = NSRightMouseDragged;
             }
 
@@ -1425,6 +1476,10 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
 
     case FocusIn:
         NSLog(@"FocusIn");
+        if (ev->xfocus.mode == NotifyGrab || ev->xfocus.mode == NotifyUngrab || ev->xfocus.mode == NotifyWhileGrabbed)
+            break;
+        if (window != nil && [window styleMask] == NSBorderlessWindowMask)
+            break;
         // The server can still report FocusIn (detail NotifyPointer) for a
         // window we have unmapped; an ordered-out window must not become key.
         if (window != nil && ![window isMapped])
@@ -1450,6 +1505,10 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
 
     case FocusOut:
         NSLog(@"FocusOut");
+        if (ev->xfocus.mode == NotifyGrab || ev->xfocus.mode == NotifyUngrab || ev->xfocus.mode == NotifyWhileGrabbed)
+            break;
+        if (window != nil && [window styleMask] == NSBorderlessWindowMask)
+            break;
         [delegate platformWindowDeactivated: window
                     checkForAppDeactivation: NO];
         lastFocusedWindow = nil;
@@ -1514,15 +1573,28 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
         break;
 
     case ReparentNotify:
-        NSLog(@"ReparentNotify");
+        // A window manager frame has to point back at our window through XdndProxy
+        // before a drag source can find it under the pointer.
+        if ([window isKindOfClass: [X11Window class]])
+            [(X11DraggingManager *) [self draggingManager]
+                    windowReparented: (X11Window *) window
+                              intoParent: ev->xreparent.parent];
         break;
 
-    case ConfigureNotify:
-        [window frameChanged];
-        [delegate platformWindow: window
-                    frameChanged: [window frame]
-                         didSize: YES];
-        break;
+    case ConfigureNotify:; {
+            // The server also sends a ConfigureNotify for a pure move, and for
+            // every pixel of a drag, so reporting a resize unconditionally
+            // posted NSWindowDidResizeNotification for all of them. NSWindow
+            // resizes its background view, resets the cursor rects and saves
+            // the frame on each of those, once per pixel of a drag.
+            O2Rect oldFrame = [window frame];
+            [window frameChanged];
+            O2Rect newFrame = [window frame];
+            [delegate platformWindow: window
+                        frameChanged: newFrame
+                             didSize: !NSEqualSizes(oldFrame.size, newFrame.size)];
+            break;
+        }
 
     case ConfigureRequest:
         NSLog(@"ConfigureRequest");
@@ -1547,6 +1619,13 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
     case PropertyNotify:
         if ([window respondsToSelector: @selector(propertyNotify:)]) {
             [window propertyNotify: &ev->xproperty];
+        } else if (window == nil) {
+            // An incremental transfer is paced by the receiver deleting the
+            // property, and that property lives on the receiver's window, which
+            // belongs to another client and so is not in the window map. The
+            // pasteboard that wrote it is the one waiting for the deletion.
+            [(X11DraggingManager *) [self draggingManager]
+                    handlePropertyChange: &ev->xproperty];
         }
         break;
 
@@ -1573,6 +1652,21 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
         break;
 
     case ClientMessage:
+        // XDND is entirely ClientMessage traffic: XdndEnter, XdndPosition,
+        // XdndStatus, XdndDrop, XdndFinished and XdndLeave.
+        if (ev->xclient.format == 32) {
+            if ([window isKindOfClass: [X11Window class]]) {
+                [(X11DraggingManager *) [self draggingManager]
+                        handleXdndMessage: &ev->xclient
+                                     toWindow: (X11Window *) window];
+            } else if ([window isKindOfClass: [X11Pasteboard class]]) {
+                // A drag's source window is the helper window of the pasteboard
+                // that owns its selection, so the replies a target sends to the
+                // source arrive there rather than on one of our windows.
+                [(X11DraggingManager *) [self draggingManager]
+                        handleXdndSourceMessage: &ev->xclient];
+            }
+        }
         if (ev->xclient.format == 32 &&
             ev->xclient.data.l[0] ==
                     XInternAtom(_display, "WM_DELETE_WINDOW", False)) {
@@ -1596,11 +1690,21 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
         break;
 
     case GenericEvent:
+        // Everything RandR added in version 1.2 (a CRTC or output reconfiguration, a changed
+        // output property) is delivered as event code base + RRNotify with a sub-code, through
+        // the Generic Extension: Xlib reports the X event type as GenericEvent and the RandR
+        // code in xgeneric.evtype. Testing ev->type against _rrEventBase + RRNotify, as the
+        // default case below did, therefore never matched, so the screen cache was not dropped
+        // when a monitor was re-plugged or its mode changed.
+        if (_rrEventBase != 0 && ev->xgeneric.evtype == _rrEventBase + RRNotify) {
+            [self _invalidateRRCache];
+            break;
+        }
         NSLog(@"GenericEvent");
         break;
 
     default:
-        if (ev->type == _rrEventBase + RRNotify) {
+        if (ev->type == _rrEventBase + RRScreenChangeNotify) {
             [self _invalidateRRCache];
             break;
         }

@@ -86,6 +86,9 @@ typedef NS_ENUM(NSUInteger, NSEventType) {
     NSEventTypeOtherMouseUp = 26,
     NSOtherMouseUp = 26,
 
+    NSEventTypeOtherMouseDragged = 27,
+    NSOtherMouseDragged = 27,
+
     NSEventTypeMagnify = 30,
 
     NSAppKitSystem = 100,
@@ -115,6 +118,7 @@ typedef NS_OPTIONS(unsigned long long, NSEventMask) {
     NSEventMaskAppKitDefined = 1ULL << NSEventTypeAppKitDefined,
     NSEventMaskOtherMouseDown = 1ULL << NSEventTypeOtherMouseDown,
     NSEventMaskOtherMouseUp = 1ULL << NSEventTypeOtherMouseUp,
+    NSEventMaskOtherMouseDragged = 1ULL << NSEventTypeOtherMouseDragged,
     NSEventMaskRotate = 1ULL << NSEventTypeRotate,
     NSEventMaskMagnify = 1ULL << NSEventTypeMagnify,
 };
@@ -137,6 +141,9 @@ static const NSEventMask NSFlagsChangedMask = NSEventMaskFlagsChanged;
 static const NSEventMask NSPeriodicMask = NSEventMaskPeriodic;
 static const NSEventMask NSCursorUpdateMask = NSEventMaskCursorUpdate;
 static const NSEventMask NSScrollWheelMask = NSEventMaskScrollWheel;
+static const NSEventMask NSOtherMouseDownMask = NSEventMaskOtherMouseDown;
+static const NSEventMask NSOtherMouseUpMask = NSEventMaskOtherMouseUp;
+static const NSEventMask NSOtherMouseDraggedMask = NSEventMaskOtherMouseDragged;
 static const NSEventMask NSApplicationDefinedMask = NSEventMaskApplicationDefined;
 static const NSEventMask NSAppKitDefinedMask = NSEventMaskAppKitDefined;
 static const NSEventMask NSAnyEventMask = 0xffffffff;
@@ -335,9 +342,14 @@ enum { NSApplicationActivated = 0, NSApplicationDeactivated = 1 };
 - (NSInteger) windowNumber;
 
 @property (readonly) NSInteger clickCount;
+@property (readonly) NSInteger eventNumber;
 - (CGFloat) deltaX;
 - (CGFloat) deltaY;
 - (CGFloat) deltaZ;
+- (CGFloat) scrollingDeltaX;
+- (CGFloat) scrollingDeltaY;
+- (BOOL) hasPreciseScrollingDeltas;
++ (BOOL) isSwipeTrackingFromScrollEventsEnabled;
 
 // Set on magnify and rotate events; NSEventPhaseNone, 0 and 0 on every other event.
 @property (readonly) NSEventPhase phase;

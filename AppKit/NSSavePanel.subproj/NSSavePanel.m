@@ -51,14 +51,16 @@ static NSString *defaultDirectory(void) {
 }
 
 - (id) resetToDefaultValues {
-    _dialogTitle = @"Save";
-    _nameFieldStringValue = @"";
-    [_nameField setStringValue: @""];
-    _filename = @"";
-    _directory = [defaultDirectory() copy];
-    _requiredFileType = @"";
+    [self setTitle: @"Save"];
+    [self setNameFieldStringValue: @""];
+    [self _setFilename: @""];
+    [self setDirectory: defaultDirectory()];
+    [self setRequiredFileType: @""];
+    // Content types also derive the legacy filename-extension filter.
+    [self setAllowedContentTypes: nil];
+    [self setAllowsOtherFileTypes: NO];
     _treatsFilePackagesAsDirectories = NO;
-    _accessoryView = nil;
+    [self setAccessoryView: nil];
     _showsHiddenFiles = false;
     return self;
 }

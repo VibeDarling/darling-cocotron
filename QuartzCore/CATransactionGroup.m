@@ -5,6 +5,11 @@
 
 @implementation CATransactionGroup
 
+- (void) dealloc {
+    [_values release];
+    [super dealloc];
+}
+
 - init {
     _values = [[NSMutableDictionary alloc] init];
     [_values setObject: [NSNumber numberWithFloat: 0.25]
@@ -21,7 +26,18 @@
 }
 
 - (void) setValue: value forKey: (NSString *) key {
-    [_values setObject: value forKey: key];
+    if (value == nil)
+        [_values removeObjectForKey: key];
+    else
+        [_values setObject: value forKey: key];
+}
+
+- (BOOL) isExplicitlyBegan {
+    return _explicitlyBegan;
+}
+
+- (void) setExplicitlyBegan: (BOOL) value {
+    _explicitlyBegan = value;
 }
 
 @end

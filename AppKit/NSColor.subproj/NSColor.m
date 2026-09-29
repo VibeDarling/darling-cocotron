@@ -54,6 +54,10 @@ NSNotificationName const NSSystemColorsDidChangeNotification = @"NSSystemColorsD
 
 @implementation NSColor
 
+- (NSColorType) type {
+    return NSColorTypeComponentBased;
+}
+
 + (NSColor *) colorWithCGColor: (CGColorRef) color {
     if (color == NULL)
         return nil;
@@ -817,6 +821,17 @@ static NSColor *systemCatalogColor(NSColorName name, NSColor *fallback) {
                                     blue: blue
                                    alpha: alpha
                                spaceName: NSNamedColorSpace];
+}
+
++ (NSColor *) colorWithDisplayP3Red: (CGFloat) red
+                              green: (CGFloat) green
+                               blue: (CGFloat) blue
+                              alpha: (CGFloat) alpha
+{
+    CGFloat components[] = {red, green, blue, alpha};
+    return [NSColor colorWithColorSpace: [NSColorSpace displayP3ColorSpace]
+                             components: components
+                                  count: 4];
 }
 
 + (NSColor *) colorWithDeviceHue: (CGFloat) hue

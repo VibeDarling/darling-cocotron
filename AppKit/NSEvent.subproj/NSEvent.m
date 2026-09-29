@@ -232,6 +232,10 @@ static NSMutableArray<_NSEventLocalMonitor *> *s_localMonitors = nil;
     return 0;
 }
 
+- (NSInteger) eventNumber {
+    return 0;
+}
+
 - (CGFloat) deltaX {
     return 0;
 }
@@ -242,6 +246,22 @@ static NSMutableArray<_NSEventLocalMonitor *> *s_localMonitors = nil;
 
 - (CGFloat) deltaZ {
     return 0;
+}
+
+- (CGFloat) scrollingDeltaX {
+    return [self deltaX];
+}
+
+- (CGFloat) scrollingDeltaY {
+    return [self deltaY];
+}
+
+- (BOOL) hasPreciseScrollingDeltas {
+    return NO;
+}
+
++ (BOOL) isSwipeTrackingFromScrollEventsEnabled {
+    return NO;
 }
 
 - (NSEventPhase) phase {

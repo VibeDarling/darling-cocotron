@@ -57,8 +57,8 @@
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    glDisable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
 
     width = O2ImageGetWidth(surface);
     height = O2ImageGetHeight(surface);

@@ -2,6 +2,8 @@
 #import <Onyx2D/O2Font_freetype.h>
 #import <Onyx2D/O2GraphicsState.h>
 #import <Onyx2D/O2Paint_color.h>
+#include <stdint.h>
+#include <stdlib.h>
 
 @implementation O2Context (O2BitmapContext)
 
@@ -169,8 +171,17 @@ static void renderFreeTypeBitmap(O2Context_builtin_FT *self, O2Surface *surface,
            advances: (const O2Size *) advances
               count: (NSUInteger) count
 {
-    if (count == 0)
+    if (count == 0 || glyphs == NULL)
         return;
+
+    O2Size *defaultAdvances = NULL;
+    if (advances == NULL) {
+        if (count > SIZE_MAX / sizeof(*defaultAdvances))
+            return;
+        defaultAdvances = malloc(count * sizeof(*defaultAdvances));
+        if (defaultAdvances == NULL)
+            return;
+    }
 
     O2SurfaceLock(_surface);
 
@@ -193,23 +204,25 @@ static void renderFreeTypeBitmap(O2Context_builtin_FT *self, O2Surface *surface,
     O2Font_freetype *font = (O2Font_freetype *) gState->_font;
     FT_Face face = [font face];
 
-    int i;
+    NSUInteger i;
     FT_Error ftError;
 
     if (face == NULL) {
         NSLog(@"face is NULL");
+        O2PaintRelease(paint);
         O2SurfaceUnlock(_surface);
+        free(defaultAdvances);
         return;
     }
 
     if ((ftError =
                  FT_Set_Char_Size(face, 0, fontSize.height * 64, 72.0, 72.0))) {
         NSLog(@"FT_Set_Char_Size returned %d", ftError);
+        O2PaintRelease(paint);
         O2SurfaceUnlock(_surface);
+        free(defaultAdvances);
         return;
     }
-
-    O2Size defaultAdvances[count];
 
     if (advances == NULL)
         O2ContextGetDefaultAdvances(self, glyphs, defaultAdvances, count);
@@ -243,6 +256,7 @@ static void renderFreeTypeBitmap(O2Context_builtin_FT *self, O2Surface *surface,
 
     O2PaintRelease(paint);
     O2ContextConcatAdvancesToTextMatrix(self, useAdvances, count);
+    free(defaultAdvances);
 
     O2SurfaceUnlock(_surface);
 }

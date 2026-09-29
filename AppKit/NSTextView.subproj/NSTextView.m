@@ -3090,6 +3090,37 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
     [self scrollRangeToVisible: [self selectedRange]];
 }
 
+- (void) insertText: (id) object replacementRange: (NSRange) replacementRange {
+    if (![self isEditable])
+        return;
+    if (replacementRange.location == NSNotFound) {
+        [self insertText: object];
+        return;
+    }
+
+    NSUInteger length = [_textStorage length];
+    if (replacementRange.location > length ||
+        replacementRange.length > length - replacementRange.location)
+        [NSException raise: NSRangeException
+                    format: @"Text replacement range is outside the text storage"];
+
+    NSString *replacementString = [object isKindOfClass: [NSAttributedString class]]
+            ? [object string] : object;
+    if (![self shouldChangeTextInRange: replacementRange
+                    replacementString: replacementString])
+        return;
+
+    if (_rangeForUserCompletion.location != NSNotFound)
+        [self endUserCompletion];
+    // Do not set the selection to the replacement range: selection delegates
+    // may rewrite it. The existing replacement helper updates the caret later.
+    [self _replaceCharactersInRange: replacementRange
+                         withString: object
+             allowsTypingCoalescing: YES];
+    [self didChangeText];
+    [self scrollRangeToVisible: [self selectedRange]];
+}
+
 - (void) keyDown: (NSEvent *) event {
     if ([event type] == NSKeyDown && [self isEditable]) {
         _processingKeyEvent = YES;
@@ -3320,8 +3351,34 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 }
 
 - (NSUInteger) characterIndexForPoint: (NSPoint) point {
-    NSUnimplementedMethod();
-    return 0;
+    NSWindow *window = [self window];
+    NSUInteger length = [[self string] length];
+    if (window == nil || length == 0)
+        return NSNotFound;
+
+    point = [self convertPoint: [window convertScreenToBase: point]
+                     fromView: nil];
+    NSPoint origin = [self textContainerOrigin];
+    point.x -= origin.x;
+    point.y -= origin.y;
+
+    NSLayoutManager *manager = [self layoutManager];
+    NSTextContainer *container = [self textContainer];
+    CGFloat fraction = 0;
+    NSUInteger glyph = [manager glyphIndexForPoint: point
+                                  inTextContainer: container
+                   fractionOfDistanceThroughGlyph: &fraction];
+    if (glyph >= [manager numberOfGlyphs])
+        return NSNotFound;
+
+    // Glyph lookup also returns nearby insertion positions for padding. Text
+    // input hit testing requires an actual character under the screen point.
+    NSRect bounds = [manager boundingRectForGlyphRange: NSMakeRange(glyph, 1)
+                                      inTextContainer: container];
+    if (!NSPointInRect(point, bounds))
+        return NSNotFound;
+    NSUInteger character = [manager characterIndexForGlyphAtIndex: glyph];
+    return character < length ? character : NSNotFound;
 }
 
 - (void) _setFieldEditorUndoManager: (NSUndoManager *) undoManager {

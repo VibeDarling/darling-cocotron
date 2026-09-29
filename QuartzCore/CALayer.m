@@ -7,6 +7,8 @@
 #import <QuartzCore/CATransaction.h>
 #import <Onyx2D/O2Image.h>
 #import "CACoding.h"
+#import <objc/runtime.h>
+#import "CATransactionInternal.h"
 
 NSString *const kCAFilterLinear = @"linear";
 NSString *const kCAFilterNearest = @"nearest";
@@ -45,7 +47,30 @@ NSString *const CAToneMapModeAutomatic = @"automatic";
 NSString *const CAToneMapModeNever = @"never";
 NSString *const CAToneMapModeIfSupported = @"ifSupported";
 
+static char swiftUIDisplayListIDAssociationKey;
+static char swiftUIViewTestPropertiesAssociationKey;
+
 @implementation CALayer
+
+// SwiftUICore's CALayer category boxes these values before accessing the
+// underscored KVC keys. Leave scalar conversion and defaults to that category.
+- (id) _swiftUI_displayListID {
+    return objc_getAssociatedObject(self, &swiftUIDisplayListIDAssociationKey);
+}
+
+- (void) set_swiftUI_displayListID: (id) value {
+    objc_setAssociatedObject(self, &swiftUIDisplayListIDAssociationKey, value,
+            OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+- (id) _swiftUI_viewTestProperties {
+    return objc_getAssociatedObject(self, &swiftUIViewTestPropertiesAssociationKey);
+}
+
+- (void) set_swiftUI_viewTestProperties: (id) value {
+    objc_setAssociatedObject(self, &swiftUIViewTestPropertiesAssociationKey, value,
+            OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
 
 + layer {
     return [[[self alloc] init] autorelease];
@@ -131,7 +156,8 @@ NSString *const CAToneMapModeIfSupported = @"ifSupported";
 - (void) setPosition: (CGPoint) value {
     CAAnimation *animation = [self animationForKey: @"position"];
 
-    if (animation == nil && ![CATransaction disableActions]) {
+    if (animation == nil && [CATransaction hasOpenTransaction] &&
+        ![CATransaction disableActions]) {
         id action = [self actionForKey: @"position"];
 
         if (action != nil)
@@ -148,7 +174,8 @@ NSString *const CAToneMapModeIfSupported = @"ifSupported";
 - (void) setBounds: (CGRect) value {
     CAAnimation *animation = [self animationForKey: @"bounds"];
 
-    if (animation == nil && ![CATransaction disableActions]) {
+    if (animation == nil && [CATransaction hasOpenTransaction] &&
+        ![CATransaction disableActions]) {
         id action = [self actionForKey: @"bounds"];
 
         if (action != nil)
@@ -196,7 +223,8 @@ NSString *const CAToneMapModeIfSupported = @"ifSupported";
 - (void) setOpacity: (CGFloat) value {
     CAAnimation *animation = [self animationForKey: @"opacity"];
 
-    if (animation == nil && ![CATransaction disableActions]) {
+    if (animation == nil && [CATransaction hasOpenTransaction] &&
+        ![CATransaction disableActions]) {
         id action = [self actionForKey: @"opacity"];
 
         if (action != nil)

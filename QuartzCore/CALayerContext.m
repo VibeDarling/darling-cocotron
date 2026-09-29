@@ -50,6 +50,10 @@
 - (void) dealloc {
     [_timer invalidate];
     [_timer release];
+    // Layers can outlive their context. Clear the borrowed pointer while the
+    // context can still receive texture-cleanup requests from _setContext:.
+    if ([_layer _context] == self)
+        [_layer _setContext: nil];
     [_renderer release];
     CGLReleaseContext(_glContext);
     CGLReleasePixelFormat(_pixelFormat);
@@ -67,6 +71,10 @@
 
 - (void) setLayer: (CALayer *) layer {
     layer = [layer retain];
+    // Keep self-assignment intact, and do not detach a root that has already
+    // been rebound to another context while this one still retains it.
+    if (_layer != layer && [_layer _context] == self)
+        [_layer _setContext: nil];
     [_layer release];
     _layer = layer;
 
@@ -97,6 +105,9 @@
 }
 
 - (void) invalidate {
+    [_timer invalidate];
+    [_timer release];
+    _timer = nil;
 }
 
 - (void) assignTextureIdsToLayerTree: (CALayer *) layer {
@@ -197,16 +208,25 @@
     [self renderLayer: _layer];
 }
 
-static BOOL layerTreeHasAnimations(CALayer *layer) {
+static BOOL layerTreeNeedsAnotherFrame(CALayer *layer) {
     if ([[layer animationKeys] count] > 0)
         return YES;
+    // A Metal layer's frames arrive as presents from the app rather than as
+    // layer-tree mutations, so the tree stays animation-free between them and the
+    // animation check alone stops the timer after every present, costing a fresh
+    // timer and its first 1/60s delay each time.
+    if ([[layer class] isSubclassOfClass: [CAMetalLayerInternal class]] &&
+        [(CAMetalLayerInternal*)layer hasQueuedDrawables])
+        return YES;
     for (CALayer *child in layer.sublayers)
-        if (layerTreeHasAnimations(child))
+        if (layerTreeNeedsAnotherFrame(child))
             return YES;
     return NO;
 }
 
 - (void) timer: (NSTimer *) timer {
+    // Consume requests for this frame before callbacks can request another.
+    _renderRequested = NO;
     [_renderer beginFrameAtTime: CACurrentMediaTime() timeStamp: NULL];
 
     [self render];
@@ -217,8 +237,10 @@ static BOOL layerTreeHasAnimations(CALayer *layer) {
     [self flush];
 
     // beginFrameAtTime: drops finished animations. Once none are left, the frame
-    // just drawn shows the final values: stop until an animation is added again.
-    if (!layerTreeHasAnimations(_layer)) {
+    // just drawn shows the final values: stop until an animation is added again,
+    // or until a Metal layer has another present waiting to be composited,
+    // or unless callbacks requested a subsequent frame while rendering or presenting this one.
+    if (!_renderRequested && !layerTreeNeedsAnotherFrame(_layer)) {
         [_timer invalidate];
         [_timer release];
         _timer = nil;
@@ -226,6 +248,7 @@ static BOOL layerTreeHasAnimations(CALayer *layer) {
 }
 
 - (void) startTimerIfNeeded {
+    _renderRequested = YES;
     if (_timer == nil)
         _timer = [[NSTimer scheduledTimerWithTimeInterval: 1.0 / 60.0
                                                    target: self

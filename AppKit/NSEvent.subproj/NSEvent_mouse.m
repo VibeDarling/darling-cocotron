@@ -46,6 +46,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return _clickCount;
 }
 
+- (NSInteger) eventNumber {
+    return _eventNumber;
+}
+
 - (instancetype) initWithType: (NSEventType) type
                      location: (NSPoint) location
                 modifierFlags: (NSEventModifierFlags) modifierFlags
@@ -77,6 +81,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                  modifierFlags: modifierFlags
                         window: [NSApp windowWithWindowNumber: windowNumber]];
     if (self != nil) {
+        _eventNumber = eventNumber;
         _trackingNumber = tracking;
         _userData = userData;
     }
@@ -98,6 +103,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
             modifierFlags: modifierFlags
                    window: [NSApp windowWithWindowNumber: windowNumber]];
     _clickCount = clickCount;
+    _eventNumber = eventNumber;
     return self;
 }
 

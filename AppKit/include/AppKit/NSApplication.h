@@ -20,6 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/AppKitExport.h>
 #import <AppKit/NSGraphics.h>
 #import <AppKit/NSResponder.h>
+#import <AppKit/NSUserInterfaceLayout.h>
 #import <AppKit/NSRunningApplication.h>
 #import <AppKit/NSAlert.h>
 #import <AppKit/NSAppearance.h>
@@ -96,11 +97,6 @@ typedef enum {
     NSPrintingReplyLater,
     NSPrintingFailure,
 } NSApplicationPrintReply;
-
-typedef NS_ENUM(NSInteger, NSUserInterfaceLayoutDirection) {
-    NSUserInterfaceLayoutDirectionLeftToRight = 0,
-    NSUserInterfaceLayoutDirectionRightToLeft = 1,
-};
 
 typedef NS_OPTIONS(NSUInteger, NSApplicationPresentationOptions) {
     NSApplicationPresentationDefault = 0,
@@ -362,4 +358,3 @@ APPKIT_EXPORT BOOL NSPerformService(NSString *itemName,
 - (void) enumerateWindowsWithOptions: (NSWindowListOptions) options
                                 usingBlock: (void (^)(NSWindow *window, BOOL *stop)) block;
 @end
-

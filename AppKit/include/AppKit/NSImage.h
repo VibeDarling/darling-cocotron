@@ -56,6 +56,7 @@ typedef enum {
     NSString *_accessibilityDescription;
     NSImageSymbolConfiguration *_symbolConfiguration;
     NSMutableArray *_scaledRepCache;
+    id _drawingHandlerRepCache;
 }
 
 + (NSArray *) imageFileTypes;
@@ -70,6 +71,9 @@ typedef enum {
 + (nullable instancetype) imageNamed: (NSString *) name;
 
 - initWithSize: (NSSize) size;
++ (instancetype) imageWithSize: (NSSize) size
+                       flipped: (BOOL) flipped
+                drawingHandler: (BOOL (^)(NSRect destinationRect)) handler;
 - initWithData: (NSData *) data;
 - initWithContentsOfFile: (NSString *) path;
 - initWithContentsOfURL: (NSURL *) url;
@@ -193,6 +197,7 @@ typedef NS_ENUM(NSInteger, NSImageSymbolScale) {
     CGFloat _pointSize;
     NSFontWeight _weight;
     NSImageSymbolScale _scale;
+    NSArray<NSColor *> *_paletteColors;
 }
 
 + (instancetype) configurationWithPointSize: (CGFloat) pointSize
@@ -201,6 +206,7 @@ typedef NS_ENUM(NSInteger, NSImageSymbolScale) {
                                      weight: (NSFontWeight) weight
                                       scale: (NSImageSymbolScale) scale;
 + (instancetype) configurationWithScale: (NSImageSymbolScale) scale;
++ (instancetype) configurationWithPaletteColors: (NSArray<NSColor *> *) colors;
 - (NSImageSymbolConfiguration *) configurationByApplyingConfiguration:
         (NSImageSymbolConfiguration *) configuration;
 

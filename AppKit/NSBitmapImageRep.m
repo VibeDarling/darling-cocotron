@@ -146,12 +146,13 @@ NSBitmapImageRepPropertyKey NSImageCurrentFrame = @"NSImageCurrentFrame";
 
         CFDictionaryRef properties =
                 CGImageSourceCopyPropertiesAtIndex(imageSource, i, nil);
-        NSNumber *xres = [[(id) CFDictionaryGetValue(
-                properties, kCGImagePropertyDPIWidth) copy] autorelease];
-        NSNumber *yres = [[(id) CFDictionaryGetValue(
-                properties, kCGImagePropertyDPIHeight) copy] autorelease];
+        NSNumber *xres = properties ? [[(id) CFDictionaryGetValue(
+                properties, kCGImagePropertyDPIWidth) copy] autorelease] : nil;
+        NSNumber *yres = properties ? [[(id) CFDictionaryGetValue(
+                properties, kCGImagePropertyDPIHeight) copy] autorelease] : nil;
 
-        CFRelease(properties);
+        if (properties)
+            CFRelease(properties);
 
         NSBitmapImageRep *imageRep = [[self alloc] initWithCGImage: cgImage];
         NSSize size = {CGImageGetWidth(cgImage), CGImageGetHeight(cgImage)};
@@ -231,12 +232,23 @@ NSBitmapImageRepPropertyKey NSImageCurrentFrame = @"NSImageCurrentFrame";
     }
 
     _bitmapPlanes = NSZoneCalloc(NULL, numberOfPlanes, sizeof(unsigned char *));
+    if (_bitmapPlanes == NULL) {
+        [self release];
+        return nil;
+    }
     for (i = 0; i < numberOfPlanes; i++) {
         if (!_freeWhenDone)
             _bitmapPlanes[i] = planes[i];
-        else
+        else {
             _bitmapPlanes[i] =
                     NSZoneCalloc(NULL, _bytesPerRow * _pixelsHigh, 1);
+            if (_bitmapPlanes[i] == NULL) {
+                // The table is zero-initialized: dealloc safely frees only
+                // the owned planes allocated before this failure.
+                [self release];
+                return nil;
+            }
+        }
     }
 
     return self;
@@ -303,14 +315,15 @@ NSBitmapImageRepPropertyKey NSImageCurrentFrame = @"NSImageCurrentFrame";
 
     CFDictionaryRef properties =
             CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil);
-    NSNumber *xres =
+    NSNumber *xres = properties ?
             [[(id) CFDictionaryGetValue(properties, kCGImagePropertyDPIWidth)
-                    copy] autorelease];
-    NSNumber *yres =
+                    copy] autorelease] : nil;
+    NSNumber *yres = properties ?
             [[(id) CFDictionaryGetValue(properties, kCGImagePropertyDPIHeight)
-                    copy] autorelease];
+                    copy] autorelease] : nil;
 
-    CFRelease(properties);
+    if (properties)
+        CFRelease(properties);
     CFRelease(imageSource);
 
     if (cgImage == nil) {

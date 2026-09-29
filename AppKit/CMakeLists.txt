@@ -99,6 +99,7 @@ set(AppKit_sources
 	NSResponder.m
 	NSColorList.m
 	NSImageRep.m
+	NSImageDrawingCache.m
 	NSRulerView.m
 	NSModalSessionX.m
 	NSRuleEditorViewSliceRow.m
@@ -128,6 +129,7 @@ set(AppKit_sources
 	NSSecureTextFieldCell.m
 	NSPathCell.m
 	NSWindow.m
+	FLTKCompatibility.m
 	NSAlert.m
 	NSCursor.m
 	NSFontMetric.m
@@ -642,6 +644,9 @@ add_backend(X11
 		X11.backend/X11Pasteboard.m
 		X11.backend/X11Cursor.m
 		X11.backend/X11KeySymToUCS.m
+		X11.backend/X11DropSession.m
+		X11.backend/X11DraggingManager.m
+		X11.backend/X11FileURLs.m
 	INFO_PLIST
 		X11.backend/Info.plist
 	DEPENDENCIES

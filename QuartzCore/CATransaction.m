@@ -1,4 +1,5 @@
 #import "CATransactionGroup.h"
+#import "CATransactionInternal.h"
 #import <Foundation/NSArray.h>
 #import <Foundation/NSNumber.h>
 #import <Foundation/NSString.h>
@@ -42,6 +43,7 @@ static CATransactionGroup *createImplicitTransactionGroupIfNeeded() {
         check = [[CATransactionGroup alloc] init];
 
         [transactionStack() addObject: check];
+        [check release]; // The stack owns the active transaction.
         [[NSRunLoop currentRunLoop]
                 performSelector: @selector(commit)
                          target: [CATransaction class]
@@ -80,7 +82,7 @@ static CATransactionGroup *createImplicitTransactionGroupIfNeeded() {
 }
 
 + (void) setAnimationTimingFunction: (CAMediaTimingFunction *) value {
-    [self setValue: value forKey: kCATransactionAnimationDuration];
+    [self setValue: value forKey: kCATransactionAnimationTimingFunction];
 }
 
 //+(void)setCompletionBlock:(void (^)(void))value;
@@ -98,7 +100,15 @@ static CATransactionGroup *createImplicitTransactionGroupIfNeeded() {
 + (void) begin {
     CATransactionGroup *group = [[CATransactionGroup alloc] init];
 
+    [group setExplicitlyBegan: YES];
     [transactionStack() addObject: group];
+    [group release];
+}
+
++ (BOOL) hasOpenTransaction {
+    CATransactionGroup *group = currentTransactionGroup();
+
+    return group != nil && [group isExplicitlyBegan];
 }
 
 + (void) commit {
