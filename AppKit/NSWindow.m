@@ -259,7 +259,12 @@ static BOOL _allowsAutomaticWindowTabbing;
 /* This method is Cocotron specific and can be overridden by subclasses, do not
  * change method name */
 + (BOOL) hasMainMenuForStyleMask: (NSWindowStyleMask) styleMask {
-    return NO;
+    // A titled window owns the main menu and reserves a strip for it; a
+    // borderless or utility window is driven entirely by its content. This
+    // used to return NO unconditionally, so no window ever built a menu view
+    // and the main menu went uninstalled even though -[NSApplication
+    // setMainMenu:] accepted it.
+    return (styleMask & NSWindowStyleMaskTitled) != 0;
 }
 
 /* This method is Cocotron specific and can be overridden by subclasses, do not
