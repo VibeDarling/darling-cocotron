@@ -128,6 +128,7 @@ set(AppKit_sources
 	NSSecureTextFieldCell.m
 	NSPathCell.m
 	NSWindow.m
+	FLTKCompatibility.m
 	NSAlert.m
 	NSCursor.m
 	NSFontMetric.m

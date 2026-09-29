@@ -44,6 +44,12 @@ O2ColorRef O2ColorInitWithColorSpace(O2ColorRef self,
                                      const O2Float *components)
 {
     size_t i;
+    BOOL allocatedColorSpace = NO;
+
+    if (colorSpace == nil) {
+        colorSpace = O2ColorSpaceCreateDeviceRGB();
+        allocatedColorSpace = YES;
+    }
 
     self->_colorSpace = [colorSpace retain];
     self->_pattern = nil;
@@ -52,7 +58,11 @@ O2ColorRef O2ColorInitWithColorSpace(O2ColorRef self,
     self->_components = NSZoneMalloc(
             [self zone], sizeof(O2Float) * self->_numberOfComponents);
     for (i = 0; i < self->_numberOfComponents; i++)
-        self->_components[i] = components[i];
+        self->_components[i] = components ? components[i] : 0.0;
+
+    if (allocatedColorSpace) {
+        [colorSpace release];
+    }
 
     return self;
 }

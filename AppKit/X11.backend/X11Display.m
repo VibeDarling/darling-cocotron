@@ -993,7 +993,7 @@ static int compareFontPatterns(const void *a, const void *b) {
 }
 
 - (CGFloat) doubleClickInterval {
-    return 1.0;
+    return 0.4;
 }
 
 - (int) runModalPageLayoutWithPrintInfo: (NSPrintInfo *) printInfo {
@@ -1042,8 +1042,6 @@ static int compareFontPatterns(const void *a, const void *b) {
     XQueryPointer(_display, root, &root, &child, &root_x, &root_y, &win_x,
                   &win_y, &mask);
     int height = DisplayHeight(_display, DefaultScreen(_display));
-    // XQueryPointer reports device pixels, while NSScreen.frame is in points,
-    // so this has to be un-scaled or +[NSApp mouseLocation] is off by the scale.
     CGFloat scale = [self backingScale];
     return NSMakePoint(root_x / scale, (height - root_y) / scale);
 }
@@ -1099,7 +1097,7 @@ static int compareFontPatterns(const void *a, const void *b) {
     if (state & ShiftMask)
         ret |= NSShiftKeyMask;
     if (state & ControlMask)
-        ret |= NSControlKeyMask;
+        ret |= NSCommandKeyMask;
     // if (state & Mod2Mask) // Mod2Mask is numlock
     //   ret |= NSCommandKeyMask;
     if (state & LockMask)
@@ -1222,15 +1220,26 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
             buf[strLen] = 0;
         }
 
-        id str = [[NSString alloc] initWithCString: text
-                                          encoding: NSUTF8StringEncoding];
-        if (text != buf)
-            free(text);
-        NSPoint pos =
-                [window logicalPoint: NSMakePoint(ev->xkey.x, ev->xkey.y)];
-
         uint16_t ucsCode = (uint16_t) X11KeySymToUCS(keySym); // All defined codes in the table fit into 16 bits
         NSString* strIg = [NSString stringWithCharacters: &ucsCode length: 1];
+
+        id str = nil;
+        if (((ev->xkey.state & ControlMask) || (ev->xkey.state & Mod4Mask)) && ucsCode != 0) {
+            str = [strIg retain];
+        } else if (strLen > 0) {
+            str = [[NSString alloc] initWithCString: text
+                                              encoding: NSUTF8StringEncoding];
+        }
+        if (str == nil && ucsCode != 0) {
+            str = [strIg retain];
+        }
+        if (str == nil) {
+            str = [@"" retain];
+        }
+        if (text != buf)
+            free(text);
+
+        NSPoint pos = [window logicalPoint: NSMakePoint(ev->xkey.x, ev->xkey.y)];
 
         // If there's an app that uses constants from HIToolbox/Events.h (e.g.
         // kVK_ANSI_A), this gives it a chance to work.
@@ -1265,22 +1274,40 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
     case ButtonPress:;
         NSTimeInterval now = [[NSDate date] timeIntervalSinceReferenceDate];
 
-        if (now - lastClickTimeStamp < [self doubleClickInterval]) {
+        if (window != nil) {
+            [window setLastKnownCursorPosition: NSMakePoint(ev->xbutton.x, ev->xbutton.y)];
+        }
+
+        pos = [window
+                logicalPoint: NSMakePoint(ev->xbutton.x, ev->xbutton.y)];
+
+        static NSPoint lastClickPos;
+        static unsigned int lastClickButton = 0;
+
+        if (ev->xbutton.button == lastClickButton &&
+            (now - lastClickTimeStamp) < [self doubleClickInterval] &&
+            fabs(pos.x - lastClickPos.x) < 5.0 && fabs(pos.y - lastClickPos.y) < 5.0) {
             clickCount++;
         } else {
             clickCount = 1;
         }
         lastClickTimeStamp = now;
+        lastClickPos = pos;
+        lastClickButton = ev->xbutton.button;
 
-        pos = [window
-                logicalPoint: NSMakePoint(ev->xbutton.x, ev->xbutton.y)];
-
+        NSInteger buttonNumber = 0;
         switch (ev->xbutton.button) {
         case Button1:
             type = NSLeftMouseDown;
+            buttonNumber = 0;
+            break;
+        case Button2:
+            type = NSOtherMouseDown;
+            buttonNumber = 2;
             break;
         case Button3:
             type = NSRightMouseDown;
+            buttonNumber = 1;
             break;
         case Button4:
         case Button5:
@@ -1288,6 +1315,7 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
             return;
         default:
             type = NSOtherMouseDown;
+            buttonNumber = ev->xbutton.button > 0 ? ev->xbutton.button - 1 : 0;
         }
 
         event = [NSEvent
@@ -1299,22 +1327,33 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
                         clickCount: clickCount
                             deltaX: 0.0
                             deltaY: 0.0];
-        [(NSEvent_mouse *) event _setButtonNumber: ev->xbutton.button];
+        [(NSEvent_mouse *) event _setButtonNumber: buttonNumber];
         [self postEvent: event atStart: NO];
         break;
 
     case ButtonRelease:
+        if (window != nil) {
+            [window setLastKnownCursorPosition: NSMakePoint(ev->xbutton.x, ev->xbutton.y)];
+        }
+
         pos = [window
                 logicalPoint: NSMakePoint(ev->xbutton.x, ev->xbutton.y)];
 
         CGFloat deltaY = 0.0;
+        buttonNumber = 0;
 
         switch (ev->xbutton.button) {
         case Button1:
             type = NSLeftMouseUp;
+            buttonNumber = 0;
+            break;
+        case Button2:
+            type = NSOtherMouseUp;
+            buttonNumber = 2;
             break;
         case Button3:
             type = NSRightMouseUp;
+            buttonNumber = 1;
             break;
         case Button4:
             type = NSScrollWheel;
@@ -1326,6 +1365,7 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
             break;
         default:
             type = NSOtherMouseUp;
+            buttonNumber = ev->xbutton.button > 0 ? ev->xbutton.button - 1 : 0;
         }
 
         event = [NSEvent
@@ -1337,7 +1377,7 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
                         clickCount: clickCount
                             deltaX: 0.0
                             deltaY: deltaY];
-        [event _setButtonNumber: ev->xbutton.button];
+        [event _setButtonNumber: buttonNumber];
         [self postEvent: event atStart: NO];
         break;
 
@@ -1427,6 +1467,10 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
 
     case FocusIn:
         NSLog(@"FocusIn");
+        if (ev->xfocus.mode == NotifyGrab || ev->xfocus.mode == NotifyUngrab || ev->xfocus.mode == NotifyWhileGrabbed)
+            break;
+        if (window != nil && [window styleMask] == NSBorderlessWindowMask)
+            break;
         // The server can still report FocusIn (detail NotifyPointer) for a
         // window we have unmapped; an ordered-out window must not become key.
         if (window != nil && ![window isMapped])
@@ -1452,6 +1496,10 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
 
     case FocusOut:
         NSLog(@"FocusOut");
+        if (ev->xfocus.mode == NotifyGrab || ev->xfocus.mode == NotifyUngrab || ev->xfocus.mode == NotifyWhileGrabbed)
+            break;
+        if (window != nil && [window styleMask] == NSBorderlessWindowMask)
+            break;
         [delegate platformWindowDeactivated: window
                     checkForAppDeactivation: NO];
         lastFocusedWindow = nil;

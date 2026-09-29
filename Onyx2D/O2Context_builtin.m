@@ -76,7 +76,14 @@ void O2DContextClipAndFillEdges(O2Context_builtin *self, int fillRuleMask);
 
     O2PaintRelease(paint);
 
-    _vpwidth = self->_vpheight = 0;
+    if (surface != nil) {
+        _vpx = 0;
+        _vpy = 0;
+        _vpwidth = O2SurfaceGetWidth(surface);
+        _vpheight = O2SurfaceGetHeight(surface);
+    } else {
+        _vpwidth = self->_vpheight = 0;
+    }
 
     _edgeCount = 0;
     _edgeCapacity = 256;

@@ -94,22 +94,8 @@ ONYX2D_STATIC BOOL initFunctionsForRGBColorSpace(O2Image *self,
             return YES;
 
         case 24:
-            switch (bitmapInfo & kO2BitmapAlphaInfoMask) {
-            case kO2ImageAlphaNone:
-                switch (bitmapInfo & kO2BitmapByteOrderMask) {
-                case kO2BitmapByteOrder16Little:
-                case kO2BitmapByteOrder32Little:
-                    self->_read_argb8u = O2ImageRead_ABGR8888_to_argb8u;
-                    return YES;
-
-                case kO2BitmapByteOrder16Big:
-                case kO2BitmapByteOrder32Big:
-                    self->_read_argb8u = O2ImageRead_RGBA8888_to_argb8u;
-                    return YES;
-                }
-                return YES;
-            }
-            break;
+            self->_read_argb8u = O2ImageRead_RGB888_to_argb8u;
+            return YES;
 
         case 32:
             switch (bitmapInfo & kO2BitmapAlphaInfoMask) {

@@ -439,8 +439,7 @@ static BOOL initFunctionsForParameters(O2Surface *self, size_t bitsPerComponent,
 
                 switch (bitmapInfo & kO2BitmapAlphaInfoMask) {
                 case kO2ImageAlphaNone:
-                    break;
-
+                case kO2ImageAlphaNoneSkipLast:
                 case kO2ImageAlphaLast:
                 case kO2ImageAlphaPremultipliedLast:
                     switch (bitmapInfo & kO2BitmapByteOrderMask) {
@@ -461,6 +460,8 @@ static BOOL initFunctionsForParameters(O2Surface *self, size_t bitsPerComponent,
 
                     break;
 
+                case kO2ImageAlphaFirst:
+                case kO2ImageAlphaNoneSkipFirst:
                 case kO2ImageAlphaPremultipliedFirst:
                     switch (bitmapInfo & kO2BitmapByteOrderMask) {
                     case kO2BitmapByteOrderDefault:
@@ -475,16 +476,9 @@ static BOOL initFunctionsForParameters(O2Surface *self, size_t bitsPerComponent,
                         return YES;
                     }
                     break;
-
-                case kO2ImageAlphaFirst:
-                    break;
-
-                case kO2ImageAlphaNoneSkipLast:
-                    break;
-
-                case kO2ImageAlphaNoneSkipFirst:
-                    break;
                 }
+                self->_writeargb32f = O2SurfaceWrite_argb32f_to_argb8u_to_ANY;
+                return YES;
             } else if ([colorSpace type] == kO2ColorSpaceModelCMYK) {
                 switch (bitmapInfo & kO2BitmapByteOrderMask) {
                 case kO2BitmapByteOrderDefault:

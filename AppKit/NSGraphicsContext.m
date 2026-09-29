@@ -24,8 +24,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSWindow-Private.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <QuartzCore/CIContext.h>
+#import <Onyx2D/O2Context.h>
 
 @class NSColor;
+
+NSString *const NSGraphicsContextDestinationAttributeName = @"NSGraphicsContextDestinationAttributeName";
+NSString *const NSGraphicsContextRepresentationFormatAttributeName = @"NSGraphicsContextRepresentationFormatAttributeName";
+NSString *const NSGraphicsContextPSFormat = @"NSGraphicsContextPSFormat";
+NSString *const NSGraphicsContextPDFFormat = @"NSGraphicsContextPDFFormat";
 
 @implementation NSGraphicsContext
 
@@ -132,6 +138,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 {
     return [[[self alloc] initWithGraphicsPort: context
                                        flipped: flipped] autorelease];
+}
+
++ (NSGraphicsContext *) graphicsContextWithAttributes: (NSDictionary *) attributes {
+    id dest = [attributes objectForKey: NSGraphicsContextDestinationAttributeName];
+    if ([dest isKindOfClass: [NSWindow class]]) {
+        return [self graphicsContextWithWindow: (NSWindow *) dest];
+    }
+    if ([dest isKindOfClass: [NSBitmapImageRep class]]) {
+        return [self graphicsContextWithBitmapImageRep: (NSBitmapImageRep *) dest];
+    }
+    if ([dest isKindOfClass: [O2Context class]]) {
+        return [self graphicsContextWithCGContext: (CGContextRef) dest flipped: NO];
+    }
+    return [self currentContext];
 }
 
 static NSMutableArray *_contextStack() {

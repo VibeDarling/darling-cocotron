@@ -268,32 +268,53 @@ CFArrayRef CTFontCopyDefaultCascadeListForLanguages(CTFontRef font, CFArrayRef l
     return nil;
 }
 
-CFStringRef CTFontCopyPostScriptName(CTFontRef font)
+CFStringRef CTFontCopyPostScriptName(CTFontRef self)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    CGFontRef cgFont = graphicsFont(self);
+    CFStringRef name = cgFont ? CGFontCopyPostScriptName(cgFont) : NULL;
+    if (!name && cgFont)
+        name = CGFontCopyFullName(cgFont);
+    return name;
 }
 
-CFStringRef CTFontCopyFamilyName(CTFontRef font)
+CFStringRef CTFontCopyFamilyName(CTFontRef self)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    if (self == NULL) return NULL;
+    FT_Face face = faceForFont(self);
+    if (face != NULL && face->family_name != NULL) {
+        return CFStringCreateWithCString(kCFAllocatorDefault, face->family_name, kCFStringEncodingUTF8);
+    }
+    CGFontRef cgFont = graphicsFont(self);
+    CFStringRef fullName = cgFont ? CGFontCopyFullName(cgFont) : NULL;
+    if (fullName != NULL) {
+        // Fallback: extract base family name if formatted as "Family-Style" (e.g. "Helvetica-Bold" -> "Helvetica")
+        CFRange dashRange = CFStringFind(fullName, CFSTR("-"), 0);
+        if (dashRange.location != kCFNotFound && dashRange.location > 0) {
+            CFStringRef family = CFStringCreateWithSubstring(kCFAllocatorDefault, fullName, CFRangeMake(0, dashRange.location));
+            CFRelease(fullName);
+            return family;
+        }
+        return fullName;
+    }
+    return NULL;
 }
 
 CFStringRef CTFontCopyFullName(CTFontRef self) {
     return CGFontCopyFullName(graphicsFont(self));
 }
 
-CFStringRef CTFontCopyDisplayName(CTFontRef font)
+CFStringRef CTFontCopyDisplayName(CTFontRef self)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    return CTFontCopyFullName(self);
 }
 
 CFStringRef _Nullable CTFontCopyName(CTFontRef font, CFStringRef nameKey)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    if (CFEqual(nameKey, kCTFontPostScriptNameKey))
+        return CTFontCopyPostScriptName(font);
+    if (CFEqual(nameKey, kCTFontFamilyNameKey))
+        return CTFontCopyFamilyName(font);
+    return CTFontCopyFullName(font);
 }
 
 CFStringRef CTFontCopyLocalizedName(CTFontRef font, CFStringRef nameKey,
@@ -523,7 +544,12 @@ bool CTFontGetGlyphsForCharacters(CTFontRef font, const UniChar *characters,
 void CTFontDrawGlyphs(CTFontRef font, const CGGlyph *glyphs, const CGPoint *positions,
                       size_t count, CGContextRef context)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+    CGFontRef cgFont = graphicsFont(font);
+    if (cgFont == NULL || context == NULL || count == 0 || glyphs == NULL || positions == NULL)
+        return;
+    CGContextSetFont(context, cgFont);
+    CGContextSetFontSize(context, CTFontGetSize(font));
+    CGContextShowGlyphsAtPositions(context, glyphs, positions, count);
 }
 
 void CTFontDrawGlyphsWithAdvances(CTFontRef font, const CGGlyph *glyphs,

@@ -41,6 +41,15 @@ typedef enum {
     NSColorRenderingIntentSaturation = kCGRenderingIntentSaturation,
 } NSColorRenderingIntent;
 
+typedef NSString *NSGraphicsContextAttributeKey NS_TYPED_ENUM;
+typedef NSString *NSGraphicsContextRepresentationFormatAttributeKey NS_TYPED_ENUM;
+
+APPKIT_EXPORT NSGraphicsContextAttributeKey const NSGraphicsContextDestinationAttributeName;
+APPKIT_EXPORT NSGraphicsContextAttributeKey const NSGraphicsContextRepresentationFormatAttributeName;
+
+APPKIT_EXPORT NSGraphicsContextRepresentationFormatAttributeKey const NSGraphicsContextPSFormat;
+APPKIT_EXPORT NSGraphicsContextRepresentationFormatAttributeKey const NSGraphicsContextPDFFormat;
+
 @interface NSGraphicsContext : NSObject {
     CGContextRef _graphicsPort;
     CIContext *_ciContext;
@@ -62,6 +71,7 @@ typedef enum {
         (NSBitmapImageRep *) imageRep;
 + (NSGraphicsContext *) graphicsContextWithCGContext: (CGContextRef) context
                                              flipped: (BOOL) flipped;
++ (NSGraphicsContext *) graphicsContextWithAttributes: (NSDictionary *) attributes;
 
 @property (class, readonly, retain) NSGraphicsContext *currentContext;
 + (void) setCurrentContext: (NSGraphicsContext *) context;

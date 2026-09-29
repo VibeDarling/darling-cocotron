@@ -145,19 +145,54 @@ O2ColorSpaceRef O2ColorSpaceCreateWithName(CFStringRef name) {
     // Onyx2D currently represents these named spaces as RGB. Preserve their
     // identity for callers; color conversion remains a separate backend gap.
     const CFStringRef rgbNames[] = {
+        kO2ColorSpaceGenericRGB,
+        kO2ColorSpaceGenericRGBLinear,
+        kO2ColorSpaceAdobeRGB1998,
         kO2ColorSpaceSRGB,
         kO2ColorSpaceExtendedSRGB,
         kO2ColorSpaceLinearSRGB,
         kO2ColorSpaceExtendedLinearSRGB,
         kO2ColorSpaceDisplayP3,
+        kO2ColorSpaceDCIP3,
         CFSTR("kCGColorSpaceExtendedDisplayP3"),
         CFSTR("kCGColorSpaceLinearDisplayP3"),
         CFSTR("kCGColorSpaceExtendedLinearDisplayP3"),
         CFSTR("kCGColorSpaceITUR_2100_PQ"),
+        kO2ColorSpaceITUR_709,
+        kO2ColorSpaceITUR_2020,
+        kO2ColorSpaceROMMRGB,
     };
     for (size_t i = 0; i < sizeof(rgbNames) / sizeof(rgbNames[0]); i++) {
         if (CFEqual(name, rgbNames[i])) {
             O2ColorSpaceRef cs = [[O2ColorSpace alloc] initWithDeviceRGB];
+            CFRetain(name);
+            cs->_name = name;
+            return cs;
+        }
+    }
+
+    const CFStringRef grayNames[] = {
+        kO2ColorSpaceGenericGray,
+        kO2ColorSpaceGenericGrayGamma2_2,
+        kO2ColorSpaceExtendedGray,
+        kO2ColorSpaceLinearGray,
+        kO2ColorSpaceExtendedLinearGray,
+    };
+    for (size_t i = 0; i < sizeof(grayNames) / sizeof(grayNames[0]); i++) {
+        if (CFEqual(name, grayNames[i])) {
+            O2ColorSpaceRef cs = [[O2ColorSpace alloc] initWithDeviceGray];
+            CFRetain(name);
+            cs->_name = name;
+            return cs;
+        }
+    }
+
+    const CFStringRef cmykNames[] = {
+        kO2ColorSpaceGenericCMYK,
+    };
+    for (size_t i = 0; i < sizeof(cmykNames) / sizeof(cmykNames[0]); i++) {
+        if (CFEqual(name, cmykNames[i])) {
+            O2ColorSpaceRef cs = [[O2ColorSpace alloc] initWithDeviceCMYK];
             CFRetain(name);
             cs->_name = name;
             return cs;

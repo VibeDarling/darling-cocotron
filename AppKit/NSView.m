@@ -1584,8 +1584,7 @@ static void alignAxis(CGFloat *origin, CGFloat *length, NSAlignmentOptions optio
 }
 
 - (NSTextInputContext *) inputContext {
-    NSUnimplementedMethod();
-    return nil;
+    return [[[NSTextInputContext alloc] initWithClient: (id)self] autorelease];
 }
 
 - (void) registerForDraggedTypes: (NSArray *) types {

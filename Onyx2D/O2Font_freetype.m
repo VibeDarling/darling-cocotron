@@ -126,6 +126,13 @@ FcConfig *O2FontSharedFontConfig() {
         return nil;
     }
 
+    if (![[NSFileManager defaultManager] fileExistsAtPath: filename]) {
+        NSString *rooted = [@"/Volumes/SystemRoot" stringByAppendingPathComponent: filename];
+        if ([[NSFileManager defaultManager] fileExistsAtPath: rooted]) {
+            filename = rooted;
+        }
+    }
+
     FT_Face face;
     FT_Error error = FT_New_Face(O2FontSharedFreeTypeLibrary(),
                                  [filename fileSystemRepresentation], 0, &face);
@@ -173,7 +180,7 @@ FcConfig *O2FontSharedFontConfig() {
     }
 
     if (!(face->face_flags & FT_FACE_FLAG_SCALABLE)) {
-        NSLog(@"FreeType font face is not scalable");
+        NSLog(@"FreeType font face is not scalable for family: %s", face->family_name ? face->family_name : "unknown");
     }
 
     _unitsPerEm = (O2Float) face->units_per_EM;

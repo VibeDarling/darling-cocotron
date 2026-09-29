@@ -393,8 +393,6 @@ static NSData *edidForDisplay(CGDirectDisplayID displayId) {
 }
 
 CGSize CGDisplayScreenSize(CGDirectDisplayID display) {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-
     NSData *edid = edidForDisplay(display);
 
     if (!edid) {
