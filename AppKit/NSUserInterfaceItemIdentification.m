@@ -18,6 +18,12 @@
 - (void) unregisterUserInterfaceItemSearch: (id) search {
 }
 
+- (void) registerUserInterfaceItemSearchHandler: (id) handler {
+}
+
+- (void) unregisterUserInterfaceItemSearchHandler: (id) handler {
+}
+
 - (void) setUserInterfaceItemIdentifier: (NSUserInterfaceItemIdentifier) userInterfaceItemIdentifier {
     if ([self respondsToSelector: @selector(setIdentifier:)]) {
         [self setIdentifier: userInterfaceItemIdentifier];
