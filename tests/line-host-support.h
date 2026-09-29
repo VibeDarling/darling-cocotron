@@ -18,6 +18,13 @@ typedef NSRect CGRect;
 typedef struct { double a,b,c,d,tx,ty; } CGAffineTransform;
 typedef uint16_t CGGlyph;
 typedef id CTLineRef, CTRunRef, CTFontRef, CGContextRef;
+typedef id CGColorRef;
+static NSString *kCTForegroundColorAttributeName = @"foregroundColor";
+static unsigned colorCalls, glyphDrawCalls;
+static id lastColor;
+static void CGContextSetFillColorWithColor(CGContextRef context, CGColorRef color) {
+    ++colorCalls; lastColor=color;
+}
 typedef unsigned CTLineTruncationType, CTLineBoundsOptions, CTRunStatus;
 static CFRange CFRangeMake(CFIndex location,CFIndex length) { return (CFRange){location,length}; }
 #define CGPointMake NSMakePoint
@@ -92,4 +99,4 @@ static CGFloat CTFontGetAscent(id f) { return 8; }
 static CGFloat CTFontGetDescent(id f) { return 2; }
 static CGFloat CTFontGetLeading(id f) { return 1; }
 static id CTFontCreateForString(id f,id s,CFRange r) { return [f retain]; }
-static void CTFontDrawGlyphs(id f,const CGGlyph *g,const CGPoint *p,size_t n,id context) {}
+static void CTFontDrawGlyphs(id f,const CGGlyph *g,const CGPoint *p,size_t n,id context) { ++glyphDrawCalls; }
