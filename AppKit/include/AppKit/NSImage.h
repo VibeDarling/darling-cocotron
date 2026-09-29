@@ -183,6 +183,8 @@ typedef enum {
 + (NSImage *) imageWithSize: (NSSize) size
                     flipped: (BOOL) flipped
              drawingHandler: (void (^)(NSRect dstRect))drawingHandler;
++ (NSImage *) imageWithSize: (NSSize) size
+               drawHandler: (void (^)(NSRect dstRect))drawHandler;
 
 @end
 
