@@ -56,3 +56,19 @@ ampersand/1, and the same physical Y key in US versus German layout groups.
 All 2,560 press/release/modifier combinations pass against real Xlib and Xvfb.
 The active group is preserved rather than forcing the first layout. This adds
 non-US/group evidence, but still does not establish XIM or full AppKit dispatch.
+
+`x11-shortcut-xim.c` adds a real local XIM (`@im=none`, C.UTF-8) smoke test.
+Compile with `cc tests/x11-shortcut-xim.c -lX11 -o /tmp/x11-shortcut-xim` and run
+with `xvfb-run -a /tmp/x11-shortcut-xim`. Basic Shift, Caps Lock and Control
+lookups pass: shortcut lookup leaves the entire event unchanged and subsequent
+Xutf8LookupString returns identical text, status and keysym. Caps Lock text stays
+uppercase while shortcut characters ignore Caps Lock. This is not composition
+or remote input-method coverage.
+
+The guest `menu-modifiers-runtime.m` now passes the actual NSMenu/NSMenuItem/
+NSApplication dispatch matrix, implicit Shift and disabled-item checks with a
+candidate NSMenu object linked into the staged AppKit framework. Staged AppKit
+fails the modifier matrix; the first candidate exposed disabled-item dispatch,
+fixed by checking isEnabled before dynamic validation. The guest test supplies
+NSEvent objects directly: X11 event translation and menu dispatch are separately
+tested, not yet one end-to-end injected-key test or a fresh full framework build.
