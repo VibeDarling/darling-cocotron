@@ -72,3 +72,19 @@ fails the modifier matrix; the first candidate exposed disabled-item dispatch,
 fixed by checking isEnabled before dynamic validation. The guest test supplies
 NSEvent objects directly: X11 event translation and menu dispatch are separately
 tested, not yet one end-to-end injected-key test or a fresh full framework build.
+
+## Injected-key integration and companion change
+
+`menu-injected-runtime.m` receives real X11 events and passes them to the real
+menu dispatcher. With the candidate menu/backend and Control mapped to
+NSControlKeyMask, injected Super-X, Super-Shift-X, Caps-Lock Super-X, and
+Super-Control-X all reach the expected actions. The original Control-to-Command
+mapping fails the fourth case. Open upstream PR #311 already supplies that
+mapping repair, so it is deliberately excluded from this patch to avoid
+duplicating another contribution. The four-key test requires that companion
+change. The passing integration artifact included the equivalent one-line
+mapping fix; it was not built from the complete #311 branch.
+
+No result here claims that current master plus this patch alone passes the
+Control-Command injected-key case. The synthetic NSEvent dispatch matrix does
+pass independently because it supplies the correct modifier flags directly.

@@ -1098,7 +1098,7 @@ static int compareFontPatterns(const void *a, const void *b) {
     if (state & ShiftMask)
         ret |= NSShiftKeyMask;
     if (state & ControlMask)
-        ret |= NSControlKeyMask;
+        ret |= NSCommandKeyMask;
     // if (state & Mod2Mask) // Mod2Mask is numlock
     //   ret |= NSCommandKeyMask;
     if (state & LockMask)
