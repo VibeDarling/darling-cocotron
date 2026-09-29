@@ -99,6 +99,7 @@ set(AppKit_sources
 	NSResponder.m
 	NSColorList.m
 	NSImageRep.m
+	NSImageDrawingCache.m
 	NSRulerView.m
 	NSModalSessionX.m
 	NSRuleEditorViewSliceRow.m

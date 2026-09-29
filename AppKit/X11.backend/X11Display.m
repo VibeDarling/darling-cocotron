@@ -1311,6 +1311,8 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
             break;
         case Button4:
         case Button5:
+        case 6:
+        case 7:
             // Skip these, we'll send NSScrollWheel on release.
             return;
         default:
@@ -1339,6 +1341,7 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
         pos = [window
                 logicalPoint: NSMakePoint(ev->xbutton.x, ev->xbutton.y)];
 
+        CGFloat deltaX = 0.0;
         CGFloat deltaY = 0.0;
         buttonNumber = 0;
 
@@ -1363,6 +1366,14 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
             type = NSScrollWheel;
             deltaY = -1.0;
             break;
+        case 6:
+            type = NSScrollWheel;
+            deltaX = -1.0;
+            break;
+        case 7:
+            type = NSScrollWheel;
+            deltaX = 1.0;
+            break;
         default:
             type = NSOtherMouseUp;
             buttonNumber = ev->xbutton.button > 0 ? ev->xbutton.button - 1 : 0;
@@ -1375,7 +1386,7 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
                                                                          .state]
                             window: delegate
                         clickCount: clickCount
-                            deltaX: 0.0
+                            deltaX: deltaX
                             deltaY: deltaY];
         [event _setButtonNumber: buttonNumber];
         [self postEvent: event atStart: NO];
