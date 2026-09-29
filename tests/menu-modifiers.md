@@ -50,3 +50,9 @@ XIM processing remain unchanged. This follows Apple's documented
 default US layout: 1,024 letter/punctuation, press/release, modifier-mask cases
 pass, and the original event state remains unchanged. These checks do not yet
 cover XIM-composed input, non-US layouts, or end-to-end AppKit dispatch.
+
+`bash tests/x11-shortcut-layouts.sh` now covers US letters/punctuation, French
+ampersand/1, and the same physical Y key in US versus German layout groups.
+All 2,560 press/release/modifier combinations pass against real Xlib and Xvfb.
+The active group is preserved rather than forcing the first layout. This adds
+non-US/group evidence, but still does not establish XIM or full AppKit dispatch.
