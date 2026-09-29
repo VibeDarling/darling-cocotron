@@ -30,6 +30,7 @@ program = <<~'OBJC'
   - (id)submenu { return child; }
   - (SEL)action { return @selector(description); }
   - (id)target { return self; }
+  - (BOOL)isEnabled { return enabled; }
   @end
   static BOOL itemIsEnabled(NSMenuItem *item) { return item->enabled; }
   @interface App : NSObject @end
