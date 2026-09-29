@@ -103,6 +103,55 @@ static void compareAlphaCompositing(CGContextRef port) {
     free(rendered);
 }
 
+static void comparePatternedCrop(CGContextRef port) {
+    size_t bytes=CGBitmapContextGetBytesPerRow(port)*CGBitmapContextGetHeight(port);
+    unsigned char *data=CGBitmapContextGetData(port), *rendered=malloc(bytes);
+    assert(data && rendered);
+    __block unsigned calls=0;
+    NSImage *image=[NSImage imageWithSize:NSMakeSize(20,20) flipped:NO
+        drawingHandler:^BOOL(NSRect rect) {
+            ++calls;
+            CGContextRef p=[[NSGraphicsContext currentContext] graphicsPort];
+            for (unsigned y=0;y<2;++y) for (unsigned x=0;x<2;++x) {
+                CGContextSetRGBFillColor(p,x,y,1-x,1);
+                CGContextFillRect(p,CGRectMake(x*10,y*10,10,10));
+            }
+            return YES;
+        }];
+    for (unsigned pass=0;pass<3;++pass) {
+        memset(data,0,bytes);
+        CGContextSaveGState(port);
+        if (pass<2) {
+            // Crop through all four quadrants and scale the central 10x10
+            // region to 20x20. A solid fill cannot expose crop/orientation bugs.
+            [image drawInRect:NSMakeRect(0,0,20,20)
+                fromRect:NSMakeRect(5,5,10,10) operation:NSCompositeCopy fraction:1];
+            assert(calls==1);
+            if (pass==0) memcpy(rendered,data,bytes);
+            else assert(memcmp(rendered,data,bytes)==0);
+        } else {
+            CGContextSetBlendMode(port,kCGBlendModeCopy);
+            for (unsigned y=0;y<2;++y) for (unsigned x=0;x<2;++x) {
+                CGContextSetRGBFillColor(port,x,y,1-x,1);
+                CGContextFillRect(port,CGRectMake(x*10,y*10,10,10));
+            }
+        }
+        CGContextRestoreGState(port);
+    }
+    unsigned maxError=0;
+    size_t differingBytes=0, worst=0;
+    for (size_t i=0;i<bytes;++i) {
+        unsigned error=abs((int)rendered[i]-(int)data[i]);
+        if (error) ++differingBytes;
+        if (error>maxError) { maxError=error; worst=i; }
+    }
+    printf("Patterned crop max byte error=%u callback count=%u\n",maxError,calls);
+    if (maxError) printf("Differing bytes=%zu worst offset=%zu cached=%u direct=%u rowBytes=%zu\n",
+        differingBytes,worst,rendered[worst],data[worst],CGBitmapContextGetBytesPerRow(port));
+    assert(maxError<=1);
+    free(rendered);
+}
+
 static void checkFailedHandlerRetry(CGContextRef port) {
     NSGraphicsContext *context=[NSGraphicsContext currentContext];
     size_t bytes=CGBitmapContextGetBytesPerRow(port)*CGBitmapContextGetHeight(port);
@@ -249,17 +298,25 @@ int main(void) {
     assert(memcmp(rendered, data, bytes) == 0);
     free(rendered);
     compareAlphaCompositing(port);
+    comparePatternedCrop(port);
     CGContextSaveGState(port);
     CGContextTranslateCTM(port,40,0);
     CGContextScaleCTM(port,-1,1);
     puts("Checking reflected destination");
     compareAlphaCompositing(port);
+    comparePatternedCrop(port);
+    CGContextRestoreGState(port);
+    CGContextSaveGState(port);
+    CGContextConcatCTM(port,CGAffineTransformMake(0,1,-1,0,40,0));
+    puts("Checking exact-matrix quarter-turn patterned destination");
+    comparePatternedCrop(port);
     CGContextRestoreGState(port);
     CGContextSaveGState(port);
     CGContextTranslateCTM(port,40,0);
     CGContextRotateCTM(port,M_PI_2);
     puts("Checking quarter-turn destination");
     compareAlphaCompositing(port);
+    comparePatternedCrop(port);
     CGContextRestoreGState(port);
     checkTransformDensityAndReuse(port);
     if (bitmap) {

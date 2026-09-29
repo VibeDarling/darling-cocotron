@@ -1,5 +1,16 @@
 # Deferred images: rebuilt-framework runtime check
 
+## Current diagnostic (2026-09-29)
+
+The newly added four-quadrant crop comparison currently fails its one-byte
+tolerance for `CGContextRotateCTM(..., M_PI_2)` at 1x: 67 differing bytes,
+maximum difference 7. Identity, reflection and an exact integer quarter-turn
+matrix match byte-for-byte, and repeated cropped draws reuse the cache.
+Do not report the expanded test as passing. The near-quarter-turn difference
+needs separation of raster resampling from direct-fill edge coverage before
+deciding whether production code or the comparison oracle needs correction.
+The earlier four-environment results below precede this additional test.
+
 Compile `deferred-public-runtime.m` as an Objective-C Mach-O executable against
 AppKit, Foundation, and CoreGraphics. Run it under Darling with the candidate
 AppKit and its matching graphics/Foundation dependencies, using the X11 backend
