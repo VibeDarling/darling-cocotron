@@ -40,11 +40,21 @@
     NSMutableDictionary *_windowsByID;
 
     id lastFocusedWindow;
-    NSTimeInterval lastClickTimeStamp;
-    int clickCount;
+    // Clicks are grouped per button and per window, so state for the left
+    // button cannot make the next middle-button click look like a double click.
+    NSMutableDictionary *_buttonClickCounts;
+    NSInteger _clickCount;
+    Time _lastClickTime;       // X server milliseconds, wraps modulo 2^32.
+    unsigned int _lastClickButton;
+    XID _lastClickWindow;
+    NSPoint _lastClickPoint;   // Logical points, so the radius is scale-independent.
     X11Cursor *_blankCursor, *_defaultCursor;
     BOOL _cursorGrabbed;
     KeySym _lastKeySym;
+    // The aggregate modifier mask as of the last key event, so a change that
+    // no modifier key reported (a modifier released while another app had the
+    // focus) is still noticed and corrected with a keycode-less flagsChanged.
+    NSEventModifierFlags _modifierFlags;
     int _rrEventBase;
     NSArray* _lastScreens;
 
