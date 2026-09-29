@@ -41,3 +41,12 @@ unrelated Caps Lock bit does not cover real Caps Lock event production: it
 supplies characters manually. This remains a backend/normalization gap, and the
 PR stays closed pending a supported event-character policy and dispatch tests.
 The observation covers XLookupString, not the XIM/Xutf8LookupString path.
+
+The candidate now computes shortcut characters with a separate XLookupString
+lookup retaining only Shift and the active layout group. Normal input text and
+XIM processing remain unchanged. This follows Apple's documented
+[charactersIgnoringModifiers contract](https://developer.apple.com/documentation/appkit/nsevent/charactersignoringmodifiers).
+`tests/x11-shortcut-characters.c` exercises the actual helper against Xvfb's
+default US layout: 1,024 letter/punctuation, press/release, modifier-mask cases
+pass, and the original event state remains unchanged. These checks do not yet
+cover XIM-composed input, non-US layouts, or end-to-end AppKit dispatch.
