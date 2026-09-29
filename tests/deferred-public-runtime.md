@@ -1,15 +1,16 @@
 # Deferred images: rebuilt-framework runtime check
 
-## Current diagnostic (2026-09-29)
+## Patterned crop comparison (2026-09-29)
 
-The newly added four-quadrant crop comparison currently fails its one-byte
-tolerance for `CGContextRotateCTM(..., M_PI_2)` at 1x: 67 differing bytes,
-maximum difference 7. Identity, reflection and an exact integer quarter-turn
-matrix match byte-for-byte, and repeated cropped draws reuse the cache.
-Do not report the expanded test as passing. The near-quarter-turn difference
-needs separation of raster resampling from direct-fill edge coverage before
-deciding whether production code or the comparison oracle needs correction.
-The earlier four-environment results below precede this additional test.
+The four-quadrant central crop is compared against an independently painted
+ordinary bitmap at destination density. All four runtime configurations pass
+with zero byte differences under identity, reflection, exact quarter-turn and
+trigonometric quarter-turn transforms; repeated cropped draws reuse the cache.
+Identity, reflection and exact quarter-turn also match direct vector fills.
+The trigonometric matrix produces vector-versus-raster differences up to 7/10
+byte levels at 1x/HiDPI, shared by the ordinary bitmap reference. That comparison
+is diagnostic, not an assertion that raster and vector edge coverage coincide.
+The raster comparison remains mandatory with a one-byte maximum in every case.
 
 Compile `deferred-public-runtime.m` as an Objective-C Mach-O executable against
 AppKit, Foundation, and CoreGraphics. Run it under Darling with the candidate
@@ -67,5 +68,6 @@ ownership, and over-budget transient rasters. Its
 `TEST_EXPECT_WINDOW_SCALE=1` setting now checks the intermediate representation's
 pixel/logical-size ratio: the intermediate is a bitmap, not a window.
 
-These tests do not establish wide-gamut/high-depth color-space fidelity, arbitrary rotation/shear,
-allocation-failure behavior, or full iTerm2 compatibility.
+These tests do not establish wide-gamut/high-depth color-space fidelity,
+pixel-exact arbitrary rotation/shear, real heap-exhaustion behavior, or full
+iTerm2 compatibility. The implementation uses an 8-bit device-RGB intermediate.

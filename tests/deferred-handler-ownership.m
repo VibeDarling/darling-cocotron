@@ -1,6 +1,8 @@
 // Compile the candidate implementation under a distinct class name so a staged
 // AppKit cannot silently supply its own NSCustomImageRep implementation.
 #define NSCustomImageRep DeferredProbeImageRep
+#define NSCustomImageRepFocusView DeferredProbeFocusView
+#define NSImageDrawingCache DeferredProbeDrawingCache
 #import "../AppKit/NSCustomImageRep.m"
 #import <Foundation/NSAutoreleasePool.h>
 #import <Foundation/NSException.h>
