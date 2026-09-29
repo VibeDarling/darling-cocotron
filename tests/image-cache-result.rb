@@ -15,6 +15,33 @@ abort 'representation drawing methods missing' unless rep_methods
 program=<<~'OBJC'
   #import <Foundation/Foundation.h>
   #include <assert.h>
+  #include <math.h>
+  // This host harness tests legacy reps. Block-backed destination caching is
+  // exercised by the staged factory probe; entering that path here is an error.
+  enum { NSImageCacheNever=3 };
+  typedef struct { CGFloat a,b,c,d,tx,ty; } CGAffineTransform;
+  @interface NSGraphicsContext : NSObject
+  + (id)currentContext;
+  @end
+  @implementation NSGraphicsContext
+  + (id)currentContext { abort(); }
+  @end
+  @interface NSAppearance : NSObject
+  + (id)currentAppearance;
+  @end
+  @implementation NSAppearance
+  + (id)currentAppearance { abort(); }
+  @end
+  @interface HandlerCache : NSObject
+  - (NSUInteger)generation;
+  - (id)representationForKey:(id)key;
+  - (BOOL)setRepresentation:(id)rep forKey:(id)key byteCost:(NSUInteger)cost;
+  @end
+  @implementation HandlerCache
+  - (NSUInteger)generation { abort(); }
+  - (id)representationForKey:(id)key { abort(); }
+  - (BOOL)setRepresentation:(id)rep forKey:(id)key byteCost:(NSUInteger)cost { abort(); }
+  @end
   static BOOL drawResult;
   static BOOL throwDraw;
   static BOOL throwSize;
@@ -22,6 +49,11 @@ program=<<~'OBJC'
   static unsigned additions;
   static unsigned graphicsDepth;
   typedef void *CGContextRef;
+  static size_t CGBitmapContextGetBytesPerRow(CGContextRef c) { abort(); }
+  static size_t CGBitmapContextGetHeight(CGContextRef c) { abort(); }
+  static CGAffineTransform CGContextGetCTM(CGContextRef c) { abort(); }
+  static CGAffineTransform CGContextGetUserSpaceToDeviceSpaceTransform(CGContextRef c) { abort(); }
+  static NSString *NSDeviceRGBColorSpace = @"NSDeviceRGBColorSpace";
   static CGContextRef NSCurrentGraphicsPort(void) { return NULL; }
   static void CGContextSaveGState(CGContextRef c) { ++graphicsDepth; }
   static void CGContextRestoreGState(CGContextRef c) { assert(graphicsDepth>0); --graphicsDepth; }
@@ -42,15 +74,26 @@ program=<<~'OBJC'
   - (NSSize)size { return NSMakeSize(20,20); }
   @end
   typedef Rep NSImageRep;
+  @interface NSBitmapImageRep : Rep @end
+  @implementation NSBitmapImageRep
+  + (id)alloc { abort(); }
+  @end
+  @interface NSCustomImageRep : Rep
+  - (id)drawingHandler;
+  @end
+  @implementation NSCustomImageRep
+  - (id)drawingHandler { abort(); }
+  @end
   @interface NSCachedImageRep : Rep @end
   @implementation NSCachedImageRep
   - (id)initWithSize:(NSSize)size depth:(int)depth separate:(BOOL)separate alpha:(BOOL)alpha {
     return [super init];
   }
   @end
-  @interface Image : NSObject { @public BOOL _cacheIsValid, scales, _isFlipped; id cachedRep; NSMutableArray *_scaledRepCache; }
+  @interface Image : NSObject { @public BOOL _cacheIsValid, scales, _isFlipped; id cachedRep, _backgroundColor; int _cacheMode; NSMutableArray *_scaledRepCache; }
   @end
   @implementation Image
+  - (HandlerCache *)_drawingHandlerCache { abort(); }
   - (NSSize)size {
     if (throwSize) [NSException raise:@"SizeFailure" format:@"fixture"];
     return NSMakeSize(20,20);
@@ -75,6 +118,7 @@ program=<<~'OBJC'
     SCALED_BLOCK
   }
   - (void)fillTemporary:(Rep *)any cache:(BOOL)canCache source:(NSRect)source {
+    NSRect rect=NSMakeRect(0,0,20,20);
     id cachedRep=nil;
     CGContextRef context;
     TEMPORARY_BLOCK
@@ -153,7 +197,7 @@ Dir.mktmpdir('image-cache') do |dir|
   input="#{dir}/probe.m"; output="#{dir}/probe"; File.write(input,program)
   log,status=Open3.capture2e('clang','-fobjc-runtime=gcc','-fobjc-exceptions','-fexceptions','-fconstant-string-class=NSConstantString',
     "-I#{sdk}/usr/include/GNUstep","-I#{gcc.strip}",input,"-L#{sdk}/usr/lib",
-    "-Wl,-rpath,#{sdk}/usr/lib",'-lgnustep-base','-lobjc','-o',output)
+    "-Wl,-rpath,#{sdk}/usr/lib",'-lgnustep-base','-lobjc','-lm','-o',output)
   abort log unless status.success?
   abort 'cache regression failed' unless system(output,rlimit_core:0)
 end
