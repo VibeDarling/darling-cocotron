@@ -1004,8 +1004,16 @@ static int ignoreBadWindow(Display *display, XErrorEvent *errorEvent) {
     return [(X11Display *) [NSDisplay currentDisplay] backingScale];
 }
 
+static CGFloat X11ScaledOrigin(CGFloat logical, CGFloat scale) {
+    return floor(logical * scale + 0.5);
+}
+
+// The min-1 clamp is only meaningful for extents: a zero-width/height X window is invalid.
+// Applying it to an origin would push a window sitting at device origin 0 to 1, so a window
+// at logical (0,0) is created one device pixel off and frameChanged would then adopt
+// x = 1/scale. Round origins plainly and clamp only sizes.
 static CGFloat X11ScaledExtent(CGFloat logical, CGFloat scale) {
-    return fmax(floor(logical * scale + 0.5), 1.0);
+    return fmax(X11ScaledOrigin(logical, scale), 1.0);
 }
 
 - (NSSize) deviceSize: (NSSize) size {
@@ -1017,8 +1025,8 @@ static CGFloat X11ScaledExtent(CGFloat logical, CGFloat scale) {
 - (O2Rect) deviceRect: (O2Rect) rect {
     CGFloat scale = [self backingScaleFactor];
     NSSize size = [self deviceSize: rect.size];
-    return NSMakeRect(X11ScaledExtent(rect.origin.x, scale),
-                      X11ScaledExtent(rect.origin.y, scale), size.width,
+    return NSMakeRect(X11ScaledOrigin(rect.origin.x, scale),
+                      X11ScaledOrigin(rect.origin.y, scale), size.width,
                       size.height);
 }
 
