@@ -275,6 +275,7 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification
 
     NSWindowController *_windowController;
     NSMutableArray *_drawers;
+    BOOL _bottomCornerRounded;
     NSToolbar *_toolbar;
     NSWindowAnimationContext *_animationContext;
 
@@ -473,6 +474,7 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification
 - (NSButtonCell *) defaultButtonCell;
 - (NSWindow *) attachedSheet;
 - (NSWindow *) sheetParent;
+- (NSArray<NSWindow *> *) tabbedWindows;
 
 - (id) windowController;
 - (NSArray *) drawers;
@@ -565,6 +567,8 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification
 - (void) flushWindowIfNeeded;
 - (void) displayIfNeeded;
 - (void) display;
+- (void) updateConstraintsIfNeeded;
+- (void) layoutIfNeeded;
 
 - (void) invalidateShadow;
 
@@ -695,6 +699,12 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExposeNotification
 
 @interface NSWindow (Darling)
 - (CGWindow *) platformWindow;
+@end
+
+// Private AppKit compatibility used by older window subclasses.
+@interface NSWindow (NSPrivateCornerStyle)
+- (BOOL) bottomCornerRounded;
+- (void) setBottomCornerRounded: (BOOL) rounded;
 @end
 
 // private

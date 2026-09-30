@@ -480,6 +480,47 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
     return self;
 }
 
++ (NSImage *) imageWithSize: (NSSize) size drawHandler: (void (^)(NSRect dstRect))drawHandler {
+    return [self imageWithSize: size flipped: NO drawingHandler: drawHandler];
+}
+
++ (NSImage *) imageWithSize: (NSSize) size
+                    flipped: (BOOL) flipped
+             drawingHandler: (void (^)(NSRect dstRect))drawingHandler {
+    NSBitmapImageRep *rep = [[[NSBitmapImageRep alloc]
+            initWithBitmapDataPlanes: NULL
+                          pixelsWide: (NSInteger) size.width
+                          pixelsHigh: (NSInteger) size.height
+                       bitsPerSample: 8
+                     samplesPerPixel: 4
+                            hasAlpha: YES
+                            isPlanar: NO
+                      colorSpaceName: NSDeviceRGBColorSpace
+                         bytesPerRow: 0
+                    bitsPerPixel: 32] autorelease];
+    if (rep == nil)
+        return nil;
+
+    NSImage *image = [[self alloc] initWithSize: size];
+    [image addRepresentation: rep];
+
+    // -lockFocus is the supported way to get a drawing context for an
+    // NSBitmapImageRep; the rep exposes no graphics port of its own.
+    [NSGraphicsContext saveGraphicsState];
+    [image lockFocusOnRepresentation: rep];
+    if (flipped) {
+        NSAffineTransform *flip = [NSAffineTransform transform];
+        [flip translateXBy: 0.0 yBy: size.height];
+        [flip scaleXBy: 1.0 yBy: -1.0];
+        [flip concat];
+    }
+    drawingHandler(NSMakeRect(0, 0, size.width, size.height));
+    [image unlockFocus];
+    [NSGraphicsContext restoreGraphicsState];
+
+    return [image autorelease];
+}
+
 - init {
     return [self initWithSize: NSMakeSize(0, 0)];
 }

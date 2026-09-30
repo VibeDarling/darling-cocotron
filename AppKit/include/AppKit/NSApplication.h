@@ -24,6 +24,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSRunningApplication.h>
 #import <AppKit/NSAlert.h>
 #import <AppKit/NSAppearance.h>
+#import <AppKit/NSUserInterfaceLayoutDirection.h>
 #import <Foundation/NSNotification.h>
 #import <Foundation/NSRunLoop.h>
 
@@ -145,15 +146,25 @@ typedef NS_OPTIONS(NSInteger, NSWindowListOptions) {
     NSMutableArray *_orderedWindows; // get rid of
     NSTimer *_attentionTimer;
     NSApplicationPresentationOptions _presentationOptions;
+    BOOL _automaticCustomizeTouchBarMenuItemEnabled;
+    BOOL _defaultHelpBookSearchEnabled;
 }
 
 @property(readonly) NSUserInterfaceLayoutDirection userInterfaceLayoutDirection;
+
+// The window server connection id, as passed to CGS* calls. Terminal's menu
+// tracking asks the application for it.
+- (NSInteger) contextID;
 
 @property(strong) NSMenu *helpMenu;
 @property(readonly) NSApplicationPresentationOptions currentSystemPresentationOptions;
 @property NSApplicationPresentationOptions presentationOptions;
 @property(strong) NSAppearance *appearance;
 @property(readonly, strong) NSAppearance *effectiveAppearance;
+@property(getter=isAutomaticCustomizeTouchBarMenuItemEnabled)
+        BOOL automaticCustomizeTouchBarMenuItemEnabled;
+// Private AppKit flag for the help-viewer's find bar.
+@property(getter=isDefaultHelpBookSearchEnabled) BOOL defaultHelpBookSearchEnabled;
 
 @property (class, readonly, retain) NSApplication *sharedApplication;
 

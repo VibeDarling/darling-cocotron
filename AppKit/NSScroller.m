@@ -32,16 +32,72 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 // delegate and ask for the scroller layout direction.
 @interface NSScrollerImpPair : NSObject {
     id _delegate;
+    NSScrollerStyle _scrollerStyle;
+    id _verticalScrollerImp;
+    id _horizontalScrollerImp;
 }
 @property (assign) id delegate;
+@property NSScrollerStyle scrollerStyle;
+@property (retain) id verticalScrollerImp;
+@property (retain) id horizontalScrollerImp;
 @end
 
 @implementation NSScrollerImpPair
 
 @synthesize delegate = _delegate;
+@synthesize scrollerStyle = _scrollerStyle;
+@synthesize verticalScrollerImp = _verticalScrollerImp;
+@synthesize horizontalScrollerImp = _horizontalScrollerImp;
+
+- (void) dealloc {
+    [_verticalScrollerImp release];
+    [_horizontalScrollerImp release];
+    [super dealloc];
+}
+
+- (instancetype) init {
+    self = [super init];
+    if (self != nil)
+        _scrollerStyle = [NSScroller preferredScrollerStyle];
+    return self;
+}
 
 + (NSUserInterfaceLayoutDirection) scrollerLayoutDirection {
     return NSUserInterfaceLayoutDirectionLeftToRight;
+}
+
+- (void) flashScrollers {
+    // Legacy scrollers remain visible; refresh both painters when an app
+    // requests the transient overlay flash used by Apple's implementation.
+    [_verticalScrollerImp setNeedsDisplay: YES];
+    [_horizontalScrollerImp setNeedsDisplay: YES];
+}
+
+- (void) contentAreaDidResize {
+    [_verticalScrollerImp setNeedsDisplay: YES];
+    [_horizontalScrollerImp setNeedsDisplay: YES];
+}
+
+- (void) movedToNewWindow {
+    // Scroller appearance may change with its window. Both painters should be
+    // redrawn after a scroll view is attached to another window.
+    [self contentAreaDidResize];
+}
+
+- (void) mouseExitedContentArea {
+    // Legacy scrollers do not use hover visibility, but the painters need a
+    // redraw after a tracking transition.
+    [self contentAreaDidResize];
+}
+
+- (void) contentAreaWillDraw {
+    // Legacy scrollers paint with their owning view's display pass.
+}
+
+- (void) contentAreaScrolled {
+    // Terminal reports each scroll through this, with no argument, so the
+    // imp pair redraws its painters.
+    [self contentAreaDidResize];
 }
 
 @end
@@ -162,6 +218,11 @@ static NSAppleScrollBarVariant appleScrollBarVariant(NSScroller *self) {
     return _knobProportion;
 }
 
+- (void) setKnobProportion: (CGFloat) proportion {
+    _knobProportion = MIN(1.0, MAX(0.0, proportion));
+    [self setNeedsDisplay: YES];
+}
+
 - (NSScrollArrowPosition) arrowsPosition {
     return _arrowsPosition;
 }
@@ -172,6 +233,16 @@ static NSAppleScrollBarVariant appleScrollBarVariant(NSScroller *self) {
 
 - (NSScrollerStyle) scrollerStyle {
     return _scrollerStyle;
+}
+
+- (NSScrollerKnobStyle) knobStyle {
+    return _knobStyle;
+}
+
+- (id) scrollerImp {
+    // Cocotron draws the scroller directly; there is no separate painter
+    // object as in AppKit's private NSScrollerImp implementation.
+    return self;
 }
 
 
@@ -221,6 +292,11 @@ static NSAppleScrollBarVariant appleScrollBarVariant(NSScroller *self) {
 
 - (void) setScrollerStyle: (NSScrollerStyle) style {
     _scrollerStyle = style;
+}
+
+- (void) setKnobStyle: (NSScrollerKnobStyle) style {
+    _knobStyle = style;
+    [self setNeedsDisplay: YES];
 }
 
 - (NSRect) frameOfDecrementPage {

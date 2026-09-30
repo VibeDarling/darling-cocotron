@@ -30,6 +30,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSUserInterfaceItemIdentification.h>
 #import <AppKit/NSLayoutConstraint.h>
 #import <AppKit/NSAppearance.h>
+#import <AppKit/NSUserInterfaceLayoutDirection.h>
 
 @class NSWindow, NSMenu, NSMenuItem, NSCursor, NSClipView, NSPasteboard,
         NSTextInputContext, NSImage, NSBitmapImageRep, NSScrollView,
@@ -153,8 +154,8 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
     BOOL _clipsToBounds;
     BOOL _hasPreparedContentRect;
     NSRect _preparedContentRect;
-    NSUserInterfaceLayoutDirection _userInterfaceLayoutDirection;
     BOOL _hasUserInterfaceLayoutDirection;
+    NSUserInterfaceLayoutDirection _userInterfaceLayoutDirection;
 }
 
 @property NSUserInterfaceLayoutDirection userInterfaceLayoutDirection;

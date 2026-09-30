@@ -12,4 +12,9 @@ typedef NSString *NSUserInterfaceItemIdentifier NS_TYPED_EXTENSIBLE_ENUM;
 
 @property(copy) NSUserInterfaceItemIdentifier userInterfaceItemIdentifier;
 
+- (void) registerUserInterfaceItemSearch: (id) search;
+- (void) unregisterUserInterfaceItemSearch: (id) search;
+- (void) registerUserInterfaceItemSearchHandler: (id) handler;
+- (void) unregisterUserInterfaceItemSearchHandler: (id) handler;
+
 @end

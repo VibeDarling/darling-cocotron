@@ -438,6 +438,26 @@ NSApplication *NSApp = nil;
     }
 }
 
+- (BOOL) isAutomaticCustomizeTouchBarMenuItemEnabled {
+    return _automaticCustomizeTouchBarMenuItemEnabled;
+}
+
+- (void) setAutomaticCustomizeTouchBarMenuItemEnabled: (BOOL) enabled {
+    _automaticCustomizeTouchBarMenuItemEnabled = enabled;
+}
+
+- (NSInteger) contextID {
+    return CGSMainConnectionID();
+}
+
+- (BOOL) isDefaultHelpBookSearchEnabled {
+    return _defaultHelpBookSearchEnabled;
+}
+
+- (void) setDefaultHelpBookSearchEnabled: (BOOL) enabled {
+    _defaultHelpBookSearchEnabled = enabled;
+}
+
 - (void) setMenu: (NSMenu *) menu {
     [self setMainMenu: menu];
 }

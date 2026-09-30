@@ -756,6 +756,12 @@ static inline void buildTransformsIfNeeded(NSView *self) {
     return NO;
 }
 
+- (BOOL) isDrawingFindIndicator {
+    // A find indicator is active only while AppKit paints its transient
+    // search highlight. Cocotron has no such painting pass yet.
+    return NO;
+}
+
 - (CGFloat) alphaValue {
     return _alphaValue;
 }
@@ -3111,6 +3117,28 @@ static CGFloat backingScaleFactor(NSView *view) {
 
 @implementation NSView (NSViewLayoutState)
 
+- (NSUserInterfaceLayoutDirection) userInterfaceLayoutDirection {
+    return _hasExplicitUserInterfaceLayoutDirection
+                   ? _userInterfaceLayoutDirection
+                   : [NSApp userInterfaceLayoutDirection];
+}
+
+- (void) setUserInterfaceLayoutDirection:
+        (NSUserInterfaceLayoutDirection) direction
+{
+    if (direction != NSUserInterfaceLayoutDirectionLeftToRight &&
+        direction != NSUserInterfaceLayoutDirectionRightToLeft)
+        [NSException raise: NSInvalidArgumentException
+                    format: @"Invalid user interface layout direction: %ld",
+                            (long) direction];
+    _hasExplicitUserInterfaceLayoutDirection = YES;
+    if (_userInterfaceLayoutDirection == direction)
+        return;
+    _userInterfaceLayoutDirection = direction;
+    [self setNeedsLayout: YES];
+    [self setNeedsDisplay: YES];
+}
+
 - (BOOL) needsLayout {
     return _needsLayout;
 }
@@ -3219,12 +3247,7 @@ static id anchorForView(NSView *view, NSString *className,
 }
 
 - (void) updateConstraintsForSubtreeIfNeeded {
-    if (_needsUpdateConstraints) {
-        _needsUpdateConstraints = NO;
-        [self updateConstraints];
-    }
-    // An update callback can remove or reparent a sibling. Keep the snapshot
-    // alive through callbacks, but only visit children still belonging here.
+    // Constraint updates run from descendants toward their containing view.
     NSArray *children = [_subviews copy];
     @try {
         for (NSView *child in children) {
@@ -3233,6 +3256,10 @@ static id anchorForView(NSView *view, NSString *className,
         }
     } @finally {
         [children release];
+    }
+    if (_needsUpdateConstraints) {
+        _needsUpdateConstraints = NO;
+        [self updateConstraints];
     }
 }
 

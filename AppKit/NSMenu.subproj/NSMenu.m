@@ -397,14 +397,25 @@ BOOL itemIsEnabled(NSMenuItem *item) {
 
         if ((target == nil) || ![target respondsToSelector: [item action]]) {
             enabled = NO;
-        } else if ([target respondsToSelector: @selector(validateMenuItem:)]) {
-            enabled = [target validateMenuItem: item];
-        } else if ([target respondsToSelector: @selector
-                           (validateUserInterfaceItem:)]) { // New validation
-                                                            // scheme
-            enabled = [target validateUserInterfaceItem: item];
         } else {
-            enabled = YES;
+            // Cocoa treats an absent validation scheme as "enabled". This
+            // runtime reports a selector as present when the class declares it
+            // without implementing it, so the sends below can still raise;
+            // fall back to enabled rather than aborting the whole -update.
+            enabled = NO;
+            @try {
+                if ([target respondsToSelector: @selector(validateMenuItem:)]) {
+                    enabled = [target validateMenuItem: item];
+                } else if ([target respondsToSelector: @selector
+                                       (validateUserInterfaceItem:)]) {
+                    enabled = [target validateUserInterfaceItem: item];
+                } else {
+                    enabled = YES;
+                }
+            }
+            @catch (NSException *exception) {
+                enabled = YES;
+            }
         }
     }
 

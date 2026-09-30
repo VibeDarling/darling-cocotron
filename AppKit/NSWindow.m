@@ -259,7 +259,12 @@ static BOOL _allowsAutomaticWindowTabbing;
 /* This method is Cocotron specific and can be overridden by subclasses, do not
  * change method name */
 + (BOOL) hasMainMenuForStyleMask: (NSWindowStyleMask) styleMask {
-    return NO;
+    // A titled window owns the main menu and reserves a strip for it; a
+    // borderless or utility window is driven entirely by its content. This
+    // used to return NO unconditionally, so no window ever built a menu view
+    // and the main menu went uninstalled even though -[NSApplication
+    // setMainMenu:] accepted it.
+    return (styleMask & NSWindowStyleMaskTitled) != 0;
 }
 
 /* This method is Cocotron specific and can be overridden by subclasses, do not
@@ -378,6 +383,7 @@ static BOOL _allowsAutomaticWindowTabbing;
     _releaseWhenClosed = YES;
     _viewsNeedDisplay = YES;
     _restorable = YES;
+    _bottomCornerRounded = YES;
     _flushNeeded = YES;
     _resizeIncrements = NSMakeSize(1, 1);
     _contentResizeIncrements = NSMakeSize(1, 1);
@@ -1335,6 +1341,25 @@ static BOOL _allowsAutomaticWindowTabbing;
     NSUnimplementedMethod();
 }
 
+- (BOOL) bottomCornerRounded {
+    return _bottomCornerRounded;
+}
+
+- (NSArray<NSWindow *> *) tabbedWindows {
+    // Windows without a tab bar have no tab group. Cocotron does not yet
+    // provide native window tabbing.
+    return nil;
+}
+
+- (id) tab {
+    // A window without a tab group has no tab object.
+    return nil;
+}
+
+- (void) setBottomCornerRounded: (BOOL) rounded {
+    _bottomCornerRounded = rounded;
+}
+
 - (void) setLevel: (NSInteger) value {
     _level = value;
     [_platformWindow setLevel: _level];
@@ -2074,6 +2099,15 @@ static BOOL _allowsAutomaticWindowTabbing;
         [self flushWindowIfNeeded];
         [self setViewsNeedDisplay: NO];
     }
+}
+
+- (void) updateConstraintsIfNeeded {
+    [_contentView updateConstraintsForSubtreeIfNeeded];
+}
+
+- (void) layoutIfNeeded {
+    [self updateConstraintsIfNeeded];
+    [_contentView layoutSubtreeIfNeeded];
 }
 
 - (void) display {
