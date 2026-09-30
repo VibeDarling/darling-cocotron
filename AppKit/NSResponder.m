@@ -138,30 +138,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                 [self doCommandBySelector: NSSelectorFromString([selectorNames
                                                    objectAtIndex: j])];
             }
+        } else if ([self respondsToSelector: @selector(insertText:replacementRange:)]) {
+            string = [event characters];
+            if ([string length] > 0) {
+                [(id)self insertText: string replacementRange: NSMakeRange(NSNotFound, 0)];
+            }
         } else if ([self respondsToSelector: @selector(insertText:)]) {
             string = [event characters];
 
-            if ([string length] >
-                0) { // FIX THIS IN APPKIT shouldnt get 0 length
-
-                unsigned j, length = [string length];
-                unichar buffer[length];
-
-                [string getCharacters: buffer];
-                for (j = 0; j < length; j++) {
-                    unichar check = buffer[j];
-
-                    // Filter non char codes - Apple functions keys and ctrl
-                    // chars
-                    if (check >= NSUpArrowFunctionKey &&
-                        check <= NSModeSwitchFunctionKey)
-                        check = ' ';
-                    else if (check < ' ')
-                        check = ' ';
-
-                    buffer[j] = check;
-                }
-                string = [NSString stringWithCharacters: buffer length: length];
+            if ([string length] > 0) {
                 [self insertText: string];
             }
         }
