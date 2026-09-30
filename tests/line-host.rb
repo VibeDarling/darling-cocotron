@@ -34,7 +34,18 @@ program += <<~'OBJC'
           CTRunRef run=CFArrayGetValueAtIndex(runs,1);
           assert(CFGetTypeID(run)==CTRunGetTypeID() && CTRunGetGlyphCount(run)==2);
           assert(CTRunGetPositionsPtr(run)[0].x==10 && CTRunGetStringIndicesPtr(run)[0]==2);
+          CTRunDraw(run,@"context",CFRangeMake(0,0));
+          assert(glyphDrawCalls==1 && colorCalls==0);
           CFRelease(line); assert(liveObjects==0);
+          NSAttributedString *colored=[[NSAttributedString alloc] initWithString:@"x"
+              attributes:@{@"font":@5,kCTForegroundColorAttributeName:@"color-token"}];
+          CTLineRef coloredLine=CTLineCreateWithAttributedString(colored);
+          CTRunRef coloredRun=CFArrayGetValueAtIndex(CTLineGetGlyphRuns(coloredLine),0);
+          CTRunDraw(coloredRun,@"context",CFRangeMake(0,0));
+          assert(glyphDrawCalls==2 && colorCalls==1 && [lastColor isEqual:@"color-token"]);
+          CTRunDraw(coloredRun,@"context",CFRangeMake(1,0));
+          assert(glyphDrawCalls==2 && colorCalls==1);
+          CFRelease(coloredLine); [colored release]; assert(liveObjects==0);
           // Two run allocations followed by the line wrapper. Fail each in turn.
           for (int fail=1;fail<=3;fail++) {
               allocationCount=0; failAllocation=fail;
