@@ -23,6 +23,7 @@
 #import <AppKit/NSPopUpWindow.h>
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSWindow.h>
+#import "X11GlobalMenu.h"
 #import <Foundation/NSBundle.h>
 #import <Foundation/NSException.h>
 #import <Foundation/NSMutableData.h>
@@ -303,10 +304,22 @@ static NSData *makeWindowIcon() {
 
     [self setWindowIcon];
 
+    if (!isTransient && !isPanel && ![delegate isKindOfClass: [NSMenuWindow class]]) {
+        if ([[X11GlobalMenu sharedGlobalMenu] isAvailable]) {
+            [[X11GlobalMenu sharedGlobalMenu] registerWindow: _window forMenu: [NSApp mainMenu]];
+            if ([[X11GlobalMenu sharedGlobalMenu] isEngaged]) {
+                [delegate _hideMenuViewIfNeeded];
+            }
+        }
+    }
+
     return self;
 }
 
 - (void) dealloc {
+    if ([[X11GlobalMenu sharedGlobalMenu] isAvailable]) {
+        [[X11GlobalMenu sharedGlobalMenu] unregisterWindow: _window];
+    }
     [self invalidate];
     [_deviceDictionary release];
     [super dealloc];

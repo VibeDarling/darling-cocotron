@@ -1387,6 +1387,9 @@ enum {
             buf[strLen] = 0;
         }
 
+        uint16_t ucsCode = (uint16_t) X11KeySymToUCS(keySym); // All defined codes in the table fit into 16 bits
+        NSString* strIg = [NSString stringWithCharacters: &ucsCode length: 1];
+
         id str = nil;
         if (((ev->xkey.state & ControlMask) || (ev->xkey.state & Mod4Mask)) && ucsCode != 0) {
             str = [strIg retain];

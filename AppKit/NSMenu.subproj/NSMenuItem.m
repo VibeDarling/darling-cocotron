@@ -510,9 +510,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     if ([[self menu] supermenu] == nil) {
         // Check if sub-menu exists
         if ([self hasSubmenu]) {
-            // Check if sub-menu title exists
+            // Check if sub-menu title exists and is not empty
             NSString *submenuTitle = [[self submenu] title];
-            if (submenuTitle != nil) {
+            if ([submenuTitle length] > 0) {
                 return submenuTitle;
             }
         }

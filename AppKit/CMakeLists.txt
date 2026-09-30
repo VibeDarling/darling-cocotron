@@ -647,6 +647,7 @@ add_backend(X11
 		X11.backend/X11DropSession.m
 		X11.backend/X11DraggingManager.m
 		X11.backend/X11FileURLs.m
+		X11.backend/X11GlobalMenu.m
 	INFO_PLIST
 		X11.backend/Info.plist
 	DEPENDENCIES
@@ -665,7 +666,10 @@ add_backend(X11
 		Xcursor
 		fontconfig
 		xkbfile
+		dbus
 )
+pkg_check_modules(DBUS dbus-1)
+target_include_directories(X11_backend PRIVATE ${DBUS_INCLUDE_DIRS})
 
 # Wayland backend, selected at run time with DARLING_APPKIT_BACKEND=wayland.
 # libwayland-client and libxkbcommon are loaded with dlopen() only when it is

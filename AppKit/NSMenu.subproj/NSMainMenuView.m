@@ -60,7 +60,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) dealloc {
-    // [_menu release]; NSView does this for us
+    [_menu release];
     [_font release];
     [super dealloc];
 }
@@ -78,8 +78,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (void) setMenu: (NSMenu *) menu {
+    if (_menu != menu) {
+        [_menu release];
+        _menu = [menu retain];
+    }
     [super setMenu: menu];
     [self sizeToFit];
+    [self setNeedsDisplay: YES];
 }
 
 - (NSRect) titleRectForItem: (NSMenuItem *) item

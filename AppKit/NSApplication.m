@@ -435,6 +435,22 @@ NSApplication *NSApp = nil;
     [_mainMenu autorelease];
     _mainMenu = [menu retain];
 
+    id globalMenu = NSClassFromString(@"X11GlobalMenu");
+    if (globalMenu && [[globalMenu performSelector: @selector(sharedGlobalMenu)] isAvailable]) {
+        id instance = [globalMenu performSelector: @selector(sharedGlobalMenu)];
+        [instance updateMenu: _mainMenu];
+        if ([instance isEngaged]) {
+            for (i = 0; i < count; i++) {
+                NSWindow *window = [_windows objectAtIndex: i];
+                if (![window isKindOfClass: [NSPanel class]]) {
+                    [window setMenu: _mainMenu];
+                    [window _hideMenuViewIfNeeded];
+                }
+            }
+            return;
+        }
+    }
+
     for (i = 0; i < count; i++) {
         NSWindow *window = [_windows objectAtIndex: i];
 
@@ -715,8 +731,10 @@ NSApplication *NSApp = nil;
     while (--count >= 0) {
         NSWindow *check = [_windows objectAtIndex: count];
 
-        if (![check isKindOfClass: [NSPanel class]] && [check isVisible]) {
-            return;
+        if (![check isKindOfClass: [NSPanel class]]) {
+            if ([check isVisible] || [check _isHiddenForDeactivate]) {
+                return;
+            }
         }
     }
 
@@ -1392,11 +1410,26 @@ NSApplication *NSApp = nil;
 }
 
 - (void) terminate: sender {
-    [[NSDocumentController sharedDocumentController]
-            closeAllDocumentsWithDelegate: self
-                      didCloseAllSelector: @selector
-                      (_documentController:didCloseAll:contextInfo:)
-                              contextInfo: NULL];
+    if ([_delegate respondsToSelector: @selector(applicationShouldTerminate:)]) {
+        NSApplicationTerminateReply reply = [_delegate applicationShouldTerminate: self];
+        if (reply == NSTerminateCancel) {
+            return;
+        }
+        if (reply == NSTerminateLater) {
+            return;
+        }
+    }
+
+    NSArray *docTypes = [[[NSBundle mainBundle] infoDictionary] objectForKey: @"CFBundleDocumentTypes"];
+    if ([docTypes count] > 0) {
+        [[NSDocumentController sharedDocumentController]
+                closeAllDocumentsWithDelegate: self
+                          didCloseAllSelector: @selector
+                          (_documentController:didCloseAll:contextInfo:)
+                                  contextInfo: NULL];
+    } else {
+        [self replyToApplicationShouldTerminate: YES];
+    }
 }
 
 - (void) _documentController: (NSDocumentController *) docController

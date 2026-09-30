@@ -2973,6 +2973,10 @@ static BOOL _allowsAutomaticWindowTabbing;
         [(NSControl *) [_defaultButtonCell controlView] performClick: nil];
 }
 
+- (BOOL) _isHiddenForDeactivate {
+    return _hiddenForDeactivate;
+}
+
 - (void) _showForActivation {
     if (_hiddenForDeactivate) {
         _hiddenForDeactivate = NO;
