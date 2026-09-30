@@ -1387,6 +1387,13 @@ enum {
             buf[strLen] = 0;
         }
 
+        // The text above retains normal XIM/keyboard modifier behavior. Shortcut characters
+        // ignore modifiers other than Shift, so a Ctrl- or Alt-modified key still reports the
+        // character its unmodified keysym produces. ucsCode is 0 when the key produces no
+        // character at all, which is how a bare modifier or an unmapped key is told apart.
+        uint16_t ucsCode = (uint16_t) X11KeySymToUCS(X11KeySymIgnoringModifiers(&ev->xkey));
+        NSString *strIg = [NSString stringWithCharacters: &ucsCode length: 1];
+
         id str = nil;
         if (((ev->xkey.state & ControlMask) || (ev->xkey.state & Mod4Mask)) && ucsCode != 0) {
             str = [strIg retain];
@@ -1402,12 +1409,6 @@ enum {
         }
         if (text != buf)
             free(text);
-
-        // The text above retains normal XIM/keyboard modifier behavior.
-        // Shortcut characters ignore modifiers other than Shift.
-        uint16_t shortcutCode = (uint16_t) X11KeySymToUCS(
-                X11KeySymIgnoringModifiers(&ev->xkey));
-        strIg = [NSString stringWithCharacters: &shortcutCode length: 1];
 
         NSPoint pos = [window logicalPoint: NSMakePoint(ev->xkey.x, ev->xkey.y)];
         // If there's an app that uses constants from HIToolbox/Events.h (e.g.
