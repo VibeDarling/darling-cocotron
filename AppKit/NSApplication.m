@@ -211,6 +211,11 @@ NSApplication *NSApp = nil;
 
     pthread_mutex_init(_lock, NULL);
 
+    [[NSNotificationCenter defaultCenter] addObserver: self
+                                             selector: @selector(_windowWillClose:)
+                                                 name: NSWindowWillCloseNotification
+                                               object: nil];
+
     [self _showSplashImage];
 
     return NSApp;
@@ -698,6 +703,12 @@ NSApplication *NSApp = nil;
     }
 }
 
+- (void) _windowWillClose: (NSNotification *) note {
+    [self performSelector: @selector(_checkForTerminate)
+               withObject: nil
+               afterDelay: 0.0];
+}
+
 - (void) _checkForTerminate {
     int count = [_windows count];
 
@@ -709,7 +720,28 @@ NSApplication *NSApp = nil;
         }
     }
 
-    [self terminate: self];
+    BOOL shouldTerminate = NO;
+    if ([_delegate respondsToSelector: @selector(applicationShouldTerminateAfterLastWindowClosed:)]) {
+        shouldTerminate = [_delegate applicationShouldTerminateAfterLastWindowClosed: self];
+    } else {
+        NSString *env = [[[NSProcessInfo processInfo] environment] objectForKey: @"DARLING_QUIT_ON_LAST_WINDOW"];
+        if (env != nil) {
+            shouldTerminate = [env boolValue];
+        } else {
+            id pref = [[NSUserDefaults standardUserDefaults] objectForKey: @"NSQuitOnLastWindowClosed"];
+            if (pref != nil) {
+                shouldTerminate = [pref boolValue];
+            } else {
+                // In headless / standalone X11 desktop environment without Dock,
+                // terminate on last window closed by default so processes don't linger.
+                shouldTerminate = YES;
+            }
+        }
+    }
+
+    if (shouldTerminate) {
+        [self terminate: self];
+    }
 }
 
 - (void) _checkForAppActivation {
