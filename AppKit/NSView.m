@@ -70,6 +70,7 @@ const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPresentationOptio
 - (CGAffineTransform) transformToLayer;
 - (void) _trackingAreasChanged;
 - (void) _addLayerToSuperlayer;
+- (void) _updateLayerVisibility;
 - (void) _removeLayerFromSuperlayer;
 @end
 
@@ -817,6 +818,7 @@ static inline void buildTransformsIfNeeded(NSView *self) {
                 }
         }
 
+        [self _updateLayerVisibility];
         [[self superview] setNeedsDisplay: YES];
 
         if (_isHidden)
@@ -1243,6 +1245,7 @@ static void alignAxis(CGFloat *origin, CGFloat *length, NSAlignmentOptions optio
             [self _removeLayerFromSuperlayer];
         } else if (_layerContext) {
             [_layerContext setSubwindow: [_window _createSubWindowWithFrame: [self frame]]];
+            [self _updateLayerVisibility];
         } else if (_layer != nil && _window != nil) {
             [self _addLayerToSuperlayer];
         }
@@ -1265,6 +1268,7 @@ static void alignAxis(CGFloat *origin, CGFloat *length, NSAlignmentOptions optio
     if (_layer != nil)
         [self _removeLayerFromSuperlayer];
     _superview = superview;
+    [self _updateLayerVisibility];
     if (_layer != nil && _superview != nil)
         [self _addLayerToSuperlayer];
 
@@ -1921,12 +1925,22 @@ static void alignAxis(CGFloat *origin, CGFloat *length, NSAlignmentOptions optio
     _layerContext = nil;
 }
 
+// Native root-layer windows must follow the view tree as well as CALayer.
+- (void) _updateLayerVisibility {
+    BOOL hidden = [self isHiddenOrHasHiddenAncestor];
+    [_layer setHidden: hidden];
+    [_layerContext setHidden: hidden];
+    for (NSView *child in _subviews)
+        [child _updateLayerVisibility];
+}
+
 - (void) _createLayerContextIfNeeded {
     if (_layerContext == nil && [_superview layer] == nil && _window != nil) {
         _layerContext = [[CALayerContext alloc] initWithFrame: [self frame]];
         [_layerContext setLayer: _layer];
         if (_window) {
             [_layerContext setSubwindow: [_window _createSubWindowWithFrame: [self frame]]];
+            [self _updateLayerVisibility];
         }
     }
 }
@@ -1977,6 +1991,7 @@ static void alignAxis(CGFloat *origin, CGFloat *length, NSAlignmentOptions optio
     }
 
     [self _addLayerToSuperlayer];
+    [self _updateLayerVisibility];
 
     [_subviews makeObjectsPerformSelector: _cmd];
 }
@@ -2022,6 +2037,7 @@ static void alignAxis(CGFloat *origin, CGFloat *length, NSAlignmentOptions optio
 
         [_subviews
                 makeObjectsPerformSelector: @selector(_addLayerToSuperlayer)];
+        [self _updateLayerVisibility];
     }
 }
 

@@ -27,6 +27,7 @@
 
 - (void) setFrame: (CGRect) value;
 - (void) setLayer: (CALayer *) layer;
+- (void) setHidden: (BOOL) hidden;
 - (void) setSubwindow: (CGSubWindow*) subwindow;
 
 - (void) invalidate;
