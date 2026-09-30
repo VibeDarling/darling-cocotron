@@ -273,6 +273,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [_accessoryView removeFromSuperview];
     [_accessoryView release];
     _accessoryView = value;
+    [_accessoryView setNeedsLayout: YES];
 
     // We must add it as a subview here such that a makeFirstResponder:
     // immediately after works properly by setting up the field editor
@@ -332,6 +333,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                                           NSFontAttributeName, nil];
     NSSize supressionSize = NSZeroSize;
     CGFloat informativeSuppressionGap = 0.;
+    // Accessory subclasses may determine their frame during layout.
+    [_accessoryView layoutSubtreeIfNeeded];
     NSSize accessorySize =
             (_accessoryView != nil) ? [_accessoryView frame].size : NSZeroSize;
     CGFloat suppressionAccessoryGap = 0.;
