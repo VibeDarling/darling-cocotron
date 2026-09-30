@@ -449,12 +449,16 @@ BOOL itemIsEnabled(NSMenuItem *item) {
 
     for (i = 0; i < count; i++) {
         NSMenuItem *item = [_itemArray objectAtIndex: i];
-        unsigned itemModifiers = [item keyEquivalentModifierMask] &
-                                 (NSCommandKeyMask | NSAlternateKeyMask);
+        // Match on Control as well as Command/Option: the standard Mac editing bindings
+        // (Ctrl-C/X/V, ...) are Control-based. An item with no key equivalent must never
+        // match, so require a non-empty key as well.
+        const unsigned menuModifiers =
+            NSCommandKeyMask | NSAlternateKeyMask | NSControlKeyMask;
+        unsigned itemModifiers = [item keyEquivalentModifierMask] & menuModifiers;
         NSString *key = [item keyEquivalent];
 
-        if ((modifiers & (NSCommandKeyMask | NSAlternateKeyMask)) ==
-            itemModifiers) {
+        if (((modifiers & menuModifiers) == itemModifiers) &&
+            ([key length] != 0)) {
 
             if ([key isEqualToString: characters]) {
                 /* This *must* accurately reflect menu validation when ignoring

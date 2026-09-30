@@ -106,39 +106,44 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 
     if (menu == nil) {
         menu = [[NSMenu alloc] initWithTitle: @""];
-        [menu addItemWithTitle: NSLocalizedStringFromTableInBundle(
-                                        @"Cut", nil,
-                                        [NSBundle
-                                                bundleForClass: [NSTextView
-                                                                        class]],
-                                        @"Cut the selection")
-                        action: @selector(cut:)
-                 keyEquivalent: @""];
-        [menu addItemWithTitle: NSLocalizedStringFromTableInBundle(
-                                        @"Copy", nil,
-                                        [NSBundle
-                                                bundleForClass: [NSTextView
-                                                                        class]],
-                                        @"Copy the selection")
-                        action: @selector(copy:)
-                 keyEquivalent: @""];
-        [menu addItemWithTitle: NSLocalizedStringFromTableInBundle(
-                                        @"Paste", nil,
-                                        [NSBundle
-                                                bundleForClass: [NSTextView
-                                                                        class]],
-                                        @"Paste the selection")
-                        action: @selector(paste:)
-                 keyEquivalent: @""];
+        Class cls = [NSTextView class];
+        NSBundle *bundle = [NSBundle bundleForClass: cls];
+
+        // The classic Mac editing bindings are Control-based (Ctrl-C/X/V/A). They are
+        // declared here with an explicit Control modifier mask; without a key equivalent
+        // the items only responded to the mouse, so Ctrl-C typed a control character
+        // instead of copying.
+        NSMenuItem *item;
+
+        item = [menu addItemWithTitle: NSLocalizedStringFromTableInBundle(@"Cut", nil,
+                                                                          bundle,
+                                                                          @"Cut the selection")
+                                 action: @selector(cut:)
+                          keyEquivalent: @"x"];
+        [item setKeyEquivalentModifierMask: NSControlKeyMask];
+
+        item = [menu addItemWithTitle: NSLocalizedStringFromTableInBundle(@"Copy", nil,
+                                                                          bundle,
+                                                                          @"Copy the selection")
+                                 action: @selector(copy:)
+                          keyEquivalent: @"c"];
+        [item setKeyEquivalentModifierMask: NSControlKeyMask];
+
+        item = [menu addItemWithTitle: NSLocalizedStringFromTableInBundle(@"Paste", nil,
+                                                                          bundle,
+                                                                          @"Paste the selection")
+                                 action: @selector(paste:)
+                          keyEquivalent: @"v"];
+        [item setKeyEquivalentModifierMask: NSControlKeyMask];
+
         [menu addItem: [NSMenuItem separatorItem]];
-        [menu addItemWithTitle: NSLocalizedStringFromTableInBundle(
-                                        @"Select All", nil,
-                                        [NSBundle
-                                                bundleForClass: [NSTextView
-                                                                        class]],
-                                        @"Select all the content")
-                        action: @selector(selectAll:)
-                 keyEquivalent: @""];
+
+        item = [menu addItemWithTitle: NSLocalizedStringFromTableInBundle(@"Select All", nil,
+                                                                          bundle,
+                                                                          @"Select all the content")
+                                 action: @selector(selectAll:)
+                          keyEquivalent: @"a"];
+        [item setKeyEquivalentModifierMask: NSControlKeyMask];
     }
     [self setMenu: menu];
 }
