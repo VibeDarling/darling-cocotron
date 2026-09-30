@@ -46,10 +46,13 @@ program=<<~'OBJC'
 OBJC
 program.sub!('GETTER') { getter }
 gcc,status=Open3.capture2('gcc','-print-file-name=include'); abort unless status.success?
+objc_runtime,status=Open3.capture2('gcc','-print-file-name=libobjc.so'); abort unless status.success?
+objc_runtime=objc_runtime.strip
+abort 'GNU Objective-C runtime unavailable' unless File.file?(objc_runtime)
 Dir.mktmpdir('menu-snapshot') do |dir|
   input="#{dir}/probe.m"; output="#{dir}/probe"; File.write(input,program)
   abort 'compile failed' unless system('clang','-fobjc-runtime=gcc','-fobjc-exceptions','-fexceptions',
     '-fconstant-string-class=NSConstantString',"-I#{sdk}/usr/include/GNUstep","-I#{gcc.strip}",
-    input,"-L#{sdk}/usr/lib","-Wl,-rpath,#{sdk}/usr/lib",'-lgnustep-base','-lobjc','-o',output)
+    input,"-L#{sdk}/usr/lib","-Wl,-rpath,#{sdk}/usr/lib",'-lgnustep-base',objc_runtime,'-o',output)
   abort 'probe failed' unless system(output,rlimit_core:0)
 end
