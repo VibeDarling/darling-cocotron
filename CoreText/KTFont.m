@@ -49,7 +49,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 // a KTFont. Answer the query here too so the text system works with either class, mirroring
 // -[NSFont positionOfGlyph:precededByGlyph:isNominal:]. A KTFont is a valid CTFontRef by
 // contract (it answers -cgFont and -pointSize), so the CoreText call works on it directly.
-- (NSPoint) positionOfGlyph: (NSUInteger) current
+- (CGPoint) positionOfGlyph: (NSUInteger) current
             precededByGlyph: (NSUInteger) previous
                   isNominal: (BOOL *) isNominalp
 {

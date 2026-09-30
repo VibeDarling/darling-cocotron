@@ -3137,7 +3137,7 @@ static CGFloat backingScaleFactor(NSView *view) {
 @implementation NSView (NSViewLayoutState)
 
 - (NSUserInterfaceLayoutDirection) userInterfaceLayoutDirection {
-    return _hasExplicitUserInterfaceLayoutDirection
+    return _hasUserInterfaceLayoutDirection
                    ? _userInterfaceLayoutDirection
                    : [NSApp userInterfaceLayoutDirection];
 }
@@ -3150,7 +3150,7 @@ static CGFloat backingScaleFactor(NSView *view) {
         [NSException raise: NSInvalidArgumentException
                     format: @"Invalid user interface layout direction: %ld",
                             (long) direction];
-    _hasExplicitUserInterfaceLayoutDirection = YES;
+    _hasUserInterfaceLayoutDirection = YES;
     if (_userInterfaceLayoutDirection == direction)
         return;
     _userInterfaceLayoutDirection = direction;
