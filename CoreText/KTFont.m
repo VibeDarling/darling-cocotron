@@ -43,4 +43,23 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return _size;
 }
 
+// The text system (NSTypesetter/NSLayoutManager) queries glyph advances on whatever concrete
+// font object it holds. Normally that is NSFont, which AppKit registers as CoreText's concrete
+// class, but a font can be created before that registration lands, in which case every font is
+// a KTFont. Answer the query here too so the text system works with either class, mirroring
+// -[NSFont positionOfGlyph:precededByGlyph:isNominal:]. A KTFont is a valid CTFontRef by
+// contract (it answers -cgFont and -pointSize), so the CoreText call works on it directly.
+- (NSPoint) positionOfGlyph: (NSUInteger) current
+            precededByGlyph: (NSUInteger) previous
+                  isNominal: (BOOL *) isNominalp
+{
+    *isNominalp = YES;
+    if (current == CGNullGlyph)
+        return CGPointZero;
+    CGGlyph glyph = (CGGlyph) current;
+    CGSize advance = CGSizeZero;
+    CTFontGetAdvancesForGlyphs((CTFontRef) self, kCTFontOrientationDefault, &glyph, &advance, 1);
+    return CGPointMake(advance.width, advance.height);
+}
+
 @end
