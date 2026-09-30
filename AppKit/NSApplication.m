@@ -780,7 +780,12 @@ NSApplication *NSApp = nil;
     if ([event type] == NSKeyDown) {
         unsigned modifierFlags = [event modifierFlags];
 
-        if (modifierFlags & (NSCommandKeyMask | NSAlternateKeyMask))
+        // The classic Mac clipboard and editing bindings (Ctrl-C/X/V/A/E, Ctrl-Left/Right,
+        // ...) are Control-based, not Command-based, so Control has to reach menu key
+        // equivalents alongside Command and Option. Without it, Edit-menu Copy/Paste only
+        // respond to the mouse: Ctrl-C inserted a control character instead of copying.
+        if (modifierFlags &
+            (NSCommandKeyMask | NSAlternateKeyMask | NSControlKeyMask))
             if ([self _performKeyEquivalent: event])
                 return;
     }

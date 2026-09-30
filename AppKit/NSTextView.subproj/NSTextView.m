@@ -106,39 +106,44 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
 
     if (menu == nil) {
         menu = [[NSMenu alloc] initWithTitle: @""];
-        [menu addItemWithTitle: NSLocalizedStringFromTableInBundle(
-                                        @"Cut", nil,
-                                        [NSBundle
-                                                bundleForClass: [NSTextView
-                                                                        class]],
-                                        @"Cut the selection")
-                        action: @selector(cut:)
-                 keyEquivalent: @""];
-        [menu addItemWithTitle: NSLocalizedStringFromTableInBundle(
-                                        @"Copy", nil,
-                                        [NSBundle
-                                                bundleForClass: [NSTextView
-                                                                        class]],
-                                        @"Copy the selection")
-                        action: @selector(copy:)
-                 keyEquivalent: @""];
-        [menu addItemWithTitle: NSLocalizedStringFromTableInBundle(
-                                        @"Paste", nil,
-                                        [NSBundle
-                                                bundleForClass: [NSTextView
-                                                                        class]],
-                                        @"Paste the selection")
-                        action: @selector(paste:)
-                 keyEquivalent: @""];
+        Class cls = [NSTextView class];
+        NSBundle *bundle = [NSBundle bundleForClass: cls];
+
+        // The classic Mac editing bindings are Control-based (Ctrl-C/X/V/A). They are
+        // declared here with an explicit Control modifier mask; without a key equivalent
+        // the items only responded to the mouse, so Ctrl-C typed a control character
+        // instead of copying.
+        NSMenuItem *item;
+
+        item = [menu addItemWithTitle: NSLocalizedStringFromTableInBundle(@"Cut", nil,
+                                                                          bundle,
+                                                                          @"Cut the selection")
+                                 action: @selector(cut:)
+                          keyEquivalent: @"x"];
+        [item setKeyEquivalentModifierMask: NSControlKeyMask];
+
+        item = [menu addItemWithTitle: NSLocalizedStringFromTableInBundle(@"Copy", nil,
+                                                                          bundle,
+                                                                          @"Copy the selection")
+                                 action: @selector(copy:)
+                          keyEquivalent: @"c"];
+        [item setKeyEquivalentModifierMask: NSControlKeyMask];
+
+        item = [menu addItemWithTitle: NSLocalizedStringFromTableInBundle(@"Paste", nil,
+                                                                          bundle,
+                                                                          @"Paste the selection")
+                                 action: @selector(paste:)
+                          keyEquivalent: @"v"];
+        [item setKeyEquivalentModifierMask: NSControlKeyMask];
+
         [menu addItem: [NSMenuItem separatorItem]];
-        [menu addItemWithTitle: NSLocalizedStringFromTableInBundle(
-                                        @"Select All", nil,
-                                        [NSBundle
-                                                bundleForClass: [NSTextView
-                                                                        class]],
-                                        @"Select all the content")
-                        action: @selector(selectAll:)
-                 keyEquivalent: @""];
+
+        item = [menu addItemWithTitle: NSLocalizedStringFromTableInBundle(@"Select All", nil,
+                                                                          bundle,
+                                                                          @"Select all the content")
+                                 action: @selector(selectAll:)
+                          keyEquivalent: @"a"];
+        [item setKeyEquivalentModifierMask: NSControlKeyMask];
     }
     [self setMenu: menu];
 }
@@ -3205,6 +3210,41 @@ NSString *const NSAllRomanInputSourcesLocaleIdentifier =
     if (firstRange.location < [_textStorage length])
         firstRange = [self selectionRangeForProposedRange: firstRange
                                               granularity: granularity];
+
+    // Shift-click extends the existing selection instead of collapsing it to a caret under
+    // the pointer. The anchor is the far edge of the current selection, so growing it past
+    // either end keeps the whole selection (select 2..6, shift-click 9 -> 2..9; select 4..8,
+    // shift-click 1 -> 1..8); with an empty selection the anchor is the caret, so it extends
+    // from where it already is.
+    if ([event modifierFlags] & NSEventModifierFlagShift) {
+        NSRange existing = [self selectedRange];
+        NSUInteger click = firstRange.location;
+        NSUInteger anchor;
+
+        if (existing.length == 0) {
+            anchor = existing.location;
+        } else {
+            NSUInteger start = existing.location;
+            NSUInteger end = NSMaxRange(existing);
+            if (click > end)
+                anchor = start;   // growing right: keep the left edge
+            else if (click < start)
+                anchor = end;     // growing left: keep the right edge
+            else
+                anchor = start;   // inside the selection: anchor at the left edge
+        }
+
+        if (click >= anchor)
+            selection = NSMakeRange(anchor, click - anchor);
+        else
+            selection = NSMakeRange(click, anchor - click);
+        affinity = click >= anchor ? NSSelectionAffinityUpstream
+                                   : NSSelectionAffinityDownstream;
+        [self setSelectedRange: selection affinity: affinity stillSelecting: YES];
+        [self updateInsertionPointStateAndRestartTimer: YES];
+        [self setNeedsDisplay: YES];
+        return;
+    }
 
     _selectionOrigin = firstRange.location;
     lastRange = firstRange;
