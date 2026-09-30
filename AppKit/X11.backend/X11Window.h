@@ -86,6 +86,8 @@
 
 - (void) frameChanged;
 - (void) setLastKnownCursorPosition: (CGPoint) point;
+- (NSPoint) lastKnownCursorPosition;
+- (NSPoint) lastKnownDeviceCursorPosition;
 
 - (void) setStyleMaskInternal: (NSUInteger) styleMask force: (BOOL) force;
 

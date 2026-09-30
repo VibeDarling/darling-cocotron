@@ -98,7 +98,7 @@ static int X11CursorScaledSize(int nominalSize, CGFloat scale) {
     CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
     CGContextRef context = CGBitmapContextCreate(
             NULL, width, height, 8, 0, colorSpace,
-            kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host);
+            kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little);
     CGColorSpaceRelease(colorSpace);
     if (context == NULL) {
         XcursorImageDestroy(ximage);
@@ -122,15 +122,22 @@ static int X11CursorScaledSize(int nominalSize, CGFloat scale) {
         [NSGraphicsContext restoreGraphicsState];
     }
 
-    const uint8_t *rowBytes = CGBitmapContextGetData(context);
+    const uint8_t *rowBytes = (const uint8_t *) CGBitmapContextGetData(context);
     const size_t bytesPerRow = CGBitmapContextGetBytesPerRow(context);
 
-    // One 4-byte pixel per destination slot. This used to copy a whole row per
-    // pixel into a per-row destination, overrunning the buffer.
-    for (size_t row = 0; row < height; row++, rowBytes += bytesPerRow)
-        for (size_t column = 0; column < width; column++)
-            memcpy(ximage->pixels + row * width + column,
-                   &rowBytes[column * sizeof(XcursorPixel)], sizeof(XcursorPixel));
+    // Xcursor wants device pixels with top-left origin. Cocoa drawInRect has bottom-left origin.
+    for (size_t row = 0; row < height; row++) {
+        const uint8_t *srcRow = rowBytes + (height - 1 - row) * bytesPerRow;
+        for (size_t column = 0; column < width; column++) {
+            const uint8_t *px = srcRow + column * 4;
+            uint32_t b = px[0];
+            uint32_t g = px[1];
+            uint32_t r = px[2];
+            uint32_t a = px[3];
+            XcursorPixel cp = (a << 24) | (r << 16) | (g << 8) | b;
+            ximage->pixels[row * width + column] = cp;
+        }
+    }
 
     CGContextRelease(context);
 

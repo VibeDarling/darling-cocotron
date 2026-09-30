@@ -562,6 +562,9 @@ static NSData *makeWindowIcon() {
 }
 
 - (void) setTitle: (NSString *) title {
+    if (_display == NULL || _window == 0)
+        return;
+
     const char *text = [title UTF8String];
     // -setTitle: nil is undefined, but it used to reach here without a crash and
     // strlen(NULL) would not survive it.
@@ -574,16 +577,14 @@ static NSData *makeWindowIcon() {
     // do with it. The bytes used to come from -[NSString cString], which converts
     // to the system encoding and raises when a character does not fit. WM_NAME
     // gets the same bytes for a window manager predating EWMH.
-    if (XChangeProperty(_display, _window,
-                        XInternAtom(_display, "_NET_WM_NAME", False),
-                        XInternAtom(_display, "UTF8_STRING", False), 8,
-                        PropModeReplace, (const unsigned char *) text,
-                        length) != Success)
-        NSLog(@"XChangeProperty(_NET_WM_NAME) failed at %s %d", __FILE__, __LINE__);
+    XChangeProperty(_display, _window,
+                    XInternAtom(_display, "_NET_WM_NAME", False),
+                    XInternAtom(_display, "UTF8_STRING", False), 8,
+                    PropModeReplace, (const unsigned char *) text,
+                    length);
 
-    if (XChangeProperty(_display, _window, XA_WM_NAME, XA_STRING, 8, PropModeReplace,
-                        (const unsigned char *) text, length) != Success)
-        NSLog(@"XChangeProperty(WM_NAME) failed at %s %d", __FILE__, __LINE__);
+    XChangeProperty(_display, _window, XA_WM_NAME, XA_STRING, 8, PropModeReplace,
+                    (const unsigned char *) text, length);
 }
 
 - (void) setFrame: (O2Rect) frame {
@@ -898,6 +899,14 @@ static BOOL windowManagerIsRunning(Display *display) {
 // cancellation only held while the transform was an exact involution.
 - (void) setLastKnownCursorPosition: (CGPoint) point {
     _lastMotionPos = point;
+}
+
+- (NSPoint) lastKnownCursorPosition {
+    return [self logicalPoint: _lastMotionPos];
+}
+
+- (NSPoint) lastKnownDeviceCursorPosition {
+    return _lastMotionPos;
 }
 
 - (NSSize) lastReportedSize {

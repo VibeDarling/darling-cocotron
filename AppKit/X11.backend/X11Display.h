@@ -44,6 +44,7 @@
     int clickCount;
     X11Cursor *_blankCursor, *_defaultCursor;
     BOOL _cursorGrabbed;
+    int _ignoreWarpMotionCount;
     KeySym _lastKeySym;
     int _rrEventBase;
     NSArray* _lastScreens;

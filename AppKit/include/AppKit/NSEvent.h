@@ -270,6 +270,7 @@ enum { NSApplicationActivated = 0, NSApplicationDeactivated = 1 };
 }
 
 + (NSPoint) mouseLocation;
++ (NSUInteger) pressedMouseButtons;
 @property (class, readonly) NSEventModifierFlags modifierFlags;
 
 - (instancetype) initWithType: (NSEventType) type

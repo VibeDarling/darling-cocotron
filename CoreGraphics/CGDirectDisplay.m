@@ -506,12 +506,18 @@ CGError CGWarpMouseCursorPosition(CGPoint newCursorPosition) {
     return kCGErrorSuccess;
 }
 
+CGError CGDisplayMoveCursorToPoint(CGDirectDisplayID displayID, CGPoint newCursorPosition) {
+    return CGWarpMouseCursorPosition(newCursorPosition);
+}
+
 CGError CGAssociateMouseAndMouseCursorPosition(boolean_t connected) {
     NSDisplay *display = currentDisplay();
     if (!display)
         return kCGErrorInvalidConnection;
 
-    [display grabMouse: connected];
+    // connected == false means cursor is disconnected from mouse (grab/relative mode).
+    // connected == true means normal desktop cursor operation.
+    [display grabMouse: !connected];
     return kCGErrorSuccess;
 }
 

@@ -52,6 +52,10 @@ static NSMutableArray<_NSEventLocalMonitor *> *s_localMonitors = nil;
     return [[NSDisplay currentDisplay] mouseLocation];
 }
 
++ (NSUInteger) pressedMouseButtons {
+    return 0;
+}
+
 + (NSEventModifierFlags) modifierFlags {
     return [[NSDisplay currentDisplay] currentModifierFlags];
 }
