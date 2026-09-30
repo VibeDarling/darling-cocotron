@@ -220,16 +220,26 @@ O2FontRef O2FontCreateWithCodePointCoverage(const uint32_t *codePoints,
         return nil;
     }
 
+    // fontconfig reports the host's font path (e.g. /usr/share/fonts/...), which does not
+    // exist under the guest's own root, so -fileExistsAtPath: needs it prefixed with
+    // /Volumes/SystemRoot. FreeType is reached through the native passthrough, which already
+    // resolves those host paths itself: handing it the prefixed path instead makes every
+    // FT_New_Face fail with error 1 (FT_Err_Cannot_Open_Resource). So use the prefixed
+    // form only to decide *whether* the file is there, and always hand FreeType the raw
+    // fontconfig path.
+    NSString *freetypePath = filename;
     if (![[NSFileManager defaultManager] fileExistsAtPath: filename]) {
         NSString *rooted = [@"/Volumes/SystemRoot" stringByAppendingPathComponent: filename];
-        if ([[NSFileManager defaultManager] fileExistsAtPath: rooted]) {
-            filename = rooted;
+        if (![[NSFileManager defaultManager] fileExistsAtPath: rooted]) {
+            NSLog(@"Font file not found: %@", filename);
+            [self release];
+            return nil;
         }
     }
 
     FT_Face face;
     FT_Error error = FT_New_Face(O2FontSharedFreeTypeLibrary(),
-                                 [filename fileSystemRepresentation], 0, &face);
+                                 [freetypePath fileSystemRepresentation], 0, &face);
 
     if (error != 0) {
         NSLog(@"FT_New_Face() = %d", error);
