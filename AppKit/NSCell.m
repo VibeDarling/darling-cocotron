@@ -939,10 +939,7 @@ NSNotificationName NSControlTintDidChangeNotification = @"NSControlTintDidChange
 
 - (void) setStringValue: (NSString *) value {
     if (value == nil) {
-        [NSException raise: NSInvalidArgumentException
-                    format: @"-[%@ %s] value==nil", [self class],
-                            sel_getName(_cmd)];
-        return;
+        value = @"";
     }
 
     [self setType: NSTextCellType];

@@ -750,9 +750,7 @@ NSApplication *NSApp = nil;
             if (pref != nil) {
                 shouldTerminate = [pref boolValue];
             } else {
-                // In headless / standalone X11 desktop environment without Dock,
-                // terminate on last window closed by default so processes don't linger.
-                shouldTerminate = YES;
+                shouldTerminate = NO;
             }
         }
     }

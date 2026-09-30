@@ -289,6 +289,35 @@ static NSLock *_cacheLock = nil;
     return [self messageFontOfSize: size];
 }
 
++ (NSFont *) systemFontOfSize: (CGFloat) size weight: (CGFloat) weight {
+    if (weight > 0.2) {
+        return [self boldSystemFontOfSize: size];
+    }
+    return [self systemFontOfSize: size];
+}
+
++ (NSFont *) monospacedSystemFontOfSize: (CGFloat) size weight: (CGFloat) weight {
+    CGFloat actualSize = (size == 0) ? 12.0 : size;
+    NSFont *font = [self userFixedPitchFontOfSize: actualSize];
+    if (font == nil) {
+        font = [self fontWithName: @"Courier" size: actualSize];
+    }
+    if (font == nil) {
+        font = [self systemFontOfSize: actualSize];
+    }
+    if (weight > 0.2) {
+        NSFont *boldFont = [[NSFontManager sharedFontManager] convertFont: font toHaveTrait: NSBoldFontMask];
+        if (boldFont != nil) {
+            return boldFont;
+        }
+    }
+    return font;
+}
+
++ (NSFont *) monospacedDigitSystemFontOfSize: (CGFloat) size weight: (CGFloat) weight {
+    return [self monospacedSystemFontOfSize: size weight: weight];
+}
+
 + (NSFont *) titleBarFontOfSize: (CGFloat) size {
     return [self boldSystemFontOfSize: size];
 }
