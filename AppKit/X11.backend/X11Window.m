@@ -439,7 +439,16 @@ static NSData *makeWindowIcon() {
             mask |= PointerMotionMask;
         }
     } else {
+        // A menu window is borderless, and the tracking loop needs motion: it
+        // selects the item under the pointer and opens submenus from it. Without
+        // PointerMotionMask the server sends nothing while the button is up, so
+        // hovering an item neither highlights it nor opens its submenu, even
+        // though -setAcceptsMouseMovedEvents: was honoured and resynced the mask
+        // for a window whose style mask takes this branch.
         mask |= ButtonPressMask | ButtonReleaseMask;
+        if ([_delegate acceptsMouseMovedEvents]) {
+            mask |= PointerMotionMask;
+        }
     }
     XSelectInput(_display, _window, mask);
 
