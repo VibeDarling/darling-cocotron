@@ -534,6 +534,9 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
 // Dispatch pending updates in this subtree. There is no constraint solver.
 - (void) updateConstraintsForSubtreeIfNeeded;
 
+// Snapshot of constraints installed by native layout-item callbacks.
+- (NSArray *) constraints;
+
 // Activates the constraints.
 - (void) addConstraints: (NSArray *) constraints;
 

@@ -49,6 +49,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <QuartzCore/CATransaction.h>
 #import <AppKit/NSLayoutConstraint.h>
 #import "NSGestureRecognizer-Private.h"
+#import <objc/runtime.h>
+
+static char installedViewConstraintsKey;
 
 @class IBMetricsTable;
 
@@ -3136,6 +3139,20 @@ static CGFloat backingScaleFactor(NSView *view) {
 
 @implementation NSView (NSViewLayoutState)
 
+// Native CoreAutoLayout uses the view tree to find the common owning item.
+- (id) nsli_superitem {
+    return [self superview];
+}
+
+// Cocotron's layout pass does not own a native constraint solver. Native
+// activation code queries this even for already-recorded constraints.
+- (id) nsli_layoutEngine {
+    return nil;
+}
+
+
+
+
 - (NSUserInterfaceLayoutDirection) userInterfaceLayoutDirection {
     return _hasUserInterfaceLayoutDirection
                    ? _userInterfaceLayoutDirection
@@ -3255,6 +3272,43 @@ static id anchorForView(NSView *view, NSString *className,
 
 - (void) invalidateIntrinsicContentSize {
     _needsLayout = YES;
+}
+
+static NSMutableArray *installedViewConstraints(NSView *view, BOOL create) {
+    NSMutableArray *constraints = objc_getAssociatedObject(view, &installedViewConstraintsKey);
+    if (constraints == nil && create) {
+        constraints = [NSMutableArray array];
+        objc_setAssociatedObject(view, &installedViewConstraintsKey, constraints,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    return constraints;
+}
+
+- (NSArray *) constraints {
+    NSArray *constraints = installedViewConstraints(self, NO);
+    return constraints ? [[constraints copy] autorelease] : [NSArray array];
+}
+
+// Called by CoreAutoLayout after it has found the common owning view.
+// Do not reactivate here: this callback is already inside -setActive:.
+- (void) nsli_addConstraint: (NSLayoutConstraint *) constraint {
+    NSMutableArray *constraints = installedViewConstraints(self, YES);
+    if ([constraints indexOfObjectIdenticalTo: constraint] == NSNotFound) {
+        [constraints addObject: constraint];
+        [self setNeedsLayout: YES];
+    }
+}
+
+- (void) nsli_removeConstraint: (NSLayoutConstraint *) constraint {
+    NSMutableArray *constraints = installedViewConstraints(self, NO);
+    if (constraints != nil && [constraints indexOfObjectIdenticalTo: constraint] != NSNotFound) {
+        [constraints removeObjectIdenticalTo: constraint];
+        [self setNeedsLayout: YES];
+    }
+}
+
+- (NSArray *) nsli_installedConstraints {
+    return [self constraints];
 }
 
 - (void) addConstraints: (NSArray *) constraints {
