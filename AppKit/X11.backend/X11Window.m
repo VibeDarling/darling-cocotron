@@ -56,10 +56,6 @@
         _userToDeviceTransform = O2AffineTransformMake(sx, 0, 0, -sy, 0,
                 O2SurfaceGetHeight(surface));
         O2ContextSetCTM(self, O2AffineTransformIdentity);
-        _vpx = 0;
-        _vpy = 0;
-        _vpwidth = O2SurfaceGetWidth(surface);
-        _vpheight = O2SurfaceGetHeight(surface);
     }
     return self;
 }
@@ -184,7 +180,7 @@ static NSData *makeWindowIcon() {
     X11Display* x11disp = (X11Display *) [NSDisplay currentDisplay];
     _display = [x11disp display];
 
-    _frame = [delegate frame];
+    _frame = [self transformFrame: [delegate frame]];
     BOOL isPanel = [delegate isKindOfClass: [NSPanel class]];
     if (isPanel && _styleMask & NSDocModalWindowMask)
         _styleMask = NSBorderlessWindowMask;
@@ -225,7 +221,7 @@ static NSData *makeWindowIcon() {
     xattr.colormap = cmap;
 
     // _frame is in logical points; X wants device pixels.
-    O2Rect deviceFrame = [self deviceRect: [self transformFrame: _frame]];
+    O2Rect deviceFrame = [self deviceRect: _frame];
     _window = XCreateWindow(
             _display, DefaultRootWindow(_display), deviceFrame.origin.x,
             deviceFrame.origin.y, deviceFrame.size.width,
@@ -429,17 +425,14 @@ static NSData *makeWindowIcon() {
 }
 
 - (void) syncDelegateProperties {
-    long mask = ExposureMask | StructureNotifyMask | VisibilityChangeMask;
-
-    if (_styleMask != NSBorderlessWindowMask) {
-        mask |= KeyPressMask | KeyReleaseMask | EnterWindowMask | LeaveWindowMask |
+    long mask = KeyPressMask | KeyReleaseMask | ExposureMask |
+                StructureNotifyMask | EnterWindowMask | LeaveWindowMask |
                 ButtonPressMask | ButtonReleaseMask | ButtonMotionMask |
-                FocusChangeMask | SubstructureRedirectMask;
-        if ([_delegate acceptsMouseMovedEvents]) {
-            mask |= PointerMotionMask;
-        }
-    } else {
-        mask |= ButtonPressMask | ButtonReleaseMask;
+                VisibilityChangeMask | FocusChangeMask |
+                SubstructureRedirectMask;
+
+    if ([_delegate acceptsMouseMovedEvents]) {
+        mask |= PointerMotionMask;
     }
     XSelectInput(_display, _window, mask);
 
@@ -597,7 +590,9 @@ static NSData *makeWindowIcon() {
     XMoveResizeWindow(_display, _window, deviceFrame.origin.x,
                       deviceFrame.origin.y, deviceFrame.size.width,
                       deviceFrame.size.height);
-    _frame = frame;
+    // -frame applies transformFrame:, so _frame is stored bottom-left origin. Storing
+    // the caller's frame unflipped made -frame mirror the position.
+    _frame = transformed;
     [self invalidateContextWithNewSize: frame.size];
     // A non-resizable window hints PMinSize == PMaxSize, and a window manager
     // refuses any resize that falls outside the pair, so the hints have to follow
@@ -640,7 +635,6 @@ static NSData *makeWindowIcon() {
 
 - (void) hideWindow {
     XUnmapWindow(_display, _window);
-    XFlush(_display);
     _mapped = NO;
     // A focus request still waiting for MapNotify is void once the window is
     // ordered out; otherwise a later non-key orderFront would take focus.
@@ -757,9 +751,6 @@ static BOOL windowManagerIsRunning(Display *display) {
 - (void) makeKey {
     [self ensureMapped];
     XRaiseWindow(_display, _window);
-    if (_styleMask == NSBorderlessWindowMask) {
-        return;
-    }
     // FocusIn activates the NSWindow, which makes it key again and ends up here.
     // Requesting focus from that path would answer every (possibly stale) FocusIn
     // with a new focus change, and two windows would bounce focus forever.
@@ -855,9 +846,6 @@ static BOOL windowManagerIsRunning(Display *display) {
             NSLog(@"CGLContextMakeCurrentAndAttachToWindow failed with error "
                   @"%d",
                   error);
-
-        GLint swapInterval = 0;
-        CGLSetParameter(_cglContext, kCGLCPSwapInterval, &swapInterval);
     }
     if (_cglContext != nil && _caContext == nil) {
         _caContext =
@@ -912,14 +900,7 @@ static BOOL windowManagerIsRunning(Display *display) {
 - (NSSize) lastReportedSize {
     return _frame.size;
 }
-
 - (NSPoint) mouseLocationOutsideOfEventStream {
-    Window root, child;
-    int root_x, root_y, win_x, win_y;
-    unsigned int mask;
-    if (_window != 0 && XQueryPointer(_display, _window, &root, &child, &root_x, &root_y, &win_x, &win_y, &mask)) {
-        return [self logicalPoint: NSMakePoint(win_x, win_y)];
-    }
     return [self logicalPoint: _lastMotionPos];
 }
 
@@ -933,7 +914,7 @@ static BOOL windowManagerIsRunning(Display *display) {
 }
 
 - (O2Rect) frame {
-    return _frame;
+    return [self transformFrame: _frame];
 }
 
 static int ignoreBadWindow(Display *display, XErrorEvent *errorEvent) {
@@ -1035,8 +1016,16 @@ static int ignoreBadWindow(Display *display, XErrorEvent *errorEvent) {
     return [(X11Display *) [NSDisplay currentDisplay] backingScale];
 }
 
+static CGFloat X11ScaledOrigin(CGFloat logical, CGFloat scale) {
+    return floor(logical * scale + 0.5);
+}
+
+// The min-1 clamp is only meaningful for extents: a zero-width/height X window is invalid.
+// Applying it to an origin would push a window sitting at device origin 0 to 1, so a window
+// at logical (0,0) is created one device pixel off and frameChanged would then adopt
+// x = 1/scale. Round origins plainly and clamp only sizes.
 static CGFloat X11ScaledExtent(CGFloat logical, CGFloat scale) {
-    return fmax(floor(logical * scale + 0.5), 1.0);
+    return fmax(X11ScaledOrigin(logical, scale), 1.0);
 }
 
 - (NSSize) deviceSize: (NSSize) size {
@@ -1048,8 +1037,8 @@ static CGFloat X11ScaledExtent(CGFloat logical, CGFloat scale) {
 - (O2Rect) deviceRect: (O2Rect) rect {
     CGFloat scale = [self backingScaleFactor];
     NSSize size = [self deviceSize: rect.size];
-    return NSMakeRect(X11ScaledExtent(rect.origin.x, scale),
-                      X11ScaledExtent(rect.origin.y, scale), size.width,
+    return NSMakeRect(X11ScaledOrigin(rect.origin.x, scale),
+                      X11ScaledOrigin(rect.origin.y, scale), size.width,
                       size.height);
 }
 
