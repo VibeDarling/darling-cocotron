@@ -47,6 +47,7 @@
 
 #import "CarbonKeys.h"
 #import "X11KeySymToUCS.h"
+#import "X11KeyEvent.h"
 #import <X11/XKBlib.h>
 #import <X11/Xutil.h>
 #import <X11/extensions/XKBrules.h>
@@ -1236,6 +1237,12 @@ static int ignoreBadWindowWhileOrdering(Display *display, XErrorEvent *errorEven
         }
         if (text != buf)
             free(text);
+
+        // The text above retains normal XIM/keyboard modifier behavior.
+        // Shortcut characters ignore modifiers other than Shift.
+        uint16_t shortcutCode = (uint16_t) X11KeySymToUCS(
+                X11KeySymIgnoringModifiers(&ev->xkey));
+        strIg = [NSString stringWithCharacters: &shortcutCode length: 1];
 
         NSPoint pos = [window logicalPoint: NSMakePoint(ev->xkey.x, ev->xkey.y)];
 

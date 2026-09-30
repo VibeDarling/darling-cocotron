@@ -449,19 +449,30 @@ BOOL itemIsEnabled(NSMenuItem *item) {
 
     for (i = 0; i < count; i++) {
         NSMenuItem *item = [_itemArray objectAtIndex: i];
-        unsigned itemModifiers = [item keyEquivalentModifierMask] &
-                                 (NSCommandKeyMask | NSAlternateKeyMask);
+        const unsigned keyModifiers = NSCommandKeyMask | NSAlternateKeyMask |
+                                      NSShiftKeyMask | NSControlKeyMask;
+        unsigned itemModifiers = [item keyEquivalentModifierMask] & keyModifiers;
         NSString *key = [item keyEquivalent];
 
-        if ((modifiers & (NSCommandKeyMask | NSAlternateKeyMask)) ==
-            itemModifiers) {
+        // Uppercase key equivalents carry an implicit Shift modifier.
+        if ([key length] > 0 && ![key isEqualToString: [key lowercaseString]])
+            itemModifiers |= NSShiftKeyMask;
 
-            if ([key isEqualToString: characters]) {
+        if ((modifiers & keyModifiers) == itemModifiers) {
+
+            // Explicit Shift on a lowercase equivalent also accepts its
+            // uppercase event spelling. Keep the exact match for backends
+            // that report an unshifted charactersIgnoringModifiers value.
+            BOOL matches = [key isEqualToString: characters];
+            if (!matches && (itemModifiers & NSShiftKeyMask) &&
+                    [key isEqualToString: [key lowercaseString]])
+                matches = [[key uppercaseString] isEqualToString: characters];
+            if (matches) {
                 /* This *must* accurately reflect menu validation when ignoring
                    or processing key equivalents. Relying on update to keep
                    isEnabled in the proper state is unfortunately too tenuous.
                  */
-                if (itemIsEnabled(item))
+                if ([item isEnabled] && itemIsEnabled(item))
                     return [NSApp sendAction: [item action]
                                           to: [item target]
                                         from: item];
