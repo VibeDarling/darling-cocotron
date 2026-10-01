@@ -97,10 +97,13 @@ void O2DataProviderRelease(O2DataProviderRef self) {
 }
 
 CFDataRef O2DataProviderCopyData(O2DataProviderRef self) {
+    if (self == NULL)
+        return NULL;
     if (self->_data != nil)
         return (CFDataRef)[self->_data copy];
-    else
+    else if (self->_path != nil)
         return (CFDataRef) [[NSData alloc] initWithContentsOfFile: self->_path];
+    return NULL;
 }
 
 - (void) dealloc {

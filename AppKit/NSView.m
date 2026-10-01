@@ -3394,6 +3394,13 @@ static NSMutableArray *installedViewConstraints(NSView *view, BOOL create) {
     [_gestureRecognizers removeObjectIdenticalTo: recognizer];
 }
 
+- (void) setAllowedTouchTypes: (NSUInteger) mask {
+}
+
+- (NSUInteger) allowedTouchTypes {
+    return 0;
+}
+
 @end
 
 @implementation NSView (NSViewEffectiveAppearance)

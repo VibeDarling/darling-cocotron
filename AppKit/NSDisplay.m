@@ -61,8 +61,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
          [appKitBundle pathsForResourcesOfType: @"backend"
                                    inDirectory: @"Backends"]) {
         NSBundle *backendBundle = [NSBundle bundleWithPath: path];
-        if ([backendBundle load]) {
+        NSError *error = nil;
+        if ([backendBundle loadAndReturnError: &error]) {
             [backends addObject: backendBundle];
+        } else {
+            NSLog(@"AppKit: Failed to load backend at %@: %@", path, error);
         }
     }
 

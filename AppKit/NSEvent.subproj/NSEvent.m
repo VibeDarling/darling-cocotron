@@ -48,6 +48,20 @@ static NSMutableArray<_NSEventLocalMonitor *> *s_localMonitors = nil;
 
 @implementation NSEvent
 
+static BOOL _mouseCoalescingEnabled = YES;
+
++ (void) setMouseCoalescingEnabled: (BOOL) flag {
+    _mouseCoalescingEnabled = flag;
+}
+
++ (BOOL) isMouseCoalescingEnabled {
+    return _mouseCoalescingEnabled;
+}
+
+- (NSSet *) touchesMatchingPhase: (NSUInteger) phase inView: (NSView *) view {
+    return [NSSet set];
+}
+
 + (NSPoint) mouseLocation {
     return [[NSDisplay currentDisplay] mouseLocation];
 }

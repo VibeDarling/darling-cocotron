@@ -479,6 +479,7 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
 
 // Stored and archived; the X11 backend has no high-resolution surfaces.
 @property BOOL wantsBestResolutionOpenGLSurface;
+@property NSUInteger allowedTouchTypes;
 
 - (void) showDefinitionForAttributedString: (NSAttributedString *) string
                                    atPoint: (NSPoint) origin;

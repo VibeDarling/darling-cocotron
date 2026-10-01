@@ -251,13 +251,29 @@ static void applyLayerTransform(CATransform3D t) {
 }
 
 void CATexImage2DCGImage(CGImageRef image) {
+    if (image == NULL)
+        return;
+
     size_t imageWidth = CGImageGetWidth(image);
     size_t imageHeight = CGImageGetHeight(image);
+    if (imageWidth == 0 || imageHeight == 0)
+        return;
+
     CGBitmapInfo bitmapInfo = CGImageGetBitmapInfo(image);
 
     CGDataProviderRef provider = CGImageGetDataProvider(image);
+    if (provider == NULL)
+        return;
+
     CFDataRef data = CGDataProviderCopyData(provider);
+    if (data == NULL)
+        return;
+
     const uint8_t *pixelBytes = CFDataGetBytePtr(data);
+    if (pixelBytes == NULL) {
+        CFRelease(data);
+        return;
+    }
 
     GLenum glFormat = GL_BGRA;
     GLenum glType = GL_UNSIGNED_INT_8_8_8_8_REV;
@@ -302,6 +318,7 @@ void CATexImage2DCGImage(CGImageRef image) {
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, imageWidth, imageHeight, 0,
                  glFormat, glType, pixelBytes);
+    CFRelease(data);
 }
 
 // Premultiplied colour (the blend function is GL_ONE, GL_ONE_MINUS_SRC_ALPHA).

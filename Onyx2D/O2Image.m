@@ -323,6 +323,11 @@ ONYX2D_STATIC BOOL initFunctionsForParameters(O2Image *self,
 #endif
     }
 
+    if (colorSpace == nil) {
+        return initFunctionsForRGBColorSpace(self, bitsPerComponent,
+                                             bitsPerPixel, bitmapInfo);
+    }
+
     switch ([colorSpace type]) {
     case kO2ColorSpaceModelMonochrome:
         return initFunctionsForMonochrome(self, bitsPerComponent, bitsPerPixel,

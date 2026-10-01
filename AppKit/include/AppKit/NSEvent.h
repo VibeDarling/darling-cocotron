@@ -272,6 +272,9 @@ enum { NSApplicationActivated = 0, NSApplicationDeactivated = 1 };
 + (NSPoint) mouseLocation;
 + (NSUInteger) pressedMouseButtons;
 @property (class, readonly) NSEventModifierFlags modifierFlags;
++ (void) setMouseCoalescingEnabled: (BOOL) flag;
++ (BOOL) isMouseCoalescingEnabled;
+- (NSSet *) touchesMatchingPhase: (NSUInteger) phase inView: (NSView *) view;
 
 - (instancetype) initWithType: (NSEventType) type
                      location: (NSPoint) location

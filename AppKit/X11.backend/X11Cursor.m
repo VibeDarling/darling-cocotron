@@ -142,6 +142,7 @@ static int X11CursorScaledSize(int nominalSize, CGFloat scale) {
     CGContextRelease(context);
 
     _cursor = XcursorImageLoadCursor(display, ximage);
+    XcursorImageDestroy(ximage);
     if (_cursor == None)
         _cursor = XcursorLibraryLoadCursor(display, "left_ptr");
     return self;

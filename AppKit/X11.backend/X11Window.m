@@ -204,9 +204,13 @@ static NSData *makeWindowIcon() {
         NSLog(@"glXChooseVisual failed at %s %d", __FILE__, __LINE__);
     }
 
-    Colormap cmap =
-            XCreateColormap(_display, RootWindow(_display, _visualInfo->screen),
-                            _visualInfo->visual, AllocNone);
+    Colormap cmap;
+    if (_visualInfo != NULL) {
+        cmap = XCreateColormap(_display, RootWindow(_display, _visualInfo->screen),
+                               _visualInfo->visual, AllocNone);
+    } else {
+        cmap = DefaultColormap(_display, screen);
+    }
 
     if (cmap < 0) {
         NSLog(@"XCreateColormap failed");
