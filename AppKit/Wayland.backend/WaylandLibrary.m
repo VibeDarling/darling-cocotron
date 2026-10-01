@@ -64,9 +64,24 @@ bool WaylandBackendSelected(void) {
     }
 
     // Nothing asked for Wayland specifically, so use it when a compositor is
-    // advertised. Whether the connection then succeeds is WaylandDisplay's problem
-    // to report, and it falls back to X11.
-    return getenv("WAYLAND_DISPLAY") != NULL;
+    // advertised and the socket actually exists inside the container.
+    const char *waylandDisplay = getenv("WAYLAND_DISPLAY");
+    if (waylandDisplay == NULL || *waylandDisplay == '\0')
+        return false;
+
+    const char *runtimeDir = getenv("XDG_RUNTIME_DIR");
+    char sockPath[1024];
+    if (runtimeDir && *runtimeDir != '\0') {
+        snprintf(sockPath, sizeof(sockPath), "%s/%s", runtimeDir, waylandDisplay);
+    } else {
+        snprintf(sockPath, sizeof(sockPath), "/run/user/%d/%s", getuid(), waylandDisplay);
+    }
+
+    if (access(sockPath, R_OK | W_OK) != 0) {
+        return false;
+    }
+
+    return true;
 }
 
 bool WaylandLibraryLoad(void) {
