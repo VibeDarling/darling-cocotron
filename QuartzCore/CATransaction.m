@@ -111,6 +111,12 @@ static CATransactionGroup *createImplicitTransactionGroupIfNeeded() {
     return group != nil && [group isExplicitlyBegan];
 }
 
++ (BOOL) hasOpenTransaction {
+    CATransactionGroup *group = currentTransactionGroup();
+
+    return group != nil && [group isExplicitlyBegan];
+}
+
 + (void) commit {
     [transactionStack() removeLastObject];
 }
