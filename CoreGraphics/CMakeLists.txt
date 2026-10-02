@@ -143,7 +143,7 @@ add_framework(CoreGraphics
 # $sSo12CGContextRefa12CoreGraphicsE7addLine2toySo7CGPointV_tF to CoreGraphics. Re-export the overlay from
 # src/external/swift (installed as /usr/lib/swift/libswiftCoreGraphics.dylib) so those binds resolve.
 set_property(TARGET CoreGraphics APPEND_STRING PROPERTY
-	LINK_FLAGS " -Wl,-reexport_library,${CMAKE_SOURCE_DIR}/src/external/swift/libswiftCoreGraphics.dylib ")
+	LINK_FLAGS " -Wl,-reexport_library,${CMAKE_SOURCE_DIR}/src/external/swift/libswiftCoreGraphics.dylib -Wl,-rpath,/usr/lib/swift ")
 
 # NSBundle finds the backends through the framework's Resources link.
 InstallSymlink("Versions/Current/Resources" "${CMAKE_INSTALL_PREFIX}/libexec/darling/System/Library/Frameworks/CoreGraphics.framework/Resources")
