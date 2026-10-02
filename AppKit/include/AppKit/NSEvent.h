@@ -21,7 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/AppKitExport.h>
 #import <Foundation/Foundation.h>
 
-@class NSEvent, NSWindow, NSGraphicsContext, NSTrackingArea;
+@class NSEvent, NSWindow, NSGraphicsContext, NSTrackingArea, NSView, NSSet;
 
 typedef NS_ENUM(NSUInteger, NSEventType) {
     NSEventTypeLeftMouseDown = 1,
