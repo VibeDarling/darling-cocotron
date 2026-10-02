@@ -6,7 +6,12 @@
 #import <OpenGL/CGLInternal.h>
 #include <math.h>
 
-@class CAMetalLayerInternal;
+#import <QuartzCore/CAMetalLayer.h>
+
+@interface CAMetalLayer (ContextPrivate)
+- (void)prepareRender;
+- (BOOL)hasQueuedDrawables;
+@end
 
 @implementation CALayerContext
 
@@ -143,8 +148,8 @@
 // call, so walking the tree cannot repeat that per frame.
 - (void) prepareMetalLayersInLayerTree: (CALayer *) layer {
 
-    if ([[layer class] isSubclassOfClass: [CAMetalLayerInternal class]]) {
-        CAMetalLayerInternal* mtl = (CAMetalLayerInternal*)layer;
+    if ([layer isKindOfClass: [CAMetalLayer class]]) {
+        CAMetalLayer* mtl = (CAMetalLayer*)layer;
         [mtl prepareRender];
     }
 
@@ -223,8 +228,8 @@ static BOOL layerTreeNeedsAnotherFrame(CALayer *layer) {
     // layer-tree mutations, so the tree stays animation-free between them and the
     // animation check alone stops the timer after every present, costing a fresh
     // timer and its first 1/60s delay each time.
-    if ([[layer class] isSubclassOfClass: [CAMetalLayerInternal class]] &&
-        [(CAMetalLayerInternal*)layer hasQueuedDrawables])
+    if ([layer isKindOfClass: [CAMetalLayer class]] &&
+        [(CAMetalLayer*)layer hasQueuedDrawables])
         return YES;
     for (CALayer *child in layer.sublayers)
         if (layerTreeNeedsAnotherFrame(child))
