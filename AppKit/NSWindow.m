@@ -137,11 +137,7 @@ NSInteger NSBitsPerPixelFromDepth(NSWindowDepth depth) {
 - (void) layoutFrameSizeWithWidth: (CGFloat) width;
 @end
 
-@interface NSWindow () {
-    // Plain window state. Terminal reads and writes collectionBehavior on every
-    // window it creates, so both accessors must work rather than raise.
-    NSWindowCollectionBehavior _collectionBehavior;
-}
+@interface NSWindow ()
 
 - (NSRect) zoomedFrame;
 
@@ -249,6 +245,7 @@ NSInteger NSBitsPerPixelFromDepth(NSWindowDepth depth) {
 @implementation NSWindow
 
 	NSWindowTabbingMode _tabbingMode;
+	NSWindowCollectionBehavior _collectionBehavior;
 
 @synthesize appearance = _appearance;
 @synthesize identifier = _identifier;
