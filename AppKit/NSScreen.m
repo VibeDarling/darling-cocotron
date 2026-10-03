@@ -102,6 +102,8 @@ NSNotificationName const NSScreenColorSpaceDidChangeNotification = @"NSScreenCol
 }
 
 - (CGDirectDisplayID) cgDirectDisplayID {
+    if (self->_directDisplayID == 0)
+        return 1;
     return self->_directDisplayID;
 }
 

@@ -324,6 +324,7 @@ static void socketCallback(CFSocketRef s, CFSocketCallBackType type,
                                                  visibleFrame: frame]
                                     autorelease];
         screen->_x11Scale = scale;
+        [screen setCgDirectDisplayID: 1];
         return [NSArray arrayWithObject: screen];
     }
 }
@@ -339,7 +340,11 @@ static NSDictionary *modeInfoToDictionary(const XRRModeInfo *mi, int depth) {
         @"Width" : @(mi->width),
         @"Height" : @(mi->height),
         @"Depth" : @(depth),
-        @"RefreshRate" : @(rate)
+        @"RefreshRate" : @(rate),
+        @"PixelWidth" : @(mi->width),
+        @"PixelHeight" : @(mi->height),
+        @"IOFlags" : @(0x00000007),
+        @"UsableForDesktopGUI" : @YES
     };
 }
 

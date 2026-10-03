@@ -76,6 +76,10 @@ COREGRAPHICS_EXPORT CFDictionaryRef
 CGDisplayCurrentMode(CGDirectDisplayID display);
 COREGRAPHICS_EXPORT void CGDisplayModeRelease(CGDisplayModeRef mode);
 COREGRAPHICS_EXPORT CGDisplayModeRef CGDisplayModeRetain(CGDisplayModeRef mode);
+COREGRAPHICS_EXPORT size_t CGDisplayModeGetWidth(CGDisplayModeRef mode);
+COREGRAPHICS_EXPORT size_t CGDisplayModeGetHeight(CGDisplayModeRef mode);
+COREGRAPHICS_EXPORT CFStringRef CGDisplayModeCopyPixelEncoding(CGDisplayModeRef mode);
+COREGRAPHICS_EXPORT CFArrayRef CGDisplayCopyAllDisplayModes(CGDirectDisplayID display, CFDictionaryRef options);
 COREGRAPHICS_EXPORT boolean_t CGDisplayIsCaptured(CGDirectDisplayID display);
 COREGRAPHICS_EXPORT double CGDisplayModeGetRefreshRate(CGDisplayModeRef mode);
 COREGRAPHICS_EXPORT CGError CGDisplaySwitchToMode(CGDirectDisplayID display,

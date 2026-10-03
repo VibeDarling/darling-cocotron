@@ -299,19 +299,65 @@ boolean_t CGDisplayUsesOpenGLAcceleration(CGDirectDisplayID display) {
 }
 
 CGDirectDisplayID CGDisplayMirrorsDisplay(CGDirectDisplayID display) {
-    // STUB!
-    // TODO: Get this from XRandR
     return kCGNullDirectDisplay;
+}
+
+static NSDictionary *defaultDisplayMode(void) {
+    static dispatch_once_t onceToken;
+    static NSDictionary *cachedMode = nil;
+    dispatch_once(&onceToken, ^{
+        unsigned int width = 1920, height = 1080;
+        const char *dispEnv = getenv("DISPLAY");
+        if (dispEnv && dispEnv[0]) {
+            void *x11 = dlopen("/usr/lib/native/libX11.so.6", RTLD_LAZY);
+            if (!x11) x11 = dlopen("libX11.so.6", RTLD_LAZY);
+            if (x11) {
+                typedef void* (*XOpenDisplay_fn)(const char*);
+                typedef int (*XDefaultScreen_fn)(void*);
+                typedef int (*XDisplayWidth_fn)(void*, int);
+                typedef int (*XDisplayHeight_fn)(void*, int);
+                typedef int (*XCloseDisplay_fn)(void*);
+                XOpenDisplay_fn xopen = (XOpenDisplay_fn)dlsym(x11, "XOpenDisplay");
+                XDefaultScreen_fn xdef = (XDefaultScreen_fn)dlsym(x11, "XDefaultScreen");
+                XDisplayWidth_fn xw = (XDisplayWidth_fn)dlsym(x11, "XDisplayWidth");
+                XDisplayHeight_fn xh = (XDisplayHeight_fn)dlsym(x11, "XDisplayHeight");
+                XCloseDisplay_fn xclose = (XCloseDisplay_fn)dlsym(x11, "XCloseDisplay");
+                if (xopen && xdef && xw && xh && xclose) {
+                    void *d = xopen(dispEnv);
+                    if (d) {
+                        int s = xdef(d);
+                        width = xw(d, s);
+                        height = xh(d, s);
+                        xclose(d);
+                    }
+                }
+                dlclose(x11);
+            }
+        }
+        cachedMode = [@{
+            @"Width": @(width),
+            @"Height": @(height),
+            @"PixelWidth": @(width),
+            @"PixelHeight": @(height),
+            @"Depth": @24,
+            @"RefreshRate": @60.0,
+            @"IOFlags": @(0x00000007),
+            @"UsableForDesktopGUI": @YES
+        } retain];
+    });
+    return cachedMode;
 }
 
 CGDisplayModeRef CGDisplayCopyDisplayMode(CGDirectDisplayID displayId) {
     NSDisplay *display = currentDisplay();
-    if (!display)
-        return NULL;
-
-    NSDictionary *dict = [[display currentModeForScreen: displayId - 1] retain];
-
-    return (CGDisplayModeRef) dict;
+    NSDictionary *dict = nil;
+    if (display) {
+        dict = [display currentModeForScreen: displayId - 1];
+    }
+    if (!dict || [dict count] == 0) {
+        dict = defaultDisplayMode();
+    }
+    return (CGDisplayModeRef) [dict retain];
 }
 
 void CGDisplayModeRelease(CGDisplayModeRef mode) {
@@ -340,6 +386,13 @@ double CGDisplayModeGetRefreshRate(CGDisplayModeRef mode) {
     return [[dict valueForKey: @"RefreshRate"] doubleValue];
 }
 
+#ifndef IO32BitDirectPixels
+#define IO32BitDirectPixels "--------RRRRRRRRGGGGGGGGBBBBBBBB"
+#endif
+#ifndef IO16BitDirectPixels
+#define IO16BitDirectPixels "-RRRRRGGGGGBBBBB"
+#endif
+
 CFStringRef CGDisplayModeCopyPixelEncoding(CGDisplayModeRef mode) {
     NSDictionary *dict = (NSDictionary *) mode;
     unsigned depth = [[dict valueForKey: @"Depth"] unsignedIntValue];
@@ -347,11 +400,11 @@ CFStringRef CGDisplayModeCopyPixelEncoding(CGDisplayModeRef mode) {
     switch (depth) {
     case 24:
     case 32:
-        return CFSTR(IO32BitDirectPixels);
+        return (CFStringRef) CFRetain(CFSTR(IO32BitDirectPixels));
     case 16:
-        return CFSTR(IO16BitDirectPixels);
+        return (CFStringRef) CFRetain(CFSTR(IO16BitDirectPixels));
     default:
-        return CFSTR("");
+        return (CFStringRef) CFRetain(CFSTR(""));
     }
 }
 
@@ -359,9 +412,14 @@ CFArrayRef CGDisplayCopyAllDisplayModes(CGDirectDisplayID displayIndex,
                                         CFDictionaryRef options)
 {
     NSDisplay *display = currentDisplay();
-    if (!display)
-        return NULL;
-    return (CFArrayRef)[[display modesForScreen: displayIndex - 1] retain];
+    NSArray *modes = nil;
+    if (display) {
+        modes = [display modesForScreen: displayIndex - 1];
+    }
+    if (!modes || [modes count] == 0) {
+        modes = @[ defaultDisplayMode() ];
+    }
+    return (CFArrayRef)[modes retain];
 }
 
 CGError CGDisplaySetDisplayMode(CGDirectDisplayID displayId,
@@ -541,7 +599,11 @@ CFDictionaryRef CGDisplayCurrentMode(CGDirectDisplayID display) {
 }
 
 size_t CGDisplayModeGetPixelWidth(CGDisplayModeRef mode) {
-    return 0;
+    NSDictionary *dict = (NSDictionary *) mode;
+    NSNumber *pixelWidth = [dict valueForKey: @"PixelWidth"];
+    if (pixelWidth)
+        return [pixelWidth unsignedIntValue];
+    return CGDisplayModeGetWidth(mode);
 }
 
 size_t CGDisplayModeGetPixelHeight(CGDisplayModeRef mode) {
