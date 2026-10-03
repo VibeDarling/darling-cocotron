@@ -48,10 +48,10 @@ static const char *X11CursorAliasesFor(const char *name)
 {
     static const struct { const char *cocoa, *theme; } aliases[] = {
         { "hand",   "pointer"   },
-        { "hand2",  "grabbing"  },
-        { "hand3",  "grabbing"  },
+        { "hand2",  "pointer"   },
+        { "hand3",  "pointer"   },
         { "xterm",  "text"      },
-        { "fleur",  "grab"      },
+        { "fleur",  "move"      },
     };
     for (size_t i = 0; i < sizeof(aliases) / sizeof(*aliases); i++) {
         if (strcmp(name, aliases[i].cocoa) == 0)
@@ -117,27 +117,33 @@ static const char *X11CursorAliasesFor(const char *name)
 
     // Xcursor wants device pixels. Rasterize at the backing scale rather than
     // stretching a 1x image, so the cursor stays sharp on a 2x display instead of
-    // being upscaled. The hotspot scales with it.
     CGFloat scale = [(X11Display *) [NSDisplay currentDisplay] backingScale];
-    const CGFloat logicalWidth = image.size.width, logicalHeight = image.size.height;
-    const size_t width = (size_t) fmax(floor(logicalWidth * scale + 0.5), 1.0);
-    const size_t height = (size_t) fmax(floor(logicalHeight * scale + 0.5), 1.0);
+    if (!(scale >= 1.0) || !isfinite(scale))
+        scale = 1.0;
 
-    // XcursorImageCreate allocates width*height*4, and nothing else bounds it, so an
-    // image with an enormous size would ask for gigabytes. libXcursor cannot address more
-    // than XCURSOR_MAX_SIZE either, so refuse before the allocation rather than after.
-    if (width > 0x7FFF || height > 0x7FFF) {
-        return [self initWithName: "left_ptr"];
-    }
+    const CGFloat logicalWidth = image.size.width, logicalHeight = image.size.height;
 
     // libXcursor requires the hot spot to be inside the image, and converting a
     // non-finite float to int is undefined, so a NaN or infinite hot spot (or a
-    // non-finite image size) has to be rejected before the cast rather than clamped.
+    // non-finite/non-positive image size) has to be rejected before the cast.
     if (!isfinite(hotPoint.x) || !isfinite(hotPoint.y)
             || !(logicalWidth > 0.0) || !(logicalHeight > 0.0)
             || !isfinite(logicalWidth) || !isfinite(logicalHeight)) {
         return [self initWithName: "left_ptr"];
     }
+
+    const double scaledWidth = floor(logicalWidth * scale + 0.5);
+    const double scaledHeight = floor(logicalHeight * scale + 0.5);
+
+    // XcursorImageCreate allocates width*height*4, and nothing else bounds it, so an
+    // image with an enormous size would ask for gigabytes. Bound on floating-point
+    // values before converting to size_t.
+    if (scaledWidth < 1.0 || scaledHeight < 1.0 || scaledWidth > 0x7FFF || scaledHeight > 0x7FFF) {
+        return [self initWithName: "left_ptr"];
+    }
+
+    const size_t width = (size_t) scaledWidth;
+    const size_t height = (size_t) scaledHeight;
 
     XcursorImage *ximage = XcursorImageCreate(width, height);
     if (!ximage)
