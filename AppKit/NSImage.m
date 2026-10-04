@@ -1419,6 +1419,17 @@ static NSUInteger scaledRepCacheBytes(NSArray *cache) {
     return _drawingHandlerRepCache;
 }
 
+/* NSImage.h declares -[NSImage drawInRect:] but nothing implemented it: only the
+ * fromRect:operation:fraction: variants below existed, so calling it raised
+ * "unrecognized selector". Any app drawing an image the ordinary way hit that. An empty
+ * source rect is how the variant below spells "the whole image". */
+- (void) drawInRect: (NSRect) rect {
+    [self drawInRect: rect
+            fromRect: NSZeroRect
+           operation: NSCompositeSourceOver
+            fraction: 1.0];
+}
+
 - (void) drawInRect: (NSRect) rect
            fromRect: (NSRect) source
           operation: (NSCompositingOperation) operation
