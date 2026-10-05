@@ -356,6 +356,7 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
 - (void) renewGState;
 
 @property (retain) CALayer *layer;
++ (Class) layerClass;
 @property BOOL wantsLayer;
 @property NSViewLayerContentsPlacement layerContentsPlacement;
 @property NSViewLayerContentsRedrawPolicy layerContentsRedrawPolicy;

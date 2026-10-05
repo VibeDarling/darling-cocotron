@@ -1944,8 +1944,14 @@ static void alignAxis(CGFloat *origin, CGFloat *length, NSAlignmentOptions optio
     return _layer;
 }
 
++ (Class) layerClass {
+    return [NSViewBackingLayer class];
+}
+
 - (CALayer *) makeBackingLayer {
-    return [NSViewBackingLayer layer];
+    // Honour an override of +layerClass: AppKit layer-backed views take their backing
+    // layer's class from it, and Metal apps subclass CALayer (CAMetalLayer) this way.
+    return [[[[self class] layerClass] alloc] init];
 }
 
 - (void) _removeLayerFromSuperlayer {
