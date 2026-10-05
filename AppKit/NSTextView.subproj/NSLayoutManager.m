@@ -2239,9 +2239,12 @@ static inline void _appendRectToCache(NSLayoutManager *self, NSRect rect) {
     NSPoint baselineOffset = [cell cellBaselineOffset];
     frame.size = [cell cellSize];
     frame.origin.x = point.x + baselineOffset.x;
-    frame.origin.y = point.y + baselineOffset.y - frame.size.height;
 
     NSTextView *textView = [self textViewForBeginningOfSelection];
+    if ([textView isFlipped])
+        frame.origin.y = point.y + baselineOffset.y - frame.size.height;
+    else
+        frame.origin.y = point.y + baselineOffset.y;
 
     [cell drawWithFrame: frame
                     inView: textView
