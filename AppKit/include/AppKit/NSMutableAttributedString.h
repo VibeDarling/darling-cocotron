@@ -21,6 +21,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSFontManager.h>
 #import <AppKit/NSText.h>
 
+@class NSTextAttachment;
+
 @interface NSMutableAttributedString (NSMutableString_AppKit)
 - (void) fixFontAttributeInRange: (NSRange) range;
 - (void) fixParagraphStyleAttributeInRange: (NSRange) range;
@@ -40,5 +42,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void)addAttribute: (NSAttributedStringKey) name 
                value: (id) value 
                range: (NSRange) range;
+
+// Appends U+FFFC carrying `attachment` under NSAttachmentAttributeName, matching
+// +[NSAttributedString attributedStringWithAttachment:]. Without these an app cannot insert an
+// attachment at runtime at all: it can only decode one out of stored text.
+- (void)appendAttachment: (NSTextAttachment *) attachment;
 
 @end

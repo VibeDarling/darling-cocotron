@@ -22,6 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSFontManager.h>
 #import <AppKit/NSMutableAttributedString.h>
 #import <AppKit/NSMutableParagraphStyle.h>
+#import <AppKit/NSTextAttachment.h>
 
 @implementation NSMutableAttributedString (NSMutableAttributedString_AppKit)
 
@@ -257,6 +258,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [self setAttributedString: str];
     [str release];
     return YES;
+}
+
+- (void)appendAttachment: (NSTextAttachment *) attachment {
+    if (attachment == nil)
+        return;
+    unichar unicode = NSAttachmentCharacter;
+    NSString *string = [NSString stringWithCharacters: &unicode length: 1];
+    NSDictionary *attributes =
+            [NSDictionary dictionaryWithObject: attachment
+                                        forKey: NSAttachmentAttributeName];
+    [self appendAttributedString:
+            [[[NSAttributedString alloc] initWithString: string
+                                             attributes: attributes] autorelease]];
 }
 
 @end
