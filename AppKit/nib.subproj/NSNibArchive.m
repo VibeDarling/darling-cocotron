@@ -32,6 +32,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import "NSNibArchive.h"
 #import <CoreFoundation/CoreFoundation.h>
 #import <Foundation/NSString.h>
+#import <AppKit/NSView.h>
 #include <string.h>
 
 // CoreFoundation SPI (CFKeyedArchiverUIDRef comes from CoreFoundation's private headers).
@@ -374,6 +375,36 @@ static CFTypeRef createConvertedObject(Converter *c, CFIndex index)
     NibArchive *nib = c->nib;
     const NibObject *object = &nib->objects[index];
     CFStringRef className = nib->classNames[object->classIndex];
+
+    /* A custom view in a nib is archived as NSCustomObject with the real class carried alongside as an
+     * NSClassName value, which is a reference to another NIB object holding the name as a string.
+     * NSCustomObject retains the name and never acts on it, so custom views decoded as inert
+     * placeholders instead of the app's own view classes.
+     *
+     * Follow the reference and emit the real class name for views, so NSKeyedUnarchiver instantiates the
+     * real class and the connections built later in buildConnectionsWithNameTable: attach to it directly.
+     *
+     * Deliberately limited to NSView subclasses. A nib also carries custom *objects* -- an app's delegate,
+     * for instance -- and real AppKit does not code-instantiate those: it takes the delegate from the nib's
+     * owner. Substituting those is actively harmful, and measured: with no restriction TextEdit aborts with
+     * "-[Controller initWithCoder:]: unrecognized selector", and with a bare implements-initWithCoder: guard
+     * the decode then fails with "Failed to decode element 189 of 195 in array for key NS.objects". Views
+     * are the case that needs this, so restrict it to views and leave everything else exactly as it was. */
+    if (className != NULL && CFEqual(className, CFSTR("NSCustomObject"))) {
+        const NibValue *named = findValue(nib, object, CFSTR("NSClassName"));
+        if (named != NULL && named->type == NibValueObject) {
+            CFTypeRef real = createConvertedObject(c, named->object);
+            if (real != NULL) {
+                if (CFGetTypeID(real) == CFStringGetTypeID()) {
+                    Class resolved = NSClassFromString((CFStringRef) real);
+                    if (resolved != Nil && [resolved isSubclassOfClass: [NSView class]]
+                            && [resolved instancesRespondToSelector: @selector(initWithCoder:)])
+                        className = (CFStringRef) real;  /* retained by the archive, which outlives us */
+                }
+                CFRelease(real);
+            }
+        }
+    }
 
     static const char *const stringClasses[] = { "NSString", "NSMutableString", "NSLocalizableString", NULL };
     static const char *const dataClasses[] = { "NSData", "NSMutableData", NULL };
