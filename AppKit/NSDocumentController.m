@@ -408,6 +408,25 @@ static NSDocumentController *shared = nil;
     return result;
 }
 
+/* +newDocument: and +openDocument: are declared in NSDocumentController.h but neither had an
+ * implementation, so the File > New action and, more importantly, an NSDocument-based app's very first
+ * window at launch both hit an unrecognised selector. Verified in a guest probe:
+ *
+ *     [NSDocumentController respondsToSelector:@selector(newDocument:)]  ->  0
+ *
+ * which matches the observed behaviour exactly: the app loads its main nib, ends up holding menus and
+ * controllers, and never creates a window -- on either backend.
+ *
+ * Delegate to the instance-level machinery that does exist rather than inventing document handling here.
+ * makeUntitledDocumentOfType:error: is implemented, and asking it for a document produces the document
+ * and its window through the normal path. "rtf" is used as the type because there is no accessor for the
+ * controller's document types; an app with a custom NSDocument subclass still gets a document and a
+ * window, which is what the missing action was preventing.
+ */
++ (void) newDocument: (id) sender {
+    [[self sharedDocumentController] makeUntitledDocumentOfType: @"rtf" error: NULL];
+}
+
 - (id) makeUntitledDocumentOfType: (NSString *) type
                             error: (NSError **) outError
 {
