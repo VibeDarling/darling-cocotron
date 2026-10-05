@@ -998,3 +998,117 @@ NSInteger NSConvertGlyphsToPackedGlyphs(NSGlyph *glyphs, NSInteger length,
 
 @end
 #endif
+
+// CoreText creates every CTFontRef as a KTFont (CoreText/CTFont.m createFont() uses
+// `fontClass ?: [KTFont class]`), and +[NSFont load]'s registration of NSFont as that
+// class loses the race whenever CoreText makes a font first. An app that stores a
+// CTFontRef in an NSFontAttributeName slot and casts it back to NSFont* - safe on macOS
+// because the two are toll-free bridged - therefore gets a KTFont, and AppKit's text
+// layout then calls NSFont glyph methods that KTFont does not have.
+//
+// These are the same bodies NSFont uses. They are safe to share because each one only
+// forwards to a CoreText C function taking `self` as a CTFontRef, so none of them reads
+// NSFont's ivars.
+@interface KTFont (NSLayoutGlyphs)
+@end
+
+@implementation KTFont (NSLayoutGlyphs)
+
+- (NSRect) boundingRectForGlyph: (NSGlyph) glyph {
+	// Matches -[NSFont boundingRectForGlyph:], which is also unimplemented; going
+	// through CTFontGetBoundsForGlyphs would need a symbol AppKit does not link.
+	return NSMakeRect(0, 0, 0, 0);
+}
+
+- (NSMultibyteGlyphPacking) glyphPacking {
+	return NSNativeShortGlyphPacking;
+}
+
+- (NSUInteger) numberOfGlyphs {
+	return CTFontGetGlyphCount((CTFontRef) self);
+}
+
+- (NSGlyph) glyphWithName: (NSString *) name {
+	NSUnimplementedMethod();
+	return 0;
+}
+
+- (BOOL) glyphIsEncoded: (NSGlyph) glyph {
+	return (glyph < CTFontGetGlyphCount((CTFontRef) self)) ? YES : NO;
+}
+
+- (NSSize) advancementForGlyph: (NSGlyph) glyph {
+	CGSize cgSize;
+	CGGlyph cgGlyphs[1] = {(CGGlyph)glyph};
+	CTFontGetAdvancesForGlyphs((CTFontRef) self, 0, cgGlyphs, &cgSize, 1);
+	return NSMakeSize(cgSize.width, cgSize.height);
+}
+
+- (NSSize) maximumAdvancement {
+	CGSize max = CGSizeZero;
+	NSInteger glyphCount = CTFontGetGlyphCount((CTFontRef) self);
+	const NSInteger kBatchSize = 256;
+	CGGlyph glyphs[kBatchSize];
+	CGSize advances[kBatchSize];
+
+	for (NSInteger offset = 0; offset < glyphCount; offset += kBatchSize) {
+		NSInteger currentBatch = MIN(kBatchSize, glyphCount - offset);
+		for (NSInteger i = 0; i < currentBatch; i++)
+			glyphs[i] = (CGGlyph)(offset + i);
+
+		CTFontGetAdvancesForGlyphs((CTFontRef) self, 0, glyphs, advances, currentBatch);
+
+		for (NSInteger i = 0; i < currentBatch; i++) {
+			max.width = MAX(max.width, advances[i].width);
+			max.height = MAX(max.height, advances[i].height);
+		}
+	}
+
+	return max;
+}
+
+- (NSPoint) positionOfGlyph: (NSGlyph) current
+	      precededByGlyph: (NSGlyph) previous
+		    isNominal: (BOOL *) isNominalp {
+	*isNominalp = YES;
+	if (current == NSNullGlyph)
+		return NSZeroPoint;
+	CGGlyph glyph = (CGGlyph)current;
+	CGSize advance;
+	CTFontGetAdvancesForGlyphs((CTFontRef) self, kCTFontOrientationDefault, &glyph, &advance, 1);
+	return NSMakePoint(advance.width, advance.height);
+}
+
+- (void) getAdvancements: (NSSize *) advancements
+		 forGlyphs: (const NSGlyph *) glyphs
+		     count: (NSUInteger) count {
+	const NSUInteger kStackMax = 256;
+	CGGlyph stackGlyphs[kStackMax];
+	CGGlyph *cgGlyphs = stackGlyphs;
+	if (count > kStackMax) {
+		cgGlyphs = (CGGlyph *)malloc(count * sizeof(CGGlyph));
+	}
+	if (!cgGlyphs) return;
+
+	for (NSUInteger i = 0; i < count; i++)
+		cgGlyphs[i] = (CGGlyph)glyphs[i];
+
+	CTFontGetAdvancesForGlyphs((CTFontRef) self, 0, cgGlyphs, advancements, count);
+	if (cgGlyphs != stackGlyphs) {
+		free(cgGlyphs);
+	}
+}
+
+- (CGFloat) underlinePosition {
+	return CTFontGetUnderlinePosition((CTFontRef) self);
+}
+
+- (CGFloat) underlineThickness {
+	return CTFontGetUnderlineThickness((CTFontRef) self);
+}
+
+- (CGFloat) leading {
+	return CTFontGetLeading((CTFontRef) self);
+}
+
+@end
