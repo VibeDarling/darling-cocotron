@@ -431,13 +431,17 @@ static CFTypeRef createConvertedObject(Converter *c, CFIndex index)
         if (CFEqual(key, CFSTR("NSInlinedValue")))
             continue;
 
-        /* A dictionary whose values carry real key names, rather than the repeated
-         * UINibEncoderEmptyKey sentinel that collections use. NSIBObjectData is exactly this: its values
-         * are named NSRoot, NSConnections, NSObjectsKeys and so on. Such values fell through to the
-         * generic member path and never reached elementKeys, so the emitted dictionary had NS.keys = 0
-         * and -[NSIBObjectData] decoded nil for everything it needs. Emit the key names alongside
-         * their values instead. */
-        if (isDictionary) {
+        /* Scoped deliberately to NSIBObjectData rather than to every dictionary. Its values carry real
+         * key names (NSRoot, NSConnections, NSObjectsKeys, ...) rather than the repeated
+         * UINibEncoderEmptyKey sentinel that collections use, so the alternating branch above never
+         * applies and elementKeys stayed empty -- the emitted object had NS.keys = 0, and
+         * -[NSIBObjectData] decoded nil for everything it needs.
+         *
+         * Other dictionaries with real keys keep the existing behaviour of being emitted flat
+         * (key -> value directly on the object), which is what this function has always done for
+         * them. Widening this to all dictionaries would change the encoding of every nib dictionary
+         * in the tree, which is well beyond what has been measured. */
+        if (isDictionary && CFEqual(className, CFSTR("NSIBObjectData"))) {
             CFTypeRef member = createMember(value);
             if (member != NULL) {
                 CFArrayAppendValue(elementKeys, key);
