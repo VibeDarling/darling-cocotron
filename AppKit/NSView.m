@@ -1944,8 +1944,12 @@ static void alignAxis(CGFloat *origin, CGFloat *length, NSAlignmentOptions optio
     return _layer;
 }
 
++ (Class) layerClass {
+    return [NSViewBackingLayer class];
+}
+
 - (CALayer *) makeBackingLayer {
-    return [NSViewBackingLayer layer];
+    return [[[[[self class] layerClass] alloc] init] autorelease];
 }
 
 - (void) _removeLayerFromSuperlayer {
