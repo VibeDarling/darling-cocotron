@@ -97,8 +97,10 @@
             [[_NSObservationProxy alloc] initWithKeyPath: keyPath
                                                 observer: observer
                                                   object: self];
-    int idx = [_observationProxies indexOfObject: proxy];
+    NSUInteger idx = [_observationProxies indexOfObject: proxy];
     [proxy release];
+    if (idx == NSNotFound)
+        return;
     proxy = [[[_observationProxies objectAtIndex: idx] retain] autorelease];
     [_observationProxies removeObjectAtIndex: idx];
 

@@ -78,6 +78,14 @@ typedef NS_ENUM(NSInteger, NSTableViewRowSizeStyle) {
     NSTableViewRowSizeStyleLarge = 3,
 };
 
+typedef NS_ENUM(NSInteger, NSTableViewStyle) {
+    NSTableViewStyleAutomatic = 0,
+    NSTableViewStyleFullWidth = 1,
+    NSTableViewStyleInset = 2,
+    NSTableViewStyleSourceList = 3,
+    NSTableViewStylePlain = 4,
+};
+
 typedef enum {
     NSTableViewDropOn,
     NSTableViewDropAbove
@@ -115,6 +123,7 @@ typedef enum {
     BOOL _floatsGroupRows;
     NSTableViewRowSizeStyle _rowSizeStyle;
     CGFloat _styledRowHeight;
+    NSTableViewStyle _style;
 
     // temp ivars
     NSMutableArray *_selectedColumns;
@@ -209,6 +218,8 @@ typedef enum {
 - (void) setSelectionHighlightStyle: (NSTableViewSelectionHighlightStyle) value;
 - (void) setFloatsGroupRows: (BOOL) flag;
 - (void) setRowSizeStyle: (NSTableViewRowSizeStyle) style;
+- (NSTableViewStyle) style;
+- (void) setStyle: (NSTableViewStyle) style;
 
 - (void) addTableColumn: (NSTableColumn *) column;
 - (void) removeTableColumn: (NSTableColumn *) column;
