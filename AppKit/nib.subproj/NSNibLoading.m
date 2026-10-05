@@ -117,6 +117,22 @@ static NSMutableArray<NSString *> *_nibPaths(void) {
 
         if (path == nil)
             path = [[NSBundle mainBundle] pathForResource: name ofType: @"nib"];
+
+        // Last resort: the guest's -[NSBundle pathForResource:ofType:] does not resolve a bare name
+        // against a type, so every lookup above returns nil even when the nib is present. Measured in a
+        // probe run from inside a real bundle:
+        //     pathForResource:@"probe.txt" ofType:nil -> .../probe.txt      (works)
+        //     pathForResource:@"Edit"       ofType:nil -> nil               (fails)
+        //     pathForResource:@"Edit.nib"    ofType:nil -> .../Edit.nib     (works)
+        // Asking with the extension already attached is the form that resolves, so try that before
+        // giving up. Without this, an app launched from its bundle never loads NSMainNibFile and so
+        // never gets a window.
+        if (path == nil) {
+            NSString *withExtension = [name stringByAppendingPathExtension: @"nib"];
+            path = [bundle pathForResource: withExtension ofType: nil];
+            if (path == nil)
+                path = [[NSBundle mainBundle] pathForResource: withExtension ofType: nil];
+        }
     } else {
         NSLog(@"warning: full path passed when only nib file name should be "
               @"used");
