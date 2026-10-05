@@ -186,6 +186,8 @@ typedef enum {
 + (instancetype) _imageWithSystemSymbolName: (NSString *) name;
 + (NSImage *) imageWithSize: (NSSize) size
                drawHandler: (void (^)(NSRect dstRect))drawHandler;
+// Private: the receiver adjusted by image hints (NSImageHintSymbolScale for symbol images).
+- (NSImage *) _imageWithConfiguration: (NSDictionary<NSString *, id> *) hints;
 
 @end
 
