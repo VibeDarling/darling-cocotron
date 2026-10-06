@@ -638,7 +638,6 @@ NSApplication *NSApp = nil;
             if ([argument length] > 0 && ![argument hasPrefix: @"-"])
                 [openFiles addObject: argument];
         }
-        [arguments release];
     }
 
     if ([openFiles count] == 0) {
