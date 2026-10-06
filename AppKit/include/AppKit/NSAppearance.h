@@ -71,6 +71,7 @@ APPKIT_EXPORT BOOL NSSolariumEnabled(void);
 @protocol NSAppearanceCustomization <NSObject>
 
 @required
-@property (strong) NSAppearance *appearance;
+@property (strong, nullable) NSAppearance *appearance;
+@property (readonly, strong, nonnull) NSAppearance *effectiveAppearance;
 
 @end
