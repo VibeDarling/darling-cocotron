@@ -525,6 +525,12 @@ typedef NS_ENUM(NSUInteger, NSWindowTabbingMode) {
 - (NSPoint) convertPointFromScreen: (NSPoint) point;
 - (NSRect) convertRectToScreen: (NSRect) rect;
 - (NSRect) convertRectFromScreen: (NSRect) rect;
+- (NSRect) convertRectToBacking: (NSRect) rect;
+- (NSRect) convertRectFromBacking: (NSRect) rect;
+- (NSPoint) convertPointToBacking: (NSPoint) point;
+- (NSPoint) convertPointFromBacking: (NSPoint) point;
+- (NSSize) convertSizeToBacking: (NSSize) size;
+- (NSSize) convertSizeFromBacking: (NSSize) size;
 @property (readonly) CGFloat backingScaleFactor;
 
 - (void) beginSheet: (NSWindow *) sheet
