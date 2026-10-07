@@ -40,6 +40,7 @@ set_property(SOURCE
 	CGPDFContext.m
 	CGPDFDocument.m
 	CGPDFPage.m
+	CGPDFString.m
 	CGPSConverter.m
 	CGRemoteOperation.m
 	CGShading.m
@@ -92,6 +93,7 @@ set(CoreGraphics_sources
 	CGPDFContext.m
 	CGPDFDocument.m
 	CGPDFPage.m
+	CGPDFString.m
 	CGShading.m
 	CGWindow.m
 	CGWindowLevel.m
