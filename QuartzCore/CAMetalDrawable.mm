@@ -228,7 +228,9 @@ CAMetalDrawableTexture::CAMetalDrawableTexture(CGSize size, Indium::PixelFormat 
 
 	DynamicVK::vkGetImageMemoryRequirements(_device->device(), _internalImage, &reqs);
 
-	targetIndex = findSharedMemory(reqs, _device, _framebufferOnly);
+	// The presentation image is read on the CPU even for framebuffer-only
+	// public textures, so it always needs host-visible, coherent memory.
+	targetIndex = findSharedMemory(reqs, _device, false);
 
 	if (targetIndex == SIZE_MAX) {
 		throw std::runtime_error("No suitable memory region found for internal image");
