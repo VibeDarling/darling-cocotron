@@ -22,6 +22,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #include <CoreFoundation/CFString.h>
 
 const CFStringRef kCGPDFContextTitle = CFSTR("kCGPDFContextTitle");
+const CFStringRef kCGPDFContextAuthor = CFSTR("kCGPDFContextAuthor");
+const CFStringRef kCGPDFContextCreator = CFSTR("kCGPDFContextCreator");
 const CFStringRef kCGPDFContextKeywords = CFSTR("kCGPDFContextKeywords");
 const CFStringRef kCGPDFContextMediaBox = CFSTR("MediaBox");
 
@@ -29,10 +31,24 @@ CGContextRef CGPDFContextCreate(CGDataConsumerRef consumer,
                                 const CGRect *mediaBox,
                                 CFDictionaryRef auxiliaryInfo)
 {
+    NSDictionary *info = (NSDictionary *)auxiliaryInfo;
+    const CFStringRef publicKeys[] = {kCGPDFContextAuthor, kCGPDFContextCreator};
+    const NSString *backendKeys[] = {kO2PDFContextAuthor, kO2PDFContextCreator};
+    NSMutableDictionary *translated = nil;
+    for (unsigned i = 0; i < 2; i++) {
+        id value = [info objectForKey:(id)publicKeys[i]];
+        if (value) {
+            if (!translated)
+                translated = [[info mutableCopy] autorelease];
+            [translated setObject:value forKey:(id)backendKeys[i]];
+        }
+    }
+    if (translated)
+        info = translated;
     return (CGContextRef)[[O2PDFContext alloc]
             initWithConsumer: (O2DataConsumer*)consumer
                     mediaBox: mediaBox
-               auxiliaryInfo: (NSDictionary *) auxiliaryInfo];
+               auxiliaryInfo: info];
 }
 
 COREGRAPHICS_EXPORT void CGPDFContextClose(CGContextRef self) {
