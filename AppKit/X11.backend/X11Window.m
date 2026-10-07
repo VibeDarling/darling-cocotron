@@ -296,7 +296,7 @@ static NSData *makeWindowIcon() {
         NULL);
 #endif
 
-    _cglWindow = CGLGetWindow((void *) _window);
+
 
     [(X11Display *) [NSDisplay currentDisplay] setWindow: self forID: _window];
 
@@ -863,6 +863,7 @@ static BOOL windowManagerIsRunning(Display *display) {
                         format: @"Failed to create GL context, CGL error %d",
                                 error];
         }
+        _cglWindow = CGLGetWindowForContext(_cglContext, (void *) _window);
         if ((error = CGLContextMakeCurrentAndAttachToWindow(
                      _cglContext, _cglWindow)) != kCGLNoError)
             NSLog(@"CGLContextMakeCurrentAndAttachToWindow failed with error "
