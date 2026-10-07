@@ -108,7 +108,7 @@
     }
 
     _subwindow = [subwindow retain];
-    _cglWindow = CGLGetWindow([_subwindow nativeWindow]);
+    _cglWindow = CGLGetWindowForContext(_glContext, [_subwindow nativeWindow]);
 
     [_subwindow show];
 
