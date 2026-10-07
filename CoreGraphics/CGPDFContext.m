@@ -20,15 +20,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Onyx2D/O2PDFContext.h>
 
 #include <CoreFoundation/CFString.h>
+#include <CoreFoundation/CFDictionary.h>
 
 const CFStringRef kCGPDFContextTitle = CFSTR("kCGPDFContextTitle");
 const CFStringRef kCGPDFContextKeywords = CFSTR("kCGPDFContextKeywords");
 const CFStringRef kCGPDFContextMediaBox = CFSTR("MediaBox");
+const CFStringRef kCGPDFContextOwnerPassword = CFSTR("kCGPDFContextOwnerPassword");
+const CFStringRef kCGPDFContextUserPassword = CFSTR("kCGPDFContextUserPassword");
+const CFStringRef kCGPDFContextEncryptionKeyLength = CFSTR("kCGPDFContextEncryptionKeyLength");
 
 CGContextRef CGPDFContextCreate(CGDataConsumerRef consumer,
                                 const CGRect *mediaBox,
                                 CFDictionaryRef auxiliaryInfo)
 {
+    if (auxiliaryInfo &&
+        (CFDictionaryContainsKey(auxiliaryInfo, kCGPDFContextOwnerPassword) ||
+         CFDictionaryContainsKey(auxiliaryInfo, kCGPDFContextUserPassword) ||
+         CFDictionaryContainsKey(auxiliaryInfo, kCGPDFContextEncryptionKeyLength)))
+        return NULL;
     return (CGContextRef)[[O2PDFContext alloc]
             initWithConsumer: (O2DataConsumer*)consumer
                     mediaBox: mediaBox
