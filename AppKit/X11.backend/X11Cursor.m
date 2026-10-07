@@ -184,9 +184,9 @@ static const char *X11CursorAliasesFor(const char *name)
     const uint8_t *rowBytes = (const uint8_t *) CGBitmapContextGetData(context);
     const size_t bytesPerRow = CGBitmapContextGetBytesPerRow(context);
 
-    // Xcursor wants device pixels with top-left origin. Cocoa drawInRect has bottom-left origin.
+    // Onyx2D bitmap storage already has top-to-bottom rows, as Xcursor requires.
     for (size_t row = 0; row < height; row++) {
-        const uint8_t *srcRow = rowBytes + (height - 1 - row) * bytesPerRow;
+        const uint8_t *srcRow = rowBytes + row * bytesPerRow;
         for (size_t column = 0; column < width; column++) {
             const uint8_t *px = srcRow + column * 4;
             uint32_t b = px[0];
