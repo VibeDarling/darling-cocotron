@@ -557,6 +557,16 @@ CGPathRef CTFontCreatePathForGlyph(CTFontRef self, CGGlyph glyph,
     return builder.path;
 }
 
+CFStringRef CTFontCopyNameForGlyph(CTFontRef font, CGGlyph glyph)
+{
+    if (!font) return NULL;
+    CGFontRef cgFont = graphicsFont(font);
+    if (![(id)cgFont isKindOfClass:[O2Font_freetype class]] ||
+        glyph >= CGFontGetNumberOfGlyphs(cgFont))
+        return NULL;
+    return CGFontCopyGlyphNameForGlyph(cgFont, glyph);
+}
+
 CGGlyph CTFontGetGlyphWithName(CTFontRef font, CFStringRef glyphName)
 {
     if (!font || !glyphName) return CGNullGlyph;
