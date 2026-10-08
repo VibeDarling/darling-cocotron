@@ -417,8 +417,14 @@ CFStringRef CTFontCopyLocalizedName(CTFontRef font, CFStringRef nameKey,
 
 CFCharacterSetRef CTFontCopyCharacterSet(CTFontRef font)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    if (!font) return NULL;
+    CGFontRef cgFont = graphicsFont(font);
+    if (![(id)cgFont isKindOfClass:[O2Font_freetype class]]) return NULL;
+    FT_Face face = [(O2Font_freetype *)cgFont face];
+    if (!face || !face->charmap || face->charmap->encoding != FT_ENCODING_UNICODE)
+        return NULL;
+    NSCharacterSet *set = O2FontGetCoveredCharacterSet((O2FontRef)cgFont);
+    return set ? CFCharacterSetCreateCopy(kCFAllocatorDefault, (CFCharacterSetRef)set) : NULL;
 }
 
 CFStringEncoding CTFontGetStringEncoding(CTFontRef font)
