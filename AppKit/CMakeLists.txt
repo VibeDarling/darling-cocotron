@@ -286,6 +286,7 @@ set(AppKit_sources
 	NSGlyphInfo.m
 	NSWindowController.m
 	NSColorSpace.m
+	DarlingLayout.mm
 	NSView.m
 
 	NSAnimation/NSAnimation.m
@@ -569,6 +570,7 @@ add_framework(AppKit
 	VERSION ${FRAMEWORK_VERSION}
 	DEPENDENCIES
 		objc
+		cxx
 		system
 		CoreFoundation
 		Foundation
@@ -757,3 +759,5 @@ else ()
 	message(STATUS "AppKit: not building the Wayland backend (needs wayland-client >= 1.20, "
 		"wayland-cursor, xkbcommon and wayland-protocols headers and wayland-scanner)")
 endif ()
+
+set_source_files_properties(DarlingLayout.mm PROPERTIES LANGUAGE CXX COMPILE_FLAGS "-std=c++14 -fexceptions")
