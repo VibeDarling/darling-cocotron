@@ -51,6 +51,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import "NSGestureRecognizer-Private.h"
 #import <objc/runtime.h>
 #include <math.h>
+#import "DarlingLayout.h"
 
 static char installedViewConstraintsKey;
 
@@ -451,6 +452,7 @@ typedef struct __VFlags {
 }
 
 - (void) dealloc {
+    [NSLayoutConstraint deactivateConstraints:[self constraints]];
 
     // Do this first?
     [self _unbindAllBindings];
@@ -1681,6 +1683,15 @@ static void alignAxis(CGFloat *origin, CGFloat *length, NSAlignmentOptions optio
 - (void) removeFromSuperviewWithoutNeedingDisplay {
     NSView *removeFrom = _superview;
     NSWindow *window = [self window];
+
+    for (NSView *ancestor = _superview; ancestor != nil; ancestor = [ancestor superview]) {
+        for (NSLayoutConstraint *constraint in [ancestor constraints]) {
+            NSView *first = [constraint firstItem], *second = [constraint secondItem];
+            if (([first isKindOfClass:[NSView class]] && [first isDescendantOf:self]) ||
+                ([second isKindOfClass:[NSView class]] && [second isDescendantOf:self]))
+                [constraint setActive:NO];
+        }
+    }
 
     [self _deepResignFirstResponder];
     [self _setSuperview: nil];
@@ -3395,6 +3406,7 @@ static NSMutableArray *installedViewConstraints(NSView *view, BOOL create) {
 - (void) layoutSubtreeIfNeeded {
     // Finish the update phase for the whole subtree before laying out any view.
     [self updateConstraintsForSubtreeIfNeeded];
+    DarlingLayoutSubtree(self);
     [self _layoutSubtreeAfterUpdatingConstraints];
 }
 
