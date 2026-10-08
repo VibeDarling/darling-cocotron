@@ -19,6 +19,7 @@ set(CoreText_sources
 	CTFont.m
 	CTGlyphInfo.m
 	CTParagraphStyle.m
+	CTTextTab.m
 	CTStringATtributes.m
 	CTFontCollection.m
 	CTFontDescriptor.m
