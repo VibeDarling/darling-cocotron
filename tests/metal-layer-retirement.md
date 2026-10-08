@@ -35,14 +35,17 @@ On native headless Sway, disable Xwayland and keep the fixture floating at its
 requested 300x200 size to isolate this test from resize transactions. Run with
 `DARLING_APPKIT_BACKEND=wayland`, `DISPLAY` unset and the private compositor's
 `WAYLAND_DISPLAY`/`XDG_RUNTIME_DIR`; capture using `grim`. Require the same 60000
-red pixels. Native keyboard input can additionally be checked using `wtype b`;
-it must be judged by `INPUT blue` and actual blue pixels, never process liveness.
+red pixels. Send Linux evdev key 48 (`b`) using a virtual keyboard with the
+standard evdev/pc105/us XKB keymap, zero initial modifiers and a two-second
+keymap setup delay. Require `INPUT blue` and exactly 60000 blue pixels.
+Custom keymaps such as wtype's can assign different physical keycodes; they
+do not establish this fixture's hardware-key translation result.
 Always stop each prefix using the same launcher with `darling shutdown`.
 
 Measured 2026-10-08: upstream ec245a01 fixture captures 0 red pixels on X11;
 candidate captures 60000 red and 60000 blue after a real X11 key event, with one
 viewable child and two retired children unmapped. Native Wayland candidate
-captures 60000 red pixels with Xwayland disabled. The private Wayland keyboard
-attempt did not deliver a verified event and is not claimed as passing.
+captures 60000 red pixels with Xwayland disabled; standard evdev key 48 then
+produces `INPUT blue` and exactly 60000 blue pixels.
 Actual DodgeDanger rendering/interaction remains a separate shader/pipeline
 verification requirement; this fixture alone does not establish app success.
