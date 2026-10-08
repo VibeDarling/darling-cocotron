@@ -19,6 +19,7 @@
 
 #import <QuartzCore/CAShapeLayer.h>
 #import "CACoding.h"
+#import "CALayerInternal.h"
 
 NSString *const kCAFillRuleNonZero = @"non-zero";
 NSString *const kCAFillRuleEvenOdd = @"even-odd";
@@ -255,6 +256,10 @@ static void replaceColor(CGColorRef *slot, CGColorRef value) {
     [_lineDashPattern release];
     _lineDashPattern = pattern;
     [self setNeedsDisplay];
+}
+
+- (BOOL) _drawsOwnContent {
+    return YES;
 }
 
 // The path is in layer coordinates. Fill first, then stroke on top.

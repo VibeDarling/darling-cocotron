@@ -33,4 +33,7 @@
 // Return YES if this drew the layer's content, which suppresses that path: it
 // uploads into -_textureId, the very texture such a layer draws from.
 - (BOOL) _drawLayerContents: (CGRect) bounds opacity: (CGFloat) opacity;
+// YES for a layer whose content is its own state (a path), which a delegate's
+// -displayLayer: must not replace.
+- (BOOL) _drawsOwnContent;
 @end
