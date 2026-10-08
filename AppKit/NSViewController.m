@@ -8,6 +8,10 @@
 
 @synthesize identifier = _identifier;
 
+- (instancetype) init {
+    return [self initWithNibName: nil bundle: nil];
+}
+
 - initWithNibName: (NSString *) name bundle: (NSBundle *) bundle {
     _nibName = [name copy];
     _nibBundle = [bundle retain];
