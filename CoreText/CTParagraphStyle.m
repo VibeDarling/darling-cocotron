@@ -141,7 +141,11 @@ bool CTParagraphStyleGetValueForSpecifier(CTParagraphStyleRef style, CTParagraph
     }
     if (style == NULL || CFGetTypeID(style) != CTParagraphStyleGetTypeID() ||
         !supported(spec) || bufferSize < valueSize(spec)) return false;
-    if (spec == kCTParagraphStyleSpecifierTabStops) memcpy(buffer, &style->tabs, sizeof(style->tabs));
+    if (spec == kCTParagraphStyleSpecifierTabStops) {
+        if (style->tabs)
+            CFRetain(style->tabs);
+        memcpy(buffer, &style->tabs, sizeof(style->tabs));
+    }
     else memcpy(buffer, &style->values[spec], valueSize(spec));
     return true;
 }

@@ -155,6 +155,6 @@ public:
 void DarlingLayoutSubtree(NSView *root) {
     try { Layout(root).run(); }
     catch (const std::exception &error) {
-        [NSException raise:NSInternalInconsistencyException format:@"Constraint solver failed: %s", error.what()];
+        NSLog(@"Unable to simultaneously satisfy constraints: %s", error.what());
     }
 }

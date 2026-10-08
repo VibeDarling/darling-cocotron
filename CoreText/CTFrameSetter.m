@@ -95,8 +95,7 @@ static CGSize layout(CTFramesetterRef framesetter, CFRange range, CGSize constra
 CTFrameRef CTFramesetterCreateFrame(CTFramesetterRef framesetter, CFRange range,
                                      CGPathRef path, CFDictionaryRef attributes) {
     CGRect bounds;
-    if (!normalizeRange(framesetter, &range) || !path || !CGPathIsRect(path, &bounds) ||
-        (attributes && CFDictionaryGetCount(attributes))) return NULL;
+    if (!normalizeRange(framesetter, &range) || !path || !CGPathIsRect(path, &bounds)) return NULL;
     if (!isfinite(bounds.origin.x) || !isfinite(bounds.origin.y) ||
         !isfinite(bounds.size.width) || !isfinite(bounds.size.height) ||
         bounds.size.width < 0 || bounds.size.height < 0) return NULL;
@@ -137,7 +136,7 @@ cleanup:
 
 CGSize CTFramesetterSuggestFrameSizeWithConstraints(CTFramesetterRef framesetter,
         CFRange range, CFDictionaryRef attributes, CGSize constraints, CFRange *fit) {
-    if (!normalizeRange(framesetter, &range) || (attributes && CFDictionaryGetCount(attributes)) ||
+    if (!normalizeRange(framesetter, &range) ||
         !isfinite(constraints.width) || !isfinite(constraints.height) ||
         constraints.width < 0 || constraints.height < 0) {
         if (fit) *fit = CFRangeMake(0, 0);
