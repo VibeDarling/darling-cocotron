@@ -1624,6 +1624,10 @@ static BOOL _allowsAutomaticWindowTabbing;
     return _isVisible;
 }
 
+- (NSWindowOcclusionState) occlusionState {
+    return [self isVisible] ? NSWindowOcclusionStateVisible : 0;
+}
+
 - (BOOL) isKeyWindow {
     return ([NSApp keyWindow] == self) ? YES : NO;
 }
