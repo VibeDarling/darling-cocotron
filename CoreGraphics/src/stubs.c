@@ -107,10 +107,6 @@ void* CGPathCreateCopyByDashingPath(void* path, const void *m, CGFloat phase, co
     return NULL;
 }
 
-void* CGPathCreateCopyByStrokingPath(void* path, const void *m, CGFloat lineWidth, int lineCap, int lineJoin, CGFloat miterLimit) {
-    return NULL;
-}
-
 void CGRectDivide(CGRect rect, CGRect *slice, CGRect *remainder, CGFloat amount, CGRectEdge edge) {
     if (slice == NULL && remainder == NULL) return;
     if (amount < 0) amount = 0;
