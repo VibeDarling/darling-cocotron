@@ -24,6 +24,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 const CFStringRef kCGPDFContextTitle = CFSTR("kCGPDFContextTitle");
 const CFStringRef kCGPDFContextKeywords = CFSTR("kCGPDFContextKeywords");
 const CFStringRef kCGPDFContextMediaBox = CFSTR("MediaBox");
+const CFStringRef kCGPDFContextCropBox = CFSTR("CropBox");
+const CFStringRef kCGPDFContextBleedBox = CFSTR("BleedBox");
+const CFStringRef kCGPDFContextTrimBox = CFSTR("TrimBox");
+const CFStringRef kCGPDFContextArtBox = CFSTR("ArtBox");
 
 CGContextRef CGPDFContextCreate(CGDataConsumerRef consumer,
                                 const CGRect *mediaBox,
@@ -37,4 +41,12 @@ CGContextRef CGPDFContextCreate(CGDataConsumerRef consumer,
 
 COREGRAPHICS_EXPORT void CGPDFContextClose(CGContextRef self) {
     [self close];
+}
+
+void CGPDFContextBeginPage(CGContextRef self, CFDictionaryRef pageInfo) {
+    [(O2PDFContext *)self beginPDFPage:(NSDictionary *)pageInfo];
+}
+
+void CGPDFContextEndPage(CGContextRef self) {
+    O2ContextEndPage((O2ContextRef)self);
 }

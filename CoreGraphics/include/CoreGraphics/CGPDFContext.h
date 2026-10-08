@@ -28,6 +28,10 @@
 COREGRAPHICS_EXPORT const CFStringRef kCGPDFContextKeywords;
 COREGRAPHICS_EXPORT const CFStringRef kCGPDFContextTitle;
 COREGRAPHICS_EXPORT const CFStringRef kCGPDFContextMediaBox;
+COREGRAPHICS_EXPORT const CFStringRef kCGPDFContextCropBox;
+COREGRAPHICS_EXPORT const CFStringRef kCGPDFContextBleedBox;
+COREGRAPHICS_EXPORT const CFStringRef kCGPDFContextTrimBox;
+COREGRAPHICS_EXPORT const CFStringRef kCGPDFContextArtBox;
 
 typedef struct CF_BRIDGED_TYPE(id) O2PDFContext *CGPDFContextRef;
 
@@ -37,6 +41,9 @@ COREGRAPHICS_EXPORT CGContextRef
 CGPDFContextCreate(CGDataConsumerRef consumer, const CGRect *mediaBox,
                    CFDictionaryRef auxiliaryInfo);
 COREGRAPHICS_EXPORT void CGPDFContextClose(CGContextRef self);
+COREGRAPHICS_EXPORT void CGPDFContextBeginPage(CGContextRef self,
+                                             CFDictionaryRef pageInfo);
+COREGRAPHICS_EXPORT void CGPDFContextEndPage(CGContextRef self);
 
 CF_IMPLICIT_BRIDGING_DISABLED
 
