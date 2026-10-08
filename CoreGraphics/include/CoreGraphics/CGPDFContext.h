@@ -30,6 +30,9 @@ COREGRAPHICS_EXPORT const CFStringRef kCGPDFContextTitle;
 COREGRAPHICS_EXPORT const CFStringRef kCGPDFContextAuthor;
 COREGRAPHICS_EXPORT const CFStringRef kCGPDFContextCreator;
 COREGRAPHICS_EXPORT const CFStringRef kCGPDFContextMediaBox;
+COREGRAPHICS_EXPORT const CFStringRef kCGPDFContextOwnerPassword;
+COREGRAPHICS_EXPORT const CFStringRef kCGPDFContextUserPassword;
+COREGRAPHICS_EXPORT const CFStringRef kCGPDFContextEncryptionKeyLength;
 
 typedef struct CF_BRIDGED_TYPE(id) O2PDFContext *CGPDFContextRef;
 
