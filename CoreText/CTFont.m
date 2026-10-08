@@ -748,7 +748,7 @@ CTFontRef CTFontCreateWithQuickdrawInstance(ConstStr255Param name, int16_t ident
 
 CFArrayRef CTFontCopyAvailableTables(CTFontRef font, CTFontTableOptions options)
 {
-    if (!font) return nil;
+    if (!font || (options & ~kCTFontTableOptionExcludeSynthetic)) return nil;
     CGFontRef cgFont = graphicsFont(font);
     if (!cgFont) return nil;
     return CGFontCopyTableTags(cgFont);
@@ -756,7 +756,7 @@ CFArrayRef CTFontCopyAvailableTables(CTFontRef font, CTFontTableOptions options)
 
 CFDataRef CTFontCopyTable(CTFontRef font, CTFontTableTag table, CTFontTableOptions options)
 {
-    if (!font) return nil;
+    if (!font || (options & ~kCTFontTableOptionExcludeSynthetic)) return nil;
     CGFontRef cgFont = graphicsFont(font);
     if (!cgFont) return nil;
     return CGFontCopyTableForTag(cgFont, (uint32_t)table);
