@@ -128,6 +128,12 @@ const CGFloat *CGImageGetDecode(CGImageRef self) {
     return O2ImageGetDecode((O2ImageRef)self);
 }
 
+bool CGImageGetHeadroom(CGImageRef self, float *headroom) {
+    if (headroom != NULL)
+        *headroom = 0;
+    return false;
+}
+
 bool CGImageGetShouldInterpolate(CGImageRef self) {
     return O2ImageGetShouldInterpolate((O2ImageRef)self);
 }
