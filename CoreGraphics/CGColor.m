@@ -20,7 +20,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <CoreGraphics/CGColor.h>
 #import <Onyx2D/O2Color.h>
 #import <Onyx2D/O2ColorSpace.h>
-#include <math.h>
 
 CGColorRef CGColorRetain(CGColorRef self) {
     return (CGColorRef)O2ColorRetain((O2ColorRef)self);
@@ -46,10 +45,6 @@ CGColorRef CGColorCreateGenericRGB(CGFloat r, CGFloat g, CGFloat b, CGFloat a) {
 CGColorRef CGColorCreateSRGB(CGFloat red, CGFloat green, CGFloat blue,
                             CGFloat alpha) {
     const CGFloat components[] = { red, green, blue, alpha };
-    for (size_t i = 0; i < 4; i++) {
-        if (!isfinite(components[i]) || components[i] < 0 || components[i] > 1)
-            return NULL;
-    }
     CGColorSpaceRef space = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
     if (space == NULL)
         return NULL;
