@@ -183,7 +183,10 @@ static NSData *makeWindowIcon() {
 
     _frame = [delegate frame];
     BOOL isPanel = [delegate isKindOfClass: [NSPanel class]];
-    if (isPanel && _styleMask & NSDocModalWindowMask)
+    // A document-modal panel (a sheet) is drawn borderless but is positioned by
+    // AppKit against its parent, so it stays unmanaged below.
+    BOOL isSheetPanel = isPanel && (_styleMask & NSDocModalWindowMask);
+    if (isSheetPanel)
         _styleMask = NSBorderlessWindowMask;
     // TODO: get rid of these glX calls
     GLint att[] = {GLX_RGBA,
@@ -220,8 +223,21 @@ static NSData *makeWindowIcon() {
 
     XSetWindowAttributes xattr;
     unsigned long xattr_mask;
+    // Only windows that must stay out of the window manager's hands are
+    // unmanaged: menus, popups, sheets and anything that cannot become key
+    // (NSWindow answers NO for a borderless window unless its class overrides
+    // -canBecomeKeyWindow, so only such windows change). A borderless
+    // window that can become key (a borderless fullscreen game, a custom-chrome
+    // app window) is a normal application window; left override-redirect it never
+    // receives keyboard focus from a compositor and cannot be made fullscreen.
     xattr.override_redirect =
-            _styleMask == NSBorderlessWindowMask ? True : False;
+            (_styleMask == NSBorderlessWindowMask &&
+             (isSheetPanel || [delegate isKindOfClass: [NSMenuWindow class]] ||
+              [delegate isKindOfClass: [NSPopUpWindow class]] ||
+              ![delegate canBecomeKeyWindow]))
+                    ? True
+                    : False;
+    _overrideRedirect = xattr.override_redirect;
     xattr_mask = CWOverrideRedirect | CWColormap;
     xattr.colormap = cmap;
 
@@ -400,7 +416,6 @@ static NSData *makeWindowIcon() {
 }
 
 + (void) removeDecorationForWindow: (Window) w onDisplay: (Display *) dpy {
-    return;
     struct {
         unsigned long flags;
         unsigned long functions;
