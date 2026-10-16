@@ -1108,6 +1108,9 @@ static int compareFontPatterns(const void *a, const void *b) {
         // retaining the window causes it to keep popping back up endlessly even after dismissing it
         if (lastFocusedWindow && [[lastFocusedWindow platformWindow] windowHandle] == i)
             lastFocusedWindow = nil;
+        // The server released a grab on a destroyed window.
+        if (_relativeWindow == i)
+            [self suspendRelativeMouse];
     }
 }
 
@@ -1801,6 +1804,9 @@ static BOOL relativeEventPoint(Display *dpy, X11Window *window, const X11Relativ
 
     case UnmapNotify:
         NSLog(@"UnmapNotify");
+        // The server released a grab whose window became unviewable.
+        if (ev->xany.window == _relativeWindow)
+            [self suspendRelativeMouse];
         break;
 
     case MapNotify:
@@ -1822,6 +1828,12 @@ static BOOL relativeEventPoint(Display *dpy, X11Window *window, const X11Relativ
             // posted NSWindowDidResizeNotification for all of them. NSWindow
             // resizes its background view, resets the cursor rects and saves
             // the frame on each of those, once per pixel of a drag.
+            if (_relativeMouse.active && ev->xconfigure.window == _relativeWindow) {
+                // A reconfiguration can move a confined pointer by itself: take a
+                // new snapshot and drop the old geometry's pending motion.
+                [self suspendRelativeMouse];
+                [self beginRelativeMouse];
+            }
             O2Rect oldFrame = [window frame];
             [window frameChanged];
             O2Rect newFrame = [window frame];
