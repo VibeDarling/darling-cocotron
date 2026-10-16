@@ -11,6 +11,14 @@
 
 static X11GlobalMenu *g_sharedGlobalMenu = nil;
 
+// libdbus is a host ELF library called without ABI translation, so its variadic functions
+// (dbus_message_append_args) receive Darwin stack-passed varargs where Linux reads registers.
+static void appendBasic(DBusMessage *message, int type, const void *value) {
+    DBusMessageIter iter;
+    dbus_message_iter_init_append(message, &iter);
+    dbus_message_iter_append_basic(&iter, type, value);
+}
+
 @interface X11GlobalMenu ()
 - (void) processPendingDBusEvents;
 - (DBusHandlerResult) handleDBusMessage: (DBusMessage *) message onConnection: (DBusConnection *) connection;
@@ -291,7 +299,7 @@ static DBusHandlerResult dbusFilterCallback(DBusConnection *connection,
             "</node>\n";
 
         DBusMessage *reply = dbus_message_new_method_return(message);
-        dbus_message_append_args(reply, DBUS_TYPE_STRING, &kIntrospectXML, DBUS_TYPE_INVALID);
+        appendBasic(reply, DBUS_TYPE_STRING, &kIntrospectXML);
         dbus_connection_send(connection, reply, NULL);
         dbus_message_unref(reply);
         return DBUS_HANDLER_RESULT_HANDLED;
@@ -398,7 +406,7 @@ static DBusHandlerResult dbusFilterCallback(DBusConnection *connection,
     } else if (strcmp(member, "AboutToShow") == 0) {
         DBusMessage *reply = dbus_message_new_method_return(message);
         dbus_bool_t needUpdate = FALSE;
-        dbus_message_append_args(reply, DBUS_TYPE_BOOLEAN, &needUpdate, DBUS_TYPE_INVALID);
+        appendBasic(reply, DBUS_TYPE_BOOLEAN, &needUpdate);
         dbus_connection_send(connection, reply, NULL);
         dbus_message_unref(reply);
         return DBUS_HANDLER_RESULT_HANDLED;
@@ -438,9 +446,8 @@ static DBusHandlerResult dbusFilterCallback(DBusConnection *connection,
     DBusMessage *sig = dbus_message_new_signal("/MenuBar", "com.canonical.dbusmenu", "LayoutUpdated");
     if (sig) {
         int32_t rootId = 0;
-        dbus_message_append_args(sig, DBUS_TYPE_UINT32, &_revision,
-                                      DBUS_TYPE_INT32, &rootId,
-                                      DBUS_TYPE_INVALID);
+        appendBasic(sig, DBUS_TYPE_UINT32, &_revision);
+        appendBasic(sig, DBUS_TYPE_INT32, &rootId);
         dbus_connection_send(_connection, sig, NULL);
         dbus_message_unref(sig);
     }
@@ -478,9 +485,8 @@ static DBusHandlerResult dbusFilterCallback(DBusConnection *connection,
                                                     "RegisterWindow");
     if (msg) {
         uint32_t winId = (uint32_t)x11Window;
-        dbus_message_append_args(msg, DBUS_TYPE_UINT32, &winId,
-                                      DBUS_TYPE_OBJECT_PATH, &objPath,
-                                      DBUS_TYPE_INVALID);
+        appendBasic(msg, DBUS_TYPE_UINT32, &winId);
+        appendBasic(msg, DBUS_TYPE_OBJECT_PATH, &objPath);
         dbus_connection_send(_connection, msg, NULL);
         dbus_message_unref(msg);
     }
@@ -497,7 +503,7 @@ static DBusHandlerResult dbusFilterCallback(DBusConnection *connection,
                                                     "UnregisterWindow");
     if (msg) {
         uint32_t winId = (uint32_t)x11Window;
-        dbus_message_append_args(msg, DBUS_TYPE_UINT32, &winId, DBUS_TYPE_INVALID);
+        appendBasic(msg, DBUS_TYPE_UINT32, &winId);
         dbus_connection_send(_connection, msg, NULL);
         dbus_message_unref(msg);
     }
