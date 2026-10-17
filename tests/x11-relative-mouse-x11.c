@@ -95,12 +95,23 @@ int main(void) {
     CHECK(X11RelativeMouseGrab(display, &mouse, window) == X11_RELATIVE_MOUSE_NOT_FOCUSED && !mouse.active,
           "an unfocused window does not grab");
 
+    /* A window manager may focus the frame it put around the client. */
+    Window frame = XCreateSimpleWindow(display, root, 50, 50, 500, 400, 0, 0, 0);
+    Window client = XCreateSimpleWindow(display, frame, 10, 10, 300, 200, 0, 0, 0);
+    XMapSubwindows(display, frame);
+    XMapWindow(display, frame);
+    XSync(display, False);
+    XSetInputFocus(display, frame, RevertToNone, CurrentTime);
+    CHECK(X11RelativeMouseWindowHasFocus(display, client), "focus on the frame counts for the client");
+    CHECK(!X11RelativeMouseWindowHasFocus(display, window), "focus on an unrelated frame does not count");
+    XDestroyWindow(display, frame);
+
     XSetInputFocus(display, window, RevertToNone, CurrentTime);
     XWarpPointer(display, None, root, 0, 0, 0, 0, 300, 250);
     XSync(display, False);
     CHECK(X11RelativeMouseGrab(display, &mouse, window) == GrabSuccess && mouse.active, "grab on the focused window");
     CHECK(mouse.virtualX == 300 && mouse.virtualY == 250, "virtual cursor starts at the pointer");
-    CHECK(mouse.bounded && mouse.minX == 100 && mouse.minY == 100 && mouse.maxX == 499 && mouse.maxY == 399,
+    CHECK(mouse.minX == 100 && mouse.minY == 100 && mouse.maxX == 499 && mouse.maxY == 399,
           "bounds are the grab window: %d,%d %d,%d", mouse.minX, mouse.minY, mouse.maxX, mouse.maxY);
     Pumped warmup = {0};
     pump(display, &mouse, true, &warmup);
@@ -166,12 +177,52 @@ int main(void) {
     CHECK(warp.deltaX == 5 && warp.deltaY == 7 && px == 200 && py == 180, "motion continues from the warp target: %g,%g, pointer %d,%d",
           warp.deltaX, warp.deltaY, px, py);
 
-    /* A warp outside the grab window is clamped, as the server clips it. */
+    /* A warp outside the grab window is clamped, as the server clips it; the pointer is parked inside the edge. */
     X11RelativeMouseApplicationWarp(display, &mouse, 10, 10, true);
     pump(display, &mouse, true, &warp);
     pointer(display, &px, &py);
-    CHECK(mouse.virtualX == 100 && mouse.virtualY == 100 && px == 100 && py == 100,
+    CHECK(mouse.virtualX == 100 && mouse.virtualY == 100 && px == 164 && py == 164,
           "an out-of-window warp is clamped: virtual %g,%g pointer %d,%d", mouse.virtualX, mouse.virtualY, px, py);
+
+    /* A cursor frozen 3 pixels from the left edge: ten moves of -20 are all delivered, not clipped to the 3 left. */
+    X11RelativeMouseApplicationWarp(display, &mouse, 103, 250, true);
+    pump(display, &mouse, true, &warp);
+    Pumped edge = {0};
+    for (int i = 0; i < 10; i++) {
+        move(display, -20, 0);
+        if (!pump(display, &mouse, true, &edge))
+            return 1;
+    }
+    CHECK(edge.deltaX == -200 && edge.deltaY == 0, "deltas near the edge are not clipped: %g,%g", edge.deltaX,
+          edge.deltaY);
+    CHECK(mouse.virtualX == 103 && mouse.virtualY == 250, "the cursor stayed at the edge: %g,%g", mouse.virtualX,
+          mouse.virtualY);
+
+    /* The window shrinks under the grab and the cached bounds are stale: a warp the server cannot honour exactly
+     * must not start a warp feedback loop, and its clamped echo is not motion. */
+    XResizeWindow(display, window, 100, 100);
+    XSync(display, False);
+    Pumped shrink = {0};
+    if (!pump(display, &mouse, true, &shrink))
+        return 1;
+    shrink = (Pumped){0};
+    CHECK(X11RelativeMouseApplicationWarp(display, &mouse, 450, 350, true), "warp to a point the old bounds allowed");
+    if (!pump(display, &mouse, true, &shrink))
+        return 1;
+    pointer(display, &px, &py);
+    CHECK(shrink.posted == 0 && shrink.deltaX == 0 && shrink.deltaY == 0,
+          "an unreachable warp is no motion: %d posted, %g,%g", shrink.posted, shrink.deltaX, shrink.deltaY);
+    CHECK(shrink.motions <= 3, "no feedback loop: %d motion events", shrink.motions);
+    CHECK((int) mouse.virtualX == px && (int) mouse.virtualY == py,
+          "the cursor settles where the pointer is: virtual %g,%g pointer %d,%d", mouse.virtualX, mouse.virtualY, px, py);
+    shrink = (Pumped){0};
+    move(display, -3, -2);
+    if (!pump(display, &mouse, true, &shrink))
+        return 1;
+    CHECK(shrink.deltaX == -3 && shrink.deltaY == -2, "motion continues after the clamped warp: %g,%g", shrink.deltaX,
+          shrink.deltaY);
+    XResizeWindow(display, window, 400, 300);
+    XSync(display, False);
 
     X11RelativeMouseRelease(display, &mouse);
     CHECK(!mouse.active, "released");
