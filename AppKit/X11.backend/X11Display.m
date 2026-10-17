@@ -2010,7 +2010,23 @@ void CGNativeBorderFrameWidthsForStyle(NSUInteger styleMask, CGFloat *top,
 // hands its argument straight through, and on macOS that API is documented in points.
 // XWarpPointer wants device pixels, so the conversion belongs here rather than at every
 // caller. Invisible at 1x, off by the scale factor at 2x.
+//
+// The relative-mode state and Xlib are only used from the main thread (the one that
+// pumps X events), and CGWarpMouseCursorPosition may be called from any thread, so a
+// call from another thread is handed over. The warp produces no delta, so the caller
+// need not wait.
 - (void) warpMouse: (NSPoint) position {
+    if (![NSThread isMainThread]) {
+        [self performSelectorOnMainThread: @selector(warpMouseOnMainThread:)
+                               withObject: [NSValue valueWithPoint: position]
+                            waitUntilDone: NO];
+        return;
+    }
+    [self warpMouseOnMainThread: [NSValue valueWithPoint: position]];
+}
+
+- (void) warpMouseOnMainThread: (NSValue *) target {
+    NSPoint position = [target pointValue];
     int height = DisplayHeight(_display, DefaultScreen(_display));
     CGFloat scale = [self backingScale];
     int root_x = (int) round(position.x * scale);
@@ -2113,6 +2129,18 @@ void CGNativeBorderFrameWidthsForStyle(NSUInteger styleMask, CGFloat *top,
 
 // CGAssociateMouseAndMouseCursorPosition(!doGrab).
 - (void) grabMouse: (BOOL) doGrab {
+    // Main thread only, like -warpMouse:.
+    if (![NSThread isMainThread]) {
+        [self performSelectorOnMainThread: @selector(grabMouseOnMainThread:)
+                               withObject: [NSNumber numberWithBool: doGrab]
+                            waitUntilDone: NO];
+        return;
+    }
+    [self grabMouseOnMainThread: [NSNumber numberWithBool: doGrab]];
+}
+
+- (void) grabMouseOnMainThread: (NSNumber *) wanted {
+    BOOL doGrab = [wanted boolValue];
     if (doGrab) {
         _relativeRequested = YES;
         [self beginRelativeMouse];
