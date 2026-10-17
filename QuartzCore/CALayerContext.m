@@ -306,6 +306,7 @@ static BOOL layerTreeNeedsAnotherFrame(CALayer *layer) {
     }
     if (!_rendered) return;
     _rendered = NO;
+    CGLSetDrawableRefreshRate(_glContext, [_subwindow refreshMillihertz]);
     if (CGLFlushDrawable(_glContext) == kCGLNoError &&
         [_subwindow respondsToSelector: @selector(flush)])
         [_subwindow flush];
