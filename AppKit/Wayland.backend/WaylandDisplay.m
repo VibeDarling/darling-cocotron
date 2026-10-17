@@ -681,6 +681,8 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
             WL.wl_proxy_destroy(output->_proxy);
             [_outputs removeObject: output];
             [self invalidateScreens];
+            for (CFIndex i = 0; i < CFArrayGetCount(_windows); i++)
+                [(WaylandWindow *) CFArrayGetValueAtIndex(_windows, i) outputsChanged];
             break;
         }
     }
@@ -711,8 +713,11 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
     output->_modes = [output->_pendingModes copy];
     [self invalidateScreens];
     [_draggingManager outputsChanged];
-    for (CFIndex i = 0; i < CFArrayGetCount(_windows); i++)
-        [(WaylandWindow *) CFArrayGetValueAtIndex(_windows, i) scheduleScaleUpdate];
+    for (CFIndex i = 0; i < CFArrayGetCount(_windows); i++) {
+        WaylandWindow *window = (WaylandWindow *) CFArrayGetValueAtIndex(_windows, i);
+        [window scheduleScaleUpdate];
+        [window outputsChanged];
+    }
 }
 
 - (void) outputEvent: (uint32_t) opcode
@@ -1734,6 +1739,31 @@ static NSUInteger modifierDeviceMask(int code) {
 
     _screens = [screens copy];
     return [[_screens retain] autorelease];
+}
+
+// -screens is built from -outputsWithModes in order, so the indexes agree.
+- (size_t) fullscreenOutputs: (WaylandFullscreenOutput *) result
+                     proxies: (struct wl_proxy **) proxies
+                         max: (size_t) max
+                     entered: (NSSet *) entered
+{
+    NSArray *outputs = [self outputsWithModes];
+    // -screens invents a screen when no output has reported a mode yet.
+    if ([outputs count] == 0)
+        return 0;
+    NSArray *screens = [self screens];
+    size_t count = 0;
+    for (NSUInteger i = 0; i < [outputs count] && i < [screens count] && count < max; i++) {
+        struct wl_proxy *proxy = ((WaylandOutput *) outputs[i])->_proxy;
+        NSSize size = [(NSScreen *) screens[i] frame].size;
+        result[count] = (WaylandFullscreenOutput) {
+            .width = WaylandFullscreenRound(size.width),
+            .height = WaylandFullscreenRound(size.height),
+            .entered = [entered containsObject: [NSValue valueWithPointer: proxy]],
+        };
+        proxies[count++] = proxy;
+    }
+    return count;
 }
 
 - (CGRect) insetRect: (CGRect) frame

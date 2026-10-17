@@ -39,6 +39,7 @@ used.
 | Filenames | Host-backed file URI conversion; [URI limits](tests/FILE-URI-VALIDATION.md) |
 | Local-only dragging | Original Cocoa bytes stay in process, including guest-only paths; [privacy/lifecycle validation](tests/LOCAL-DRAG-VALIDATION.md) |
 | OpenGL/layers | Main-thread EGL subwindows, NSOpenGLView/layer presentation, integer scale and parent clipping; [combined interactions](tests/COMBINED-VALIDATION.md) |
+| Fullscreen | `NSWindowStyleMaskFullScreen` and borderless windows as large as an output they are on request `xdg_toplevel.set_fullscreen` (on that output); on leaving, the size the application set meanwhile with `setFrame:` is restored, else the compositor's size, else the size from before (a compositor that sizes floating windows itself, such as sway, keeps its own window rect and may apply it on a later configure); re-decided when an output changes; [host test](tests/wayland-fullscreen.sh) against a headless sway |
 
 The [combined fixture](tests/integrationtest.m) exercises these components in the
 same application: input through GL children, modifier changes during a held mouse
