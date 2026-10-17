@@ -1326,6 +1326,7 @@ static BOOL _allowsAutomaticWindowTabbing;
 
 - (void) setIgnoresMouseEvents: (BOOL) value {
     _ignoresMouseEvents = value;
+    [_platformWindow syncDelegateProperties];
 }
 
 - (void) setAspectRatio: (NSSize) value {
