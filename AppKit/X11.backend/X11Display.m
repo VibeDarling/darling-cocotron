@@ -324,7 +324,7 @@ static void socketCallback(CFSocketRef s, CFSocketCallBackType type,
                     autorelease];
             nsscreen->_x11Scale = scale;
         }
-        [nsscreen setCgDirectDisplayID: (i + 1)];
+        [nsscreen setCgDirectDisplayID: X11MonitorDisplayID(i)];
         [retval addObject: nsscreen];
     }
 
