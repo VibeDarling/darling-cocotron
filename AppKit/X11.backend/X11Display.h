@@ -7,6 +7,7 @@
 //
 
 #import <AppKit/NSDisplay.h>
+#import "X11GlobalPoint.h"
 #import "X11RelativeMouseGrab.h"
 #import <X11/Xlib.h>
 #import <X11/Xresource.h>

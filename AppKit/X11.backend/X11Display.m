@@ -1066,11 +1066,13 @@ static int compareFontPatterns(const void *a, const void *b) {
 }
 
 - (NSPoint) mouseLocation {
+    CGFloat scale = [self backingScale];
+    double x, y;
     if (_relativeMouse.active) {
         // The cursor is disassociated: report the frozen (virtual) position, as macOS does.
-        CGFloat scale = [self backingScale];
-        return NSMakePoint(_relativeMouse.virtualX / scale,
-                           _relativeMouse.virtualY / scale);
+        X11PointerLocationFromRoot(_relativeMouse.virtualX,
+                                   _relativeMouse.virtualY, scale, &x, &y);
+        return NSMakePoint(x, y);
     }
 
     Window child, root = DefaultRootWindow(_display);
@@ -1087,9 +1089,10 @@ static int compareFontPatterns(const void *a, const void *b) {
     // -[X11Window mouseLocationOutsideOfEventStream] does flip, correctly: view
     // coordinates are bottom-left origin.)
     //
-    // XQueryPointer reports device pixels, so divide by the scale to get points.
-    CGFloat scale = [self backingScale];
-    return NSMakePoint(root_x / scale, root_y / scale);
+    // XQueryPointer reports device pixels; the conversion to points lives with
+    // its inverse for -warpMouse: in X11GlobalPoint.h.
+    X11PointerLocationFromRoot(root_x, root_y, scale, &x, &y);
+    return NSMakePoint(x, y);
 }
 
 - (void) setWindow: (id) window forID: (XID) i {
@@ -2006,10 +2009,12 @@ void CGNativeBorderFrameWidthsForStyle(NSUInteger styleMask, CGFloat *top,
     return frame;
 }
 
-// Takes POINTS, like NSScreen.frame and +[NSEvent mouseLocation]: CGWarpMouseCursorPosition
-// hands its argument straight through, and on macOS that API is documented in points.
+// Takes POINTS in the space -mouseLocation reports: CGWarpMouseCursorPosition hands its
+// argument straight through, and on macOS that API is documented in points.
 // XWarpPointer wants device pixels, so the conversion belongs here rather than at every
-// caller. Invisible at 1x, off by the scale factor at 2x.
+// caller. Invisible at 1x, off by the scale factor at 2x. The y flip against the root
+// height that used to be here made CGWarpMouseCursorPosition(mouseLocation) land on the
+// mirrored position.
 //
 // The relative-mode state and Xlib are only used from the main thread (the one that
 // pumps X events), and CGWarpMouseCursorPosition may be called from any thread, so a
@@ -2027,10 +2032,9 @@ void CGNativeBorderFrameWidthsForStyle(NSUInteger styleMask, CGFloat *top,
 
 - (void) warpMouseOnMainThread: (NSValue *) target {
     NSPoint position = [target pointValue];
-    int height = DisplayHeight(_display, DefaultScreen(_display));
     CGFloat scale = [self backingScale];
-    int root_x = (int) round(position.x * scale);
-    int root_y = height - (int) round(position.y * scale);
+    int root_x, root_y;
+    X11RootFromWarpTarget(position.x, position.y, scale, &root_x, &root_y);
 
     if (_relativeMouse.active) {
         // CGWarpMouseCursorPosition moves the disassociated cursor without
@@ -2047,21 +2051,20 @@ void CGNativeBorderFrameWidthsForStyle(NSUInteger styleMask, CGFloat *top,
 
     // Update _lastMotionPos to the warp destination in device pixels
     // (top-left origin, window-relative) — the same coordinate space that
-    // MotionNotify delivers via ev->xmotion.x/y.
+    // MotionNotify delivers via ev->xmotion.x/y. The server translates the
+    // root pixels, so this does not depend on the global point space.
     NSWindow *nswin = [NSApp keyWindow];
     if (!nswin)
         nswin = [NSApp mainWindow];
     if (nswin) {
         X11Window *xwin = (X11Window *) [nswin platformWindow];
-        if (xwin) {
-            NSPoint ptLocal = [nswin convertScreenToBase: position];
-            CGFloat s = [xwin backingScaleFactor];
-            NSRect wf = [nswin frame];
-            // Cocoa bottom-left logical → X11 top-left device pixels
-            CGPoint devicePt = NSMakePoint(ptLocal.x * s,
-                                           (wf.size.height - ptLocal.y) * s);
-            [xwin setLastKnownCursorPosition: devicePt];
-        }
+        Window child;
+        int windowX, windowY;
+        if (xwin &&
+            XTranslateCoordinates(_display, DefaultRootWindow(_display),
+                                  [xwin windowHandle], root_x, root_y,
+                                  &windowX, &windowY, &child))
+            [xwin setLastKnownCursorPosition: NSMakePoint(windowX, windowY)];
     }
 }
 
