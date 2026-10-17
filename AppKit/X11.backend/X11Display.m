@@ -282,8 +282,12 @@ static void socketCallback(CFSocketRef s, CFSocketCallBackType type,
 
     int count = 0, primary = -1;
     X11Monitor *monitors = X11MonitorsCopy(_display, &count, &primary);
-    if (monitors == NULL)
+    // A server that lists no output at all still has a root window; an empty
+    // screen list would make +[NSScreen mainScreen] throw.
+    if (monitors == NULL || count == 0) {
+        free(monitors);
         return [self rootScreenFallback];
+    }
 
     CGFloat scale = [self backingScale];
     // Without any active output the root window stands in, like without RandR.
@@ -343,7 +347,7 @@ static void socketCallback(CFSocketRef s, CFSocketCallBackType type,
                     autorelease];
             nsscreen->_x11Scale = scale;
         }
-        [nsscreen setCgDirectDisplayID: (i + 1)];
+        [nsscreen setCgDirectDisplayID: X11MonitorDisplayID(i)];
         [retval addObject: nsscreen];
     }
 

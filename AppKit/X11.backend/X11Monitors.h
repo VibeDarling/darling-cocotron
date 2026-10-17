@@ -116,4 +116,10 @@ static inline X11Frame X11FrameFromRoot(X11Frame primaryRoot, X11Frame root) {
     return frame;
 }
 
+/* A display's CGDirectDisplayID is tied to the RandR output it drives (output index + 1), not to its place in the
+ * listing: the mode functions address the output by that index, and the listing starts with the main monitor. */
+static inline unsigned int X11MonitorDisplayID(int outputIndex) {
+    return (unsigned int) outputIndex + 1;
+}
+
 #endif
