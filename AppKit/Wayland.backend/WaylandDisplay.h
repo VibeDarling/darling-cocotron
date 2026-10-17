@@ -71,6 +71,8 @@ typedef enum {
     WaylandObjectLogicalOutput,
     WaylandObjectFractionalScale,
     WaylandObjectPinchGesture,
+    WaylandObjectLockedPointer,
+    WaylandObjectRelativePointer,
 } WaylandObjectKind;
 
 // The dispatcher installed on every proxy (see WaylandLibrary.h for why listeners
@@ -110,6 +112,14 @@ struct wl_proxy *WaylandCreateObject(struct wl_proxy *proxy, uint32_t opcode,
     struct wl_proxy *_pointerGestures, *_pinchGesture;
     uint32_t _pointerGesturesName;
     WaylandWindow *_pinchWindow;
+    struct wl_proxy *_pointerConstraints, *_relativePointerManager;
+    uint32_t _pointerConstraintsName, _relativePointerManagerName;
+    // CGAssociateMouseAndMouseCursorPosition(false) was asked for; the lock
+    // objects exist only while a window can take them, and _pointerLocked is the
+    // compositor's word that the lock is active.
+    BOOL _pointerLockRequested, _pointerLocked;
+    struct wl_proxy *_lockedPointer, *_relativePointer;
+    WaylandWindow *_lockWindow; // Nonretained; cleared on unmap.
     CGFloat _pinchScale;
     struct wl_proxy *_keyboard;
     CFSocketRef _wlSocket;
@@ -188,6 +198,9 @@ struct wl_proxy *WaylandCreateObject(struct wl_proxy *proxy, uint32_t opcode,
 - (struct wl_proxy *) seat;
 - (void) unmapPopupsForParent: (WaylandWindow *) parent;
 - (void) cancelPopupMenus;
+- (void) updatePointerLock;
+- (void) releasePointerLock;
+- (void) pointerRelativeMotionByX: (CGFloat) dx y: (CGFloat) dy;
 
 // Runs a block after libwayland has returned from dispatching events. Event
 // handlers queue application-facing calls this way, so application code never
