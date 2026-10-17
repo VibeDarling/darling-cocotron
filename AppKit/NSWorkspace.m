@@ -459,6 +459,39 @@ static NSWorkspaceOpenConfiguration* _singletonNsWorkspaceOpenConfig;
     return [[[NSRunningApplication alloc] init] autorelease];
 }
 
+// A nil bundle identifier opens each URL with -openURL: (the default
+// bindings); otherwise the application must be found, and the URLs are opened
+// as by -openURLs:withApplicationAtURL:. Launch options and the descriptor are
+// ignored, and launchIdentifiers is documented as unused.
+- (BOOL) openURLs: (NSArray<NSURL *> *) urls
+        withAppBundleIdentifier: (NSString *) bundleIdentifier
+                        options: (NSUInteger) options
+ additionalEventParamDescriptor: (NSAppleEventDescriptor *) descriptor
+              launchIdentifiers: (NSArray **) identifiers
+{
+    if (identifiers)
+        *identifiers = nil;
+    if (bundleIdentifier) {
+        NSURL *applicationURL = [self URLForApplicationWithBundleIdentifier: bundleIdentifier];
+        if (!applicationURL)
+            return NO;
+        return [self openURLs: urls
+                 withApplicationAtURL: applicationURL
+                              options: options
+                        configuration: nil
+                                error: NULL] != nil;
+    }
+    BOOL ok = YES;
+    for (NSURL *url in urls) {
+        @try {
+            ok = [self openURL: url] && ok;
+        } @catch (NSException *exception) {
+            ok = NO;
+        }
+    }
+    return ok;
+}
+
 - (NSRunningApplication *) launchApplicationAtURL: (NSURL *) url
                                           options: (NSUInteger) options
                                     configuration: (NSDictionary *) configuration
