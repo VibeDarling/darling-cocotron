@@ -59,15 +59,22 @@ static inline bool X11RelativeMouseWindowBounds(Display *display, Window window,
     if (!XGetWindowAttributes(display, window, &attributes) ||
         !XTranslateCoordinates(display, window, DefaultRootWindow(display), 0, 0, &x, &y, &child))
         return false;
-    int screen = DefaultScreen(display);
+    /* The root's current size: DisplayWidth and DisplayHeight are only refreshed by XRRUpdateConfiguration, so
+     * they are stale right after the screen shrinks. */
+    Window rootWindow;
+    int rootGeometryX, rootGeometryY;
+    unsigned int rootWidth, rootHeight, border, depth;
+    if (!XGetGeometry(display, DefaultRootWindow(display), &rootWindow, &rootGeometryX, &rootGeometryY, &rootWidth,
+                      &rootHeight, &border, &depth))
+        return false;
     bounds->minX = x < 0 ? 0 : x;
     bounds->minY = y < 0 ? 0 : y;
     bounds->maxX = x + attributes.width - 1;
-    if (bounds->maxX > DisplayWidth(display, screen) - 1)
-        bounds->maxX = DisplayWidth(display, screen) - 1;
+    if (bounds->maxX > (int) rootWidth - 1)
+        bounds->maxX = (int) rootWidth - 1;
     bounds->maxY = y + attributes.height - 1;
-    if (bounds->maxY > DisplayHeight(display, screen) - 1)
-        bounds->maxY = DisplayHeight(display, screen) - 1;
+    if (bounds->maxY > (int) rootHeight - 1)
+        bounds->maxY = (int) rootHeight - 1;
     return bounds->maxX >= bounds->minX && bounds->maxY >= bounds->minY;
 }
 

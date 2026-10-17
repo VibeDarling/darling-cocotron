@@ -2,10 +2,11 @@
 // XTest supplies the physical motion; the test pumps the connection's events through the same functions the backend
 // calls, and checks that the cursor stays frozen, the deltas add up, and a warp's own echo is never taken for
 // motion (no feedback loop). Use tests/x11-relative-mouse-x11.sh, which runs it on its own Xvfb.
-// Build: cc x11-relative-mouse-x11.c -lX11 -lXtst
+// Build: cc x11-relative-mouse-x11.c -lX11 -lXtst -lXrandr -lm
 #include "../AppKit/X11.backend/X11GlobalPoint.h"
 #include "../AppKit/X11.backend/X11RelativeMouseGrab.h"
 #include <X11/extensions/XTest.h>
+#include <X11/extensions/Xrandr.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -269,6 +270,17 @@ int main(void) {
     CHECK(px == 310 && py == 250 && mouse.virtualX == 310 && mouse.virtualY == 250,
           "the cursor follows the pointer: virtual %g,%g pointer %d,%d", mouse.virtualX, mouse.virtualY, px, py);
     X11RelativeMouseRelease(display, &mouse);
+
+    /* The root shrinks: the bounds follow it although Xlib's cached DisplayWidth/Height are still the old size. */
+    X11RelativeMouseBounds bounds;
+    int screen = DefaultScreen(display);
+    XRRScreenResources *resources = XRRGetScreenResources(display, root);
+    XRRSetCrtcConfig(display, resources, resources->crtcs[0], CurrentTime, 0, 0, None, RR_Rotate_0, NULL, 0);
+    XRRFreeScreenResources(resources);
+    XRRSetScreenSize(display, root, 400, 300, DisplayWidthMM(display, screen) / 3, DisplayHeightMM(display, screen) / 2);
+    XSync(display, False);
+    CHECK(X11RelativeMouseWindowBounds(display, window, &bounds) && bounds.maxX == 399 && bounds.maxY == 299,
+          "bounds are clipped to the shrunken root: %d,%d", bounds.maxX, bounds.maxY);
 
     globalPointRoundTrip();
     X11RelativeMouseEnd(&mouse);
