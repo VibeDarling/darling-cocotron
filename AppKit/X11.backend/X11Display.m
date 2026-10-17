@@ -48,6 +48,7 @@
 #import "CarbonKeys.h"
 #import "X11KeySymToUCS.h"
 #import "X11KeyEvent.h"
+#import "X11RandR.h"
 #import <X11/XKBlib.h>
 #import <X11/Xutil.h>
 #import <X11/extensions/XKBrules.h>
@@ -150,7 +151,7 @@ static void socketCallback(CFSocketRef s, CFSocketCallBackType type,
 
         int errorBase;
         if (XRRQueryExtension(_display, &_rrEventBase, &errorBase)) {
-            XRRSelectInput(_display, DefaultRootWindow(_display), RRScreenChangeNotifyMask | RRCrtcChangeNotifyMask | RROutputChangeNotifyMask | RROutputPropertyNotifyMask);
+            XRRSelectInput(_display, DefaultRootWindow(_display), X11_RANDR_EVENT_MASK);
         }
 
         lastFocusedWindow = nil;
@@ -1838,21 +1839,12 @@ static NSPoint windowEventPoint(Display *dpy, X11Window *window, Window eventWin
         break;
 
     case GenericEvent:
-        // Everything RandR added in version 1.2 (a CRTC or output reconfiguration, a changed
-        // output property) is delivered as event code base + RRNotify with a sub-code, through
-        // the Generic Extension: Xlib reports the X event type as GenericEvent and the RandR
-        // code in xgeneric.evtype. Testing ev->type against _rrEventBase + RRNotify, as the
-        // default case below did, therefore never matched, so the screen cache was not dropped
-        // when a monitor was re-plugged or its mode changed.
-        if (_rrEventBase != 0 && ev->xgeneric.evtype == _rrEventBase + RRNotify) {
-            [self _invalidateRRCache];
-            break;
-        }
         NSLog(@"GenericEvent");
         break;
 
     default:
-        if (ev->type == _rrEventBase + RRScreenChangeNotify) {
+        // RandR reports layout changes as plain extension events (see X11RandR.h).
+        if (X11RandRHandleLayoutChange(ev, _rrEventBase)) {
             [self _invalidateRRCache];
             break;
         }
