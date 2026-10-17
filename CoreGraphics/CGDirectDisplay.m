@@ -61,6 +61,19 @@ static NSDisplay *currentDisplay(void) {
     }
 }
 
+// A display's ID belongs to the screen (the backend ties it to the output it
+// drives), and [NSScreen screens] may list the main screen first, so an array
+// position is not an ID.
+static NSScreen *screenForDisplayID(NSArray<NSScreen *> *screens,
+                                    CGDirectDisplayID displayID)
+{
+    for (NSScreen *screen in screens) {
+        if ([screen cgDirectDisplayID] == displayID)
+            return screen;
+    }
+    return nil;
+}
+
 
 CGDirectDisplayID CGMainDisplayID(void) {
     NSDisplay *display = currentDisplay();
@@ -438,11 +451,10 @@ static NSData *edidForDisplay(CGDirectDisplayID displayId) {
     if (!display)
         return nil;
 
-    NSArray<NSScreen *> *screens = [display screens];
-    if (displayId <= 0 || displayId > [screens count])
+    NSScreen *screen = screenForDisplayID([display screens], displayId);
+    if (!screen)
         return nil;
 
-    NSScreen *screen = [screens objectAtIndex: displayId - 1];
     NSData *edid = [screen edid];
     if (edid && [edid length] >= 16)
         return edid;
