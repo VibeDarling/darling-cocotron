@@ -160,7 +160,23 @@
         [self prepareMetalLayersInLayerTree: child];
 }
 
+// A pass runs app code (presented handlers, layout, delegates). If that code asks
+// for another pass, for example through -[CAMetalLayer nextDrawable] on the main
+// thread, a nested composite and buffer swap in the middle of this one would
+// corrupt the frame. Every entry point (timer, NSView display, nextDrawable) goes
+// through here, so the guard lives here.
 - (void) renderLayer: (CALayer *) layer {
+    if (_renderInProgress)
+        return;
+    _renderInProgress = YES;
+    @try {
+        [self renderLayerTree: layer];
+    } @finally {
+        _renderInProgress = NO;
+    }
+}
+
+- (void) renderLayerTree: (CALayer *) layer {
     _rendered = NO;
     if (_cglWindow == NULL && [_subwindow nativeWindow] != NULL) {
         _cglWindow = CGLGetWindowForContext(_glContext, [_subwindow nativeWindow]);
@@ -243,6 +259,15 @@ static BOOL layerTreeNeedsAnotherFrame(CALayer *layer) {
         if (layerTreeNeedsAnotherFrame(child))
             return YES;
     return NO;
+}
+
+- (BOOL) renderPendingPresents {
+    if (_renderInProgress || ![NSThread isMainThread])
+        return NO;
+
+    [self render];
+    [self flush];
+    return YES;
 }
 
 - (void) timer: (NSTimer *) timer {

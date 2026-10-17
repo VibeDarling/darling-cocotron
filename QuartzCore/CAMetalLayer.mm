@@ -467,6 +467,29 @@ MTL_UNSUPPORTED_CLASS
 	NSDate* endTime = [NSDate dateWithTimeIntervalSinceNow: 1];
 
 	while (_usableDrawablesBitmap == 0) {
+		// A queued present is composited, and its drawable handed back, by a render
+		// pass of the layer context, and that pass runs on the main thread. A caller
+		// on the main thread would be waiting here for its own thread, so it runs the
+		// pass in place. Each pass takes one queued present, so if none was taken
+		// (no window to render into yet, or a pass already running) it falls through
+		// to waiting instead of looping.
+		// _context is not retained by the layer. Only the main thread tears a context
+		// down, so on the main thread it stays valid, and the retain covers the unlocked
+		// window while a presented handler runs. Other threads never read it.
+		if ([NSThread isMainThread] && _queuedDrawableCount > 0) {
+			CALayerContext* context = [_context retain];
+			if (context != nil) {
+				NSUInteger queuedBefore = _queuedDrawableCount;
+				[_drawableCondition unlock];
+				BOOL rendered = [context renderPendingPresents];
+				[_drawableCondition lock];
+				[context release];
+				if (rendered && _queuedDrawableCount < queuedBefore) {
+					continue;
+				}
+			}
+		}
+
 		if (_allowsNextDrawableTimeout) {
 			if (![_drawableCondition waitUntilDate: endTime]) {
 				break;
