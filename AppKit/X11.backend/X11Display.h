@@ -7,6 +7,7 @@
 //
 
 #import <AppKit/NSDisplay.h>
+#import "X11Monitors.h"
 #import <X11/Xlib.h>
 #import <X11/Xresource.h>
 #import <X11/Xlocale.h>
@@ -58,6 +59,9 @@
     NSEventModifierFlags _modifierFlags;
     int _rrEventBase;
     NSArray* _lastScreens;
+    // See -primaryRootFrame. Device pixels, root coordinates.
+    NSRect _primaryRootFrame;
+    BOOL _primaryRootFrameValid;
 
 @public
     XIM _xim;
@@ -71,6 +75,12 @@
 // deliberately not used: it reports panel DPI, not scale, so it reads 1.0 on a
 // HiDPI 4K panel and 2.0 on a 1x laptop.
 - (CGFloat) backingScale;
+
+// The main monitor's rectangle in root coordinates (device pixels). It is the
+// origin of the global coordinate space; see X11Monitors.h.
+- (NSRect) primaryRootFrame;
+// The same rectangle in logical points, like window frames.
+- (X11Frame) primaryFrameInPoints;
 
 - (void) setWindow: (id) window forID: (XID) i;
 
