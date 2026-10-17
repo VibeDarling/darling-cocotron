@@ -48,11 +48,11 @@
 #import "CarbonKeys.h"
 #import "X11KeySymToUCS.h"
 #import "X11KeyEvent.h"
+#import "X11RandR.h"
 #import <X11/XKBlib.h>
 #import <X11/Xutil.h>
 #import <X11/extensions/XKBrules.h>
 #import <X11/extensions/Xrandr.h>
-#import "X11RandR.h"
 #import <X11/keysym.h>
 #import <fcntl.h>
 #import <fontconfig/fontconfig.h>
