@@ -34,6 +34,7 @@ used.
 | Windows | xdg toplevels, redraw/resize, hide/show, popups and client/server decorations; [initial validation](tests/VALIDATION.md) |
 | Outputs | Atomic core updates, rotation, removal/reappearance, optional compositor logical topology; [core](tests/OUTPUT-VALIDATION.md) and [logical](tests/LOGICAL-OUTPUT-VALIDATION.md) validation |
 | Input | Pointer/click grouping, frame-coalesced scrolling, pinch magnify/rotate, text/repeat and independent physical modifiers; [input validation](tests/INPUT-VALIDATION.md), [scroll-frame validation](tests/SCROLL-FRAME-VALIDATION.md) and [pinch validation](tests/PINCH-GESTURE-VALIDATION.md) |
+| Pointer lock | `CGAssociateMouseAndMouseCursorPosition(false)` locks the pointer on the last activated window and delivers `zwp_relative_pointer_v1` deltas as mouse events; the cursor stays where it was and comes back there on unlock; [host test](tests/wayland-pointer-lock.sh) against a headless sway |
 | Scale and cursors | Integer buffer scale, named/image cursors, scaled drag icons; [icon validation](tests/DRAG-ICON-VALIDATION.md) |
 | Clipboard and dragging | Clipboard ownership/transfer, incoming/outgoing COPY/MOVE, bounded immutable data; [outgoing](tests/OUTGOING-VALIDATION.md) and [actions](tests/DRAG-ACTIONS-VALIDATION.md) |
 | Filenames | Host-backed file URI conversion; [URI limits](tests/FILE-URI-VALIDATION.md) |
@@ -47,8 +48,8 @@ composition and exact evidence are recorded separately from installed readiness.
 
 ## Remaining gaps and compositor constraints
 
-- No fractional-scale protocol, pointer constraints/relative pointer, or global
-  pointer warping. Integer 1x/2x rendering does not establish fractional coverage.
+- No global pointer warping: CGWarpMouseCursorPosition only moves the cursor
+  while the pointer is locked, and does nothing otherwise.
 - Toplevel position/focus/stacking are compositor-controlled. Reported positions
   and drag-end coordinates use the backend's virtual origin. Minimized state is
   not reported by xdg-shell; `isMiniaturized` cannot reflect it reliably.
