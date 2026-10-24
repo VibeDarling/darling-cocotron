@@ -220,6 +220,7 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExitVersionBrowserNotification
     NSSize _maxSize;
     NSSize _contentMinSize;
     NSSize _contentMaxSize;
+    NSWindowCollectionBehavior _collectionBehavior;
 
     NSWindow *_parentWindow;
     NSMutableArray<NSWindow *> *_childWindows;
