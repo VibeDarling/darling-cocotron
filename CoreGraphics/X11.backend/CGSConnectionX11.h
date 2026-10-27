@@ -49,6 +49,7 @@
 	int _xkbEventBase;
 	int _xrrEventBase;
 
+@private
 	// The main monitor in root coordinates (device pixels) and the backing scale,
 	// cached for -mouseLocation. Guarded by @synchronized(self); the cache is dropped
 	// when XRandR reports a reconfiguration, like _screens. Declared here, not in
