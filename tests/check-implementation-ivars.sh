@@ -3,7 +3,8 @@
 # Darling builds its frameworks fat, and the i386 slice uses the fragile
 # Objective-C ABI, which rejects ivars in @implementation ("inconsistent number
 # of instance variables"). Declare them in the @interface instead.
-# Limit: preprocessor directives are not parsed, so an #if 0 block can mislead it.
+# Limit: not parsed: preprocessor directives (an #if 0 block can mislead it), a superclass clause
+# on its own line (@implementation Foo / : Bar / {), and strings continued with backslash-newline.
 # Usage: check-implementation-ivars.sh [file...]   (default: every tracked .m/.mm)
 set -euo pipefail
 export LC_ALL=C  # some files are not valid UTF-8; BSD awk aborts on those otherwise
@@ -27,7 +28,7 @@ FNR == 1 { incomment = 0; pending = 0 }
 	while (i <= n) {
 		ch = substr(line, i, 1); two = substr(line, i, 2)
 		if (incomment) { if (two == "*/") { incomment = 0; i += 2 } else i++; continue }
-		if (two == "/*") { incomment = 1; i += 2; continue }
+		if (two == "/*") { incomment = 1; out = out " "; i += 2; continue }
 		if (two == "//") break
 		if (ch == "\"" || ch == "\047") {
 			out = out ch ch; i++
