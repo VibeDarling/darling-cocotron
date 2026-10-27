@@ -3,8 +3,10 @@
 # Darling builds its frameworks fat, and the i386 slice uses the fragile
 # Objective-C ABI, which rejects ivars in @implementation ("inconsistent number
 # of instance variables"). Declare them in the @interface instead.
+# Limit: preprocessor directives are not parsed, so an #if 0 block can mislead it.
 # Usage: check-implementation-ivars.sh [file...]   (default: every tracked .m/.mm)
 set -euo pipefail
+export LC_ALL=C  # some files are not valid UTF-8; BSD awk aborts on those otherwise
 
 cd "$(dirname "$0")/.."
 if [ "$#" -gt 0 ]; then
@@ -15,30 +17,37 @@ else
 fi
 [ "${#files[@]}" -gt 0 ] || exit 0
 
-awk '
+${AWK:-awk} '
 FNR == 1 { incomment = 0; pending = 0 }
 {
 	line = $0
+	sub(/\r$/, "", line)
 	out = ""
-	while (length(line) > 0) {
-		if (incomment) {
-			i = index(line, "*/")
-			if (!i) { line = ""; break }
-			line = substr(line, i + 2); incomment = 0
-		} else {
-			c = index(line, "/*"); s = index(line, "//")
-			if (s && (!c || s < c)) { out = out substr(line, 1, s - 1); line = ""; break }
-			if (!c) { out = out line; line = ""; break }
-			out = out substr(line, 1, c - 1); line = substr(line, c + 2); incomment = 1
+	n = length(line); i = 1
+	while (i <= n) {
+		ch = substr(line, i, 1); two = substr(line, i, 2)
+		if (incomment) { if (two == "*/") { incomment = 0; i += 2 } else i++; continue }
+		if (two == "/*") { incomment = 1; i += 2; continue }
+		if (two == "//") break
+		if (ch == "\"" || ch == "\047") {
+			out = out ch ch; i++
+			while (i <= n) {
+				c2 = substr(line, i, 1)
+				if (c2 == "\\") i += 2
+				else if (c2 == ch) { i++; break }
+				else i++
+			}
+			continue
 		}
+		out = out ch; i++
 	}
 	if (out ~ /^[ \t]*$/) next
 	if (pending) {
 		if (out ~ /^[ \t]*\{/) { print FILENAME ":" pendingline; bad = 1 }
 		pending = 0
 	}
-	if (out ~ /^[ \t]*@implementation[ \t]+[A-Za-z_][A-Za-z0-9_]*[ \t]*(\{[ \t]*)?$/) {
-		if (out ~ /\{[ \t]*$/) { print FILENAME ":" FNR; bad = 1 }
+	if (out ~ /^[ \t]*@implementation[ \t]+[A-Za-z_][A-Za-z0-9_]*([ \t]*:[ \t]*[A-Za-z_][A-Za-z0-9_]*)?[ \t]*(\{|$)/) {
+		if (out ~ /\{/) { print FILENAME ":" FNR; bad = 1 }
 		else { pending = 1; pendingline = FNR }
 	}
 }
