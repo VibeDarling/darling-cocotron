@@ -398,8 +398,22 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (NSArray *) selectedObjects {
     id idxs = [self selectionIndexes];
-    if (idxs) {
-        return [[self arrangedObjects] objectsAtIndexes: idxs];
+    if (idxs && [idxs count] > 0) {
+        NSUInteger count = [[self arrangedObjects] count];
+        if (count == 0) {
+            return [NSArray array];
+        }
+        NSMutableIndexSet *validIndexes = [NSMutableIndexSet indexSet];
+        NSUInteger idx = [idxs firstIndex];
+        while (idx != NSNotFound) {
+            if (idx < count) {
+                [validIndexes addIndex: idx];
+            }
+            idx = [idxs indexGreaterThanIndex: idx];
+        }
+        if ([validIndexes count] > 0) {
+            return [[self arrangedObjects] objectsAtIndexes: validIndexes];
+        }
     }
     return [NSArray array];
 }

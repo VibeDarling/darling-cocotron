@@ -95,6 +95,10 @@ NSString *const IBCocoaFramework = @"IBCocoaFramework";
                                           valueOptions: NSPointerFunctionsIntegerPersonality | NSPointerFunctionsOpaqueMemory
                                               capacity: 0];
 
+    _instantiatedObjectTable = [[NSMapTable alloc] initWithKeyOptions: NSPointerFunctionsObjectPointerPersonality | NSPointerFunctionsStrongMemory
+                                                         valueOptions: NSPointerFunctionsObjectPersonality | NSPointerFunctionsStrongMemory
+                                                             capacity: 0];
+
     return self;
 }
 
@@ -163,21 +167,14 @@ NSString *const IBCocoaFramework = @"IBCocoaFramework";
         for (NSUInteger i = 0; i < classesKeys.count; ++i) {
             [_classTable setObject: classesValues[i] forKey: classesKeys[i]];
         }
-        NSLog(@"STEP 1: after NSClassesValues");
 
         [_connections setArray: [keyed decodeObjectForKey: @"NSConnections"]];
-        NSLog(@"STEP 2: after NSConnections");
         _fontManager = [[keyed decodeObjectForKey: @"NSFontManager"] retain];
-        NSLog(@"STEP 3: after NSFontManager");
         self.targetFramework = [keyed decodeObjectForKey: @"NSFramework"];
-        NSLog(@"STEP 4: after NSFramework");
         _nextOid = [keyed decodeInt64ForKey: @"NSNextOid"];
-        NSLog(@"STEP 5: after NSNextOid");
 
         NSArray *objectKeys = [keyed decodeObjectForKey: @"NSObjectsKeys"];
-        NSLog(@"STEP 6: after NSObjectsKeys, count=%lu", (unsigned long)objectKeys.count);
         NSArray *objectValues = [keyed decodeObjectForKey: @"NSObjectsValues"];
-        NSLog(@"STEP 7: after NSObjectsValues, count=%lu", (unsigned long)objectValues.count);
 
         // Replace any custom object with the real thing - and update anything
         // tracking them
@@ -189,9 +186,12 @@ NSString *const IBCocoaFramework = @"IBCocoaFramework";
             id aValue = objectValues[i];
             id replacement = nil;
 
-            if ((aValue == _fileOwner || (owner != nil && aValue == owner)) &&
-                [aKey isKindOfClass: [NSCustomObject class]]) {
-                replacement = [aKey createCustomInstance];
+            if ([aKey isKindOfClass: [NSCustomObject class]]) {
+                if ((aKey == _fileOwner || aKey == owner) && owner != nil) {
+                    replacement = [owner retain];
+                } else {
+                    replacement = [aKey createCustomInstance];
+                }
             }
 
             if (replacement != nil) {
@@ -522,6 +522,7 @@ NSString *const IBCocoaFramework = @"IBCocoaFramework";
     [_nameTable release];
     [_objectTable release];
     [_oidTable release];
+    [_instantiatedObjectTable release];
     [_fileOwner release];
     [_visibleWindows release];
     [_firstResponder release];
@@ -546,13 +547,19 @@ NSString *const IBCocoaFramework = @"IBCocoaFramework";
     for (i = 0; i < count; i++)
         [[_connections objectAtIndex: i] replaceObject: oldObject
                                             withObject: newObject];
+
+    NSArray *keys = NSAllMapTableKeys(_objectTable);
+    for (id key in keys) {
+        if ([_objectTable objectForKey: key] == oldObject) {
+            [_objectTable setObject: newObject forKey: key];
+        }
+    }
 }
 
 - (void) establishConnections {
     int i, count = [_connections count];
 
     for (i = 0; i < count; i++) {
-        NSLog(@"establishConnection %d/%d: %@", i, count, [_connections objectAtIndex: i]);
         NS_DURING[[_connections objectAtIndex: i] establishConnection];
         NS_HANDLER
         NSLog(@"Exception during -establishConnection %@: %@", [_connections objectAtIndex: i], localException);
@@ -577,6 +584,50 @@ NSString *const IBCocoaFramework = @"IBCocoaFramework";
             }
         }
     }
+
+    // Replace any remaining NSCustomObject in _objectTable with an instantiated instance
+    NSArray *allKeys = NSAllMapTableKeys(_objectTable);
+    for (id aKey in allKeys) {
+        if ([aKey isKindOfClass: [NSCustomObject class]] && aKey != _fileOwner && aKey != owner) {
+            id replacement = [(NSCustomObject *)aKey createCustomInstance];
+            if (replacement != nil) {
+                [self replaceObject: aKey withObject: replacement];
+                id aVal = [_objectTable objectForKey: aKey];
+                [_objectTable removeObjectForKey: aKey];
+                [_objectTable setObject: aVal forKey: replacement];
+                [replacement release];
+            }
+        }
+    }
+
+    // Also replace in connections if any source/destination is still an NSCustomObject
+    for (id conn in _connections) {
+        if ([conn respondsToSelector: @selector(source)] && [[conn source] isKindOfClass: [NSCustomObject class]]) {
+            id src = [conn source];
+            if (src == _fileOwner || src == owner) {
+                if (owner) [conn setSource: owner];
+            } else {
+                id repl = [(NSCustomObject *)src createCustomInstance];
+                if (repl) {
+                    [self replaceObject: src withObject: repl];
+                    [repl release];
+                }
+            }
+        }
+        if ([conn respondsToSelector: @selector(destination)] && [[conn destination] isKindOfClass: [NSCustomObject class]]) {
+            id dst = [conn destination];
+            if (dst == _fileOwner || dst == owner) {
+                if (owner) [conn setDestination: owner];
+            } else {
+                id repl = [(NSCustomObject *)dst createCustomInstance];
+                if (repl) {
+                    [self replaceObject: dst withObject: repl];
+                    [repl release];
+                }
+            }
+        }
+    }
+
     [self establishConnections];
 }
 

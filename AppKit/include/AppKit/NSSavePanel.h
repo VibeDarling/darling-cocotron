@@ -65,6 +65,8 @@ enum {
 
 - (NSURL *) URL;
 - (NSString *) filename;
+- (NSArray *) URLs;
+- (NSArray *) filenames;
 
 - (void) beginWithCompletionHandler: (void (^)(NSModalResponse result)) handler;
 - (void) beginSheetModalForWindow: (NSWindow *) window

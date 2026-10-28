@@ -463,7 +463,7 @@ static NSData *makeWindowIcon() {
             [self requestFullscreen: YES force: NO];
         XMapWindow(_display, _window);
         _mapped = YES;
-        XFlush(_display);
+        XSync(_display, False);
     }
 }
 
@@ -797,7 +797,7 @@ static BOOL windowManagerIsRunning(Display *display) {
         return;
     }
 
-    if (windowManagerIsRunning(_display)) {
+    if (!_overrideRedirect && windowManagerIsRunning(_display)) {
         XEvent event;
         memset(&event, 0, sizeof(event));
         event.xclient.type = ClientMessage;
@@ -914,28 +914,23 @@ static BOOL windowManagerIsRunning(Display *display) {
 }
 
 - (void) createCGLContextObjIfNeeded {
+    CGLError error;
     if (_cglContext == NULL) {
-        CGLError error;
-
-        if ((error = CGLCreateContext(NULL, NULL, &_cglContext)) !=
-            kCGLNoError) {
-            NSLog(@"CGLCreateContext failed at %s %d with error %d", __FILE__,
-                  __LINE__, error);
-
-            [NSException raise: NSGenericException
-                        format: @"Failed to create GL context, CGL error %d",
-                                error];
+        if ((error = CGLCreateContext(NULL, NULL, &_cglContext)) != kCGLNoError) {
+            NSLog(@"CGLCreateContext failed with error %d", error);
+            return;
         }
-        _cglWindow = CGLGetWindowForContext(_cglContext, (void *) _window);
-        if ((error = CGLContextMakeCurrentAndAttachToWindow(
-                     _cglContext, _cglWindow)) != kCGLNoError)
-            NSLog(@"CGLContextMakeCurrentAndAttachToWindow failed with error "
-                  @"%d",
-                  error);
     }
-    if (_cglContext != nil && _caContext == nil) {
-        _caContext =
-                [[CAWindowOpenGLContext alloc] initWithCGLContext: _cglContext];
+    if (_cglContext != NULL && _cglWindow == NULL && _window != 0) {
+        _cglWindow = CGLGetWindowForContext(_cglContext, (void *) _window);
+        if (_cglWindow != NULL) {
+            if ((error = CGLContextMakeCurrentAndAttachToWindow(_cglContext, _cglWindow)) != kCGLNoError) {
+                NSLog(@"CGLContextMakeCurrentAndAttachToWindow failed with error %d", error);
+            }
+        }
+    }
+    if (_cglContext != NULL && _cglWindow != NULL && _caContext == nil) {
+        _caContext = [[CAWindowOpenGLContext alloc] initWithCGLContext: _cglContext];
     }
 }
 
@@ -1090,7 +1085,7 @@ static int ignoreBadWindow(Display *display, XErrorEvent *errorEvent) {
     X11Frame root = X11FrameToRoot([self primaryFrameInPoints],
                                    (X11Frame){frame.origin.x, frame.origin.y,
                                               frame.size.width, frame.size.height});
-    if ((_styleMask & NSTitledWindowMask) && root.y < 0) {
+    if (root.y < 0) {
         root.y = 0;
     }
     return NSMakeRect(root.x, root.y, fmax(root.width, 1.0), fmax(root.height, 1.0));

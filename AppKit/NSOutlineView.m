@@ -109,6 +109,8 @@ static inline NSTreeNode *boundNode(NSOutlineView *self, id item) {
 }
 
 static inline BOOL isItemExpanded(NSOutlineView *self, id item) {
+    if (item == nil)
+        return YES;
     return (BOOL)((unsigned) NSMapGet(self->_itemToExpansionState, item));
 }
 
@@ -120,10 +122,11 @@ static inline NSInteger numberOfChildrenOfItemAndReload(NSOutlineView *self,
     if (!reload)
         result = (NSInteger) NSMapGet(self->_itemToNumberOfChildren, item);
     else {
+        id node = boundNode(self, item);
         result = usesDataSourceContent(self)
                          ? [self->_dataSource outlineView: self
                                    numberOfChildrenOfItem: item]
-                         : [[boundNode(self, item) childNodes] count];
+                         : ([node respondsToSelector: @selector(childNodes)] ? [[node childNodes] count] : 0);
 
         NSMapInsert(self->_itemToNumberOfChildren, item, (void *) result);
     }
@@ -136,12 +139,12 @@ static inline id childOfItemAtIndex(NSOutlineView *self, id item,
 {
 #if 1
     // NSLog(@"%s %d",__FILE__,__LINE__);
+    id node = boundNode(self, item);
     id result = usesDataSourceContent(self)
                         ? [self->_dataSource outlineView: self
                                                    child: index
                                                   ofItem: item]
-                        : [[boundNode(self, item) childNodes]
-                                  objectAtIndex: index];
+                        : ([node respondsToSelector: @selector(childNodes)] ? [[node childNodes] objectAtIndex: index] : nil);
 
     // NSLog(@"item %@ child %d = %@",item,index,result);
 
@@ -162,7 +165,9 @@ static inline id childOfItemAtIndex(NSOutlineView *self, id item,
 }
 
 - (void) invalidateRowCache {
+    _rowCacheValid = NO;
     _numberOfCachedRows = 0;
+    [self _resetMapTables];
 }
 
 - initWithCoder: (NSCoder *) coder {
@@ -172,18 +177,18 @@ static inline id childOfItemAtIndex(NSOutlineView *self, id item,
         NSKeyedUnarchiver *keyed = (NSKeyedUnarchiver *) coder;
 
         _rowToItem = NSCreateMapTable(NSIntegerMapKeyCallBacks,
-                                      NSNonOwnedPointerMapValueCallBacks, 0);
-        _itemToRow = NSCreateMapTable(NSNonOwnedPointerOrNullMapKeyCallBacks,
+                                      NSObjectMapValueCallBacks, 0);
+        _itemToRow = NSCreateMapTable(NSObjectMapKeyCallBacks,
                                       NSIntegerMapValueCallBacks, 0);
-        _itemToParent = NSCreateMapTable(NSNonOwnedPointerOrNullMapKeyCallBacks,
-                                         NSNonOwnedPointerMapValueCallBacks, 0);
-        _itemToLevel = NSCreateMapTable(NSNonOwnedPointerOrNullMapKeyCallBacks,
+        _itemToParent = NSCreateMapTable(NSObjectMapKeyCallBacks,
+                                         NSObjectMapValueCallBacks, 0);
+        _itemToLevel = NSCreateMapTable(NSObjectMapKeyCallBacks,
                                         NSIntegerMapValueCallBacks, 0);
         _itemToExpansionState =
                 NSCreateMapTable(NSNonOwnedPointerOrNullMapKeyCallBacks,
                                  NSIntegerMapValueCallBacks, 0);
         _itemToNumberOfChildren =
-                NSCreateMapTable(NSNonOwnedPointerOrNullMapKeyCallBacks,
+                NSCreateMapTable(NSObjectMapKeyCallBacks,
                                  NSIntegerMapValueCallBacks, 0);
 
         _markerCell = [[NSButtonCell alloc] initImageCell: nil];
@@ -202,18 +207,18 @@ static inline id childOfItemAtIndex(NSOutlineView *self, id item,
         _outlineTableColumn = [[[self tableColumns] objectAtIndex: 0] retain];
     } else {
         _rowToItem = NSCreateMapTable(NSIntegerMapKeyCallBacks,
-                                      NSNonOwnedPointerMapValueCallBacks, 0);
-        _itemToRow = NSCreateMapTable(NSNonOwnedPointerOrNullMapKeyCallBacks,
+                                      NSObjectMapValueCallBacks, 0);
+        _itemToRow = NSCreateMapTable(NSObjectMapKeyCallBacks,
                                       NSIntegerMapValueCallBacks, 0);
-        _itemToParent = NSCreateMapTable(NSNonOwnedPointerOrNullMapKeyCallBacks,
-                                         NSNonOwnedPointerMapValueCallBacks, 0);
-        _itemToLevel = NSCreateMapTable(NSNonOwnedPointerOrNullMapKeyCallBacks,
+        _itemToParent = NSCreateMapTable(NSObjectMapKeyCallBacks,
+                                         NSObjectMapValueCallBacks, 0);
+        _itemToLevel = NSCreateMapTable(NSObjectMapKeyCallBacks,
                                         NSIntegerMapValueCallBacks, 0);
         _itemToExpansionState =
                 NSCreateMapTable(NSNonOwnedPointerOrNullMapKeyCallBacks,
                                  NSIntegerMapValueCallBacks, 0);
         _itemToNumberOfChildren =
-                NSCreateMapTable(NSNonOwnedPointerOrNullMapKeyCallBacks,
+                NSCreateMapTable(NSObjectMapKeyCallBacks,
                                  NSIntegerMapValueCallBacks, 0);
 
         _markerCell = [[NSButtonCell alloc] initImageCell: nil];
@@ -244,18 +249,18 @@ static inline id childOfItemAtIndex(NSOutlineView *self, id item,
 - (id) initWithFrame: (NSRect) frame {
     [super initWithFrame: frame];
     _rowToItem = NSCreateMapTable(NSIntegerMapKeyCallBacks,
-                                  NSNonOwnedPointerMapValueCallBacks, 0);
-    _itemToRow = NSCreateMapTable(NSNonOwnedPointerOrNullMapKeyCallBacks,
+                                  NSObjectMapValueCallBacks, 0);
+    _itemToRow = NSCreateMapTable(NSObjectMapKeyCallBacks,
                                   NSIntegerMapValueCallBacks, 0);
-    _itemToParent = NSCreateMapTable(NSNonOwnedPointerOrNullMapKeyCallBacks,
-                                     NSNonOwnedPointerMapValueCallBacks, 0);
-    _itemToLevel = NSCreateMapTable(NSNonOwnedPointerOrNullMapKeyCallBacks,
+    _itemToParent = NSCreateMapTable(NSObjectMapKeyCallBacks,
+                                     NSObjectMapValueCallBacks, 0);
+    _itemToLevel = NSCreateMapTable(NSObjectMapKeyCallBacks,
                                     NSIntegerMapValueCallBacks, 0);
     _itemToExpansionState =
             NSCreateMapTable(NSNonOwnedPointerOrNullMapKeyCallBacks,
                              NSIntegerMapValueCallBacks, 0);
     _itemToNumberOfChildren =
-            NSCreateMapTable(NSNonOwnedPointerOrNullMapKeyCallBacks,
+            NSCreateMapTable(NSObjectMapKeyCallBacks,
                              NSIntegerMapValueCallBacks, 0);
 
     _markerCell = [[NSButtonCell alloc] initImageCell: nil];
@@ -293,24 +298,44 @@ static inline id childOfItemAtIndex(NSOutlineView *self, id item,
 }
 
 - itemAtRow: (NSInteger) row {
+    if (!_rowCacheValid) {
+        [self loadRootItem];
+    }
     return (id) NSMapGet(_rowToItem, (void *) row);
 }
 
 - (NSInteger) rowForItem: (id) item {
-    return (NSInteger) NSMapGet(_itemToRow, item);
+    if (!_rowCacheValid) {
+        [self loadRootItem];
+    }
+    void *row = NULL;
+    if (item != nil && NSMapMember(_itemToRow, item, NULL, &row)) {
+        return (NSInteger) row;
+    }
+    return -1;
 }
 
 - parentForItem: item {
+    if (!_rowCacheValid) {
+        [self loadRootItem];
+    }
     return NSMapGet(_itemToParent, item);
 }
 
 - (BOOL) isExpandable: (id) item {
-    if (!usesDataSourceContent(self))
-        return ![boundNode(self, item) isLeaf];
+    if (!usesDataSourceContent(self)) {
+        id node = boundNode(self, item);
+        if ([node respondsToSelector: @selector(isLeaf)])
+            return ![node isLeaf];
+        return NO;
+    }
     return [_dataSource outlineView: self isItemExpandable: item];
 }
 
 - (NSInteger) levelForItem: (id) item {
+    if (!_rowCacheValid) {
+        [self loadRootItem];
+    }
     NSInteger level = (NSInteger) NSMapGet(_itemToLevel, item);
     return level;
 }
@@ -385,6 +410,7 @@ static inline id childOfItemAtIndex(NSOutlineView *self, id item,
                             userInfo: userInfo];
 
         NSMapInsert(_itemToExpansionState, item, (void *) YES);
+        _numberOfCachedRows = 0;
 
         [self invalidateRowCache];
         noteNumberOfRowsChanged = YES;
@@ -496,7 +522,7 @@ static inline id childOfItemAtIndex(NSOutlineView *self, id item,
                             userInfo: userInfo];
 
         NSMapInsert(_itemToExpansionState, item, (void *) NO);
-
+        _numberOfCachedRows = 0;
         [self invalidateRowCache];
         [self noteNumberOfRowsChanged];
 
@@ -536,14 +562,17 @@ static inline id childOfItemAtIndex(NSOutlineView *self, id item,
     NSResetMapTable(_itemToNumberOfChildren);
 }
 
+- (void) noteNumberOfRowsChanged {
+    [self invalidateRowCache];
+    [super noteNumberOfRowsChanged];
+}
+
 - (void) reloadData {
-    [self _resetMapTables];
     [self invalidateRowCache];
     [super reloadData];
 }
 
 - (void) reloadItem: (id) item reloadChildren: (BOOL) reloadChildren {
-    [self _resetMapTables];
     [self invalidateRowCache];
     [self noteNumberOfRowsChanged];
     [self setNeedsDisplay: YES];
@@ -643,8 +672,7 @@ static inline id childOfItemAtIndex(NSOutlineView *self, id item,
 
 static void loadItemIntoMapTables(NSOutlineView *self, id item,
                                   NSUInteger *rowCountPtr,
-                                  NSUInteger recursionLevel,
-                                  NSHashTable *removeItems)
+                                  NSUInteger recursionLevel)
 {
     NSInteger i,
             numberOfChildren = numberOfChildrenOfItemAndReload(self, item, YES);
@@ -652,47 +680,38 @@ static void loadItemIntoMapTables(NSOutlineView *self, id item,
     for (i = 0; i < numberOfChildren; ++i) {
         id child = childOfItemAtIndex(self, item, i);
 
-        NSHashRemove(removeItems, child);
-
-        //   NSLog(@"got child %@ for row %d, level %d", child, *rowCountPtr,
-        //   recursionLevel);
-
         NSMapInsert(self->_rowToItem, (void *) (*rowCountPtr), child);
         NSMapInsert(self->_itemToRow, child, (void *) (*rowCountPtr));
-        NSMapInsert(self->_itemToParent, child, item);
+        if (item != nil)
+            NSMapInsert(self->_itemToParent, child, item);
         NSMapInsert(self->_itemToLevel, child, (void *) recursionLevel);
 
         (*rowCountPtr)++;
 
-        if (isItemExpanded(self, child))
-            loadItemIntoMapTables(self, child, rowCountPtr, recursionLevel + 1,
-                                  removeItems);
+        BOOL expanded = [self isItemExpanded: child];
+        if (expanded)
+            loadItemIntoMapTables(self, child, rowCountPtr, recursionLevel + 1);
     }
 }
 
 - (void) loadRootItem {
-    NSHashTable *removeItems =
-            NSCreateHashTable(NSNonOwnedPointerHashCallBacks, 0);
-
-    {
-        NSMapEnumerator state = NSEnumerateMapTable(_itemToExpansionState);
-        void *key, *value;
-
-        while (NSNextMapEnumeratorPair(&state, &key, &value))
-            NSHashInsert(removeItems, key);
-    }
-
-    loadItemIntoMapTables(self, nil, &_numberOfCachedRows, 0, removeItems); {
-        NSHashEnumerator state = NSEnumerateHashTable(removeItems);
-        void *key;
-
-        while ((key = NSNextHashEnumeratorItem(&state)) != NULL)
-            NSMapRemove(_itemToExpansionState, key);
+    if (_isBuildingCache)
+        return;
+    _isBuildingCache = YES;
+    [self _resetMapTables];
+    _numberOfCachedRows = 0;
+    @try {
+        loadItemIntoMapTables(self, nil, &_numberOfCachedRows, 0);
+        _rowCacheValid = YES;
+    } @catch (id ex) {
+        NSLog(@"[NSOutlineView loadRootItem] exception: %@", ex);
+    } @finally {
+        _isBuildingCache = NO;
     }
 }
 
 - (NSInteger) numberOfRows {
-    if (_numberOfCachedRows == 0) {
+    if (!_rowCacheValid) {
         [self loadRootItem];
     }
 
@@ -822,7 +841,7 @@ static void loadItemIntoMapTables(NSOutlineView *self, id item,
         [style drawOutlineViewGridInRect: rect];
     }
 
-    if (isItemExpanded(self, item)) {
+    if ([self isItemExpanded: item]) {
         NSInteger i, numberOfChildren =
                              numberOfChildrenOfItemAndReload(self, item, NO);
         id lastChild = nil;
@@ -910,9 +929,8 @@ static void loadItemIntoMapTables(NSOutlineView *self, id item,
         } else {
             NSCell *dataCell = [self preparedCellAtColumn: drawThisColumn
                                                       row: row];
-            [dataCell drawWithFrame: [self frameOfCellAtColumn: drawThisColumn
-                                                           row: row]
-                             inView: self];
+            NSRect cellFrame = [self frameOfCellAtColumn: drawThisColumn row: row];
+            [dataCell drawWithFrame: cellFrame inView: self];
         }
 
         // Marker cell is drawn after data cell so it is on top
@@ -929,7 +947,7 @@ static void loadItemIntoMapTables(NSOutlineView *self, id item,
                 NSRect outlineCellFrame = [self frameOfOutlineCellAtRow: row];
 
                 if (!NSIsEmptyRect(outlineCellFrame)) {
-                    if (isItemExpanded(self, item))
+                    if ([self isItemExpanded: item])
                         [_markerCell setState: NSOnState];
                     else
                         [_markerCell setState: NSOffState];
@@ -967,7 +985,7 @@ static void loadItemIntoMapTables(NSOutlineView *self, id item,
         if (NSPointInRect(location,
                           [self frameOfOutlineCellAtRow: _clickedRow]) &&
             [self isExpandable: _clickedItem]) {
-            if (isItemExpanded(self, _clickedItem) == NO)
+            if ([self isItemExpanded: _clickedItem] == NO)
                 [self expandItem: _clickedItem];
             else
                 [self collapseItem: _clickedItem];
@@ -1136,7 +1154,7 @@ static void loadItemIntoMapTables(NSOutlineView *self, id item,
              parent = [parent parentNode])
             [ancestors insertObject: parent atIndex: 0];
         for (NSTreeNode *parent in ancestors)
-            if (!isItemExpanded(self, parent))
+            if (![self isItemExpanded: parent])
                 [self expandItem: parent];
         [self numberOfRows]; // loads the row map
         if (NSMapMember(_itemToRow, node, NULL, &row))

@@ -48,7 +48,7 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
         // NSNibFileSounds
     } else {
         NSString *bundleIdentifier;
-        BOOL isKeyed;
+        short isKeyed = 0;
         NSArray *imageBlobs, *soundBlobs;
         NSArray *images, *sounds;
 
@@ -57,6 +57,7 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
                                         &sounds, &soundBlobs];
 
         // TODO
+        [bundleIdentifier release];
         [imageBlobs release];
         [images release];
         [soundBlobs release];
@@ -270,7 +271,24 @@ NSString *const NSNibTopLevelObjects = @"NSNibTopLevelObjects";
         // they get put into the uid->object table already Do we send
         // awakeFromNib to objects in the nameTable *not* present in the nib ?
 
+        if ([_allObjects count] == 0 && objectData != nil) {
+            NSArray *keys = NSAllMapTableKeys([objectData objectTable]);
+            if (keys)
+                [_allObjects addObjectsFromArray: keys];
+        }
+
         count = [_allObjects count];
+        for (i = 0; i < count; i++) {
+            id object = [_allObjects objectAtIndex: i];
+            if ([object isKindOfClass: [NSCustomObject class]]) {
+                id repl = [object createCustomInstance];
+                if (repl != nil) {
+                    [objectData replaceObject: object withObject: repl];
+                    [_allObjects replaceObjectAtIndex: i withObject: repl];
+                    [repl release];
+                }
+            }
+        }
 
         for (i = 0; i < count; i++) {
             id object = [_allObjects objectAtIndex: i];

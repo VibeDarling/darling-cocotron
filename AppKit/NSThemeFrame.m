@@ -96,7 +96,9 @@ static const CGFloat kTitleBarHeight = 28.0;
             continue;
         if ([button superview] != self)
             [self addSubview: button];
-        [button setFrame: [self _trafficLightRectAtIndex: i inTitleBar: bar]];
+        NSRect newFrame = [self _trafficLightRectAtIndex: i inTitleBar: bar];
+        if (!NSEqualRects([button frame], newFrame))
+            [button setFrame: newFrame];
     }
     layingOut = NO;
 }
@@ -180,6 +182,8 @@ static const CGFloat kTitleBarHeight = 28.0;
 
     for (NSView *view in _subviews) {
         if ([view isHidden])
+            continue;
+        if ([view isKindOfClass: [NSThemeFrameButton class]])
             continue;
         NSRect frame = [view frame];
         if (!sawSubview || NSMaxY(frame) > top)

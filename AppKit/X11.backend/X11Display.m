@@ -1778,7 +1778,12 @@ static BOOL relativeEventPoint(Display *dpy, X11Window *window, const X11Relativ
         break;
 
     case FocusIn:
-        NSLog(@"FocusIn");
+        if (ev->xfocus.mode == NotifyGrab || ev->xfocus.mode == NotifyUngrab)
+            break;
+        if (ev->xfocus.detail == NotifyPointer || ev->xfocus.detail == NotifyPointerRoot ||
+            ev->xfocus.detail == NotifyInferior)
+            break;
+
         // The server can still report FocusIn (detail NotifyPointer) for a
         // window we have unmapped; an ordered-out window must not become key.
         if (window != nil && ![window isMapped])
@@ -1807,17 +1812,19 @@ static BOOL relativeEventPoint(Display *dpy, X11Window *window, const X11Relativ
         break;
 
     case FocusOut:
-        NSLog(@"FocusOut");
+        if (ev->xfocus.mode == NotifyGrab || ev->xfocus.mode == NotifyUngrab)
+            break;
+        if (ev->xfocus.detail == NotifyPointer || ev->xfocus.detail == NotifyPointerRoot ||
+            ev->xfocus.detail == NotifyInferior)
+            break;
+
         [delegate platformWindowDeactivated: window
                     checkForAppDeactivation: NO];
         lastFocusedWindow = nil;
         // Give the pointer back to other clients; relative mode stays requested
         // and resumes on FocusIn. A grab transition or the pointer crossing a
         // child leaves the focus where it was.
-        if (ev->xfocus.mode != NotifyGrab && ev->xfocus.mode != NotifyUngrab &&
-            ev->xfocus.detail != NotifyPointer &&
-            ev->xfocus.detail != NotifyInferior)
-            [self suspendRelativeMouse];
+        [self suspendRelativeMouse];
         // Unlike XSetICFocus(), XUnsetICFocus() doesn't accept a NULL XIC.
         if (window != nil && window->_xic != NULL)
             XUnsetICFocus(window->_xic);
@@ -1833,8 +1840,6 @@ static BOOL relativeEventPoint(Display *dpy, X11Window *window, const X11Relativ
 
         rect.origin.y =
                 [window frame].size.height - rect.origin.y - rect.size.height;
-        // rect=NSInsetRect(rect, -10, -10);
-        // [_backingContext addToDirtyRect:rect];
         if (ev->xexpose.count == 0)
             [window flushBuffer];
 
@@ -1850,7 +1855,6 @@ static BOOL relativeEventPoint(Display *dpy, X11Window *window, const X11Relativ
         break;
 
     case VisibilityNotify:
-        NSLog(@"VisibilityNotify");
         break;
 
     case CreateNotify:
@@ -1871,8 +1875,8 @@ static BOOL relativeEventPoint(Display *dpy, X11Window *window, const X11Relativ
         break;
 
     case MapNotify:
-        NSLog(@"MapNotify");
         [window mapNotified];
+        [window flushBuffer];
         break;
 
     case MapRequest:

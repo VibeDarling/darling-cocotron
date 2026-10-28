@@ -14,6 +14,22 @@
     return [_array count];
 }
 
+- (NSArray *) objectsAtIndexes: (NSIndexSet *) indexes {
+    if (indexes == nil || [indexes count] == 0 || [_array count] == 0)
+        return [NSArray array];
+    NSUInteger count = [_array count];
+    NSMutableIndexSet *valid = [NSMutableIndexSet indexSet];
+    NSUInteger idx = [indexes firstIndex];
+    while (idx != NSNotFound) {
+        if (idx < count)
+            [valid addIndex: idx];
+        idx = [indexes indexGreaterThanIndex: idx];
+    }
+    if ([valid count] == 0)
+        return [NSArray array];
+    return [_array objectsAtIndexes: valid];
+}
+
 - init {
     return [self initWithObjects: NULL count: 0];
 }

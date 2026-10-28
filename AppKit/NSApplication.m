@@ -28,6 +28,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSImageView.h>
 #import <AppKit/NSMenu.h>
 #import <AppKit/NSMenuItem.h>
+#import <AppKit/NSOutlineView.h>
 #import <AppKit/NSKeyValueBinding.h>
 #import <AppKit/NSObject+BindingSupport.h>
 #import <AppKit/NSModalSessionX.h>
@@ -741,6 +742,24 @@ static void hook_cell_drawWithFrame(id self, SEL _cmd, NSRect frame, id view)
     }
 }
 
+static id (*orig_ssm_window)(id, SEL) = NULL;
+
+static id hook_ssm_window(id self, SEL _cmd)
+{
+    id win = nil;
+    if (orig_ssm_window) {
+        win = orig_ssm_window(self, _cmd);
+    }
+    if (win != nil) {
+        static const char *kCenteredKey = "kCenteredKey";
+        if (objc_getAssociatedObject(win, kCenteredKey) == nil) {
+            objc_setAssociatedObject(win, kCenteredKey, (id)kCFBooleanTrue, OBJC_ASSOCIATION_RETAIN);
+            [win center];
+        }
+    }
+    return win;
+}
+
 static void _hookXcodeDevTools(void)
 {
     static dispatch_once_t onceToken;
@@ -774,7 +793,12 @@ static void _hookXcodeDevTools(void)
 
         Class ssmClass = objc_lookUpClass("XCSplashScreenModule");
         if (ssmClass != Nil) {
-            Method m = class_getInstanceMethod(ssmClass, @selector(moduleWindowWillClose:));
+            Method m = class_getInstanceMethod(ssmClass, @selector(window));
+            if (m != NULL) {
+                orig_ssm_window = (id (*)(id, SEL))method_getImplementation(m);
+                class_replaceMethod(ssmClass, @selector(window), (IMP)hook_ssm_window, method_getTypeEncoding(m));
+            }
+            m = class_getInstanceMethod(ssmClass, @selector(moduleWindowWillClose:));
             if (m != NULL) {
                 orig_moduleWindowWillClose = (void (*)(id, SEL, id))method_getImplementation(m);
                 class_replaceMethod(ssmClass, @selector(moduleWindowWillClose:), (IMP)hook_moduleWindowWillClose, method_getTypeEncoding(m));
@@ -1410,14 +1434,28 @@ static void _hookXcodeDevTools(void)
         }
 
         NSWindow *window = [event window];
+        BOOL isModalTarget = (window == [session modalWindow] || [window worksWhenModal]);
+        if (!isModalTarget && window != nil) {
+            NSWindow *mw = [session modalWindow];
+            while (mw != nil) {
+                if ([mw attachedSheet] == window) {
+                    isModalTarget = YES;
+                    break;
+                }
+                mw = [mw attachedSheet];
+            }
+            if (!isModalTarget && ([window isSheet] || [window sheetParent] != nil || [window isKindOfClass: [NSPanel class]])) {
+                isModalTarget = YES;
+            }
+        }
 
         // In theory this could get weird, but all we want is the ESC-cancel
         // keybinding, afaik NSApp doesn't respond to any other
         // doCommandBySelectors...
-        if ([event type] == NSKeyDown && window == [session modalWindow])
+        if ([event type] == NSKeyDown && isModalTarget)
             [self interpretKeyEvents: @[ event ]];
 
-        if (window == [session modalWindow] || [window worksWhenModal])
+        if (isModalTarget)
             [self sendEvent: event];
         else if ([event type] == NSLeftMouseDown)
             [[session modalWindow] makeKeyAndOrderFront: self];

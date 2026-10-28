@@ -71,6 +71,7 @@ static BOOL isRandREvent(int xrrEventBase, XEvent* event)
 
 -(instancetype) initWithConnectionID:(CGSConnectionID)connId
 {
+	XInitThreads();
 	_display = XOpenDisplay(NULL);
 	if (!_display)
 		_display = XOpenDisplay(":0");

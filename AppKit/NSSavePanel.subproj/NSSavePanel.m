@@ -150,7 +150,13 @@ static NSSavePanel *_newPanel = nil;
 }
 
 - (NSURL *) URL {
-    return [NSURL fileURLWithPath: [self filename]];
+    NSString *fn = [self filename];
+    return (fn != nil && [fn length] > 0) ? [NSURL fileURLWithPath: fn] : nil;
+}
+
+- (NSArray *) URLs {
+    NSURL *u = [self URL];
+    return u ? @[ u ] : @[];
 }
 
 - (NSString *) filename {
@@ -159,6 +165,11 @@ static NSSavePanel *_newPanel = nil;
         ret = [[_filename copy] autorelease];
     }
     return ret;
+}
+
+- (NSArray *) filenames {
+    NSString *fn = [self filename];
+    return (fn != nil && [fn length] > 0) ? @[ fn ] : @[];
 }
 
 - (NSString *) nameFieldStringValue {
@@ -237,11 +248,15 @@ static NSSavePanel *_newPanel = nil;
                 [[NSWorkspace sharedWorkspace] isFilePackageAtPath: [url path]];
             BOOL canChooseDirs = [self isKindOfClass: [NSOpenPanel class]] && [(NSOpenPanel *)self canChooseDirectories];
             if (!isPackage && !canChooseDirs) {
-                if ([_outlineView isItemExpanded: url])
-                    [_outlineView collapseItem: url];
-                else
-                    [_outlineView expandItem: url];
-                return;
+                if ([sender isKindOfClass: [NSButton class]]) {
+                    canChooseDirs = YES;
+                } else {
+                    if ([_outlineView isItemExpanded: url])
+                        [_outlineView collapseItem: url];
+                    else
+                        [_outlineView expandItem: url];
+                    return;
+                }
             }
         }
         [self _setFilename: [url path]];
@@ -435,7 +450,8 @@ static NSSavePanel *_newPanel = nil;
 }
 
 - (NSURL *) directoryURL {
-    return [NSURL fileURLWithPath: [self directory]];
+    NSString *dir = [self directory];
+    return (dir != nil && [dir length] > 0) ? [NSURL fileURLWithPath: dir] : nil;
 }
 
 - (void) setRequiredFileType: (NSString *) type {

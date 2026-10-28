@@ -2410,11 +2410,6 @@ static BOOL _allowsAutomaticWindowTabbing;
         [self update];
         _isVisible = YES;
         [[self platformWindow] placeAboveWindow: relativeTo];
-        /* In some instances when a COMMAND is issued from a menu item to bring
-           a window front, the window is not displayed right (black,
-           incomplete). This may be the right place to do this, maybe not,
-           further investigation is required.
-        */
         [self displayIfNeeded];
         // This is here since it would seem that doing this any earlier will not
         // work.
@@ -2429,11 +2424,6 @@ static BOOL _allowsAutomaticWindowTabbing;
         [self update];
         _isVisible = YES;
         [[self platformWindow] placeBelowWindow: relativeTo];
-        /* In some instances when a COMMAND is issued from a menu item to bring
-           a window front, the window is not displayed right (black,
-           incomplete). This may be the right place to do this, maybe not,
-           further investigation is required.
-        */
         [self displayIfNeeded];
         // This is here since it would seem that doing this any earlier will not
         // work.
@@ -2838,12 +2828,15 @@ static BOOL _allowsAutomaticWindowTabbing;
 }
 
 - (void) registerForDraggedTypes: (NSArray *) types {
+    [_draggedTypes release];
     _draggedTypes = [types copy];
+    _dragTypes = _draggedTypes;
 }
 
 - (void) unregisterDraggedTypes {
     [_draggedTypes release];
     _draggedTypes = nil;
+    _dragTypes = nil;
 }
 
 - (void) dragImage: (NSImage *) image

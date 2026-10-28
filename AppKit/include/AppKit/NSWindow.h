@@ -243,6 +243,9 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExitVersionBrowserNotification
     NSTextView *_sharedFieldEditor;
     NSTextView *_currentFieldEditor;
     NSArray *_draggedTypes;
+@public
+    NSArray *_dragTypes;
+@protected
 
     NSMutableArray *_trackingAreas;
 
