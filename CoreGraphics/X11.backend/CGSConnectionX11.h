@@ -23,6 +23,8 @@
 #import <X11/Xlib.h>
 #import <CoreFoundation/CFRunLoop.h>
 #import <CoreFoundation/CFSocket.h>
+// X11Frame, for the cached main monitor below.
+#import "../../AppKit/X11.backend/X11Monitors.h"
 
 @interface CGSConnectionX11 : CGSConnection {
 @public
@@ -46,6 +48,15 @@
 
 	int _xkbEventBase;
 	int _xrrEventBase;
+
+@private
+	// The main monitor in root coordinates (device pixels) and the backing scale,
+	// cached for -mouseLocation. Guarded by @synchronized(self); the cache is dropped
+	// when XRandR reports a reconfiguration, like _screens. Declared here, not in
+	// @implementation: the i386 slice uses the fragile ABI, which forbids that.
+	X11Frame _primaryRoot;
+	BOOL _primaryRootValid;
+	double _backingScale;
 }
 
 -(instancetype) initWithConnectionID:(CGSConnectionID)connId;
