@@ -726,6 +726,21 @@ static void hook_configureWithSpecification(id self, SEL _cmd, id spec)
     }
 }
 
+static void (*orig_cell_drawWithFrame)(id, SEL, NSRect, id) = NULL;
+
+// Xcode 3.2.6 splash screen button cells: observed at runtime (rung 4) that cells start unhighlighted
+// and only draw their 3-part capsule bezel when mouseOver is set to YES. Pre-setting mouseOver guarantees
+// the 3D capsule bezel is rendered immediately without an initial flat rectangular state.
+static void hook_cell_drawWithFrame(id self, SEL _cmd, NSRect frame, id view)
+{
+    if ([self respondsToSelector:@selector(setMouseOver:)]) {
+        ((void (*)(id, SEL, BOOL))objc_msgSend)(self, @selector(setMouseOver:), YES);
+    }
+    if (orig_cell_drawWithFrame) {
+        orig_cell_drawWithFrame(self, _cmd, frame, view);
+    }
+}
+
 static void _hookXcodeDevTools(void)
 {
     static dispatch_once_t onceToken;
@@ -777,6 +792,15 @@ static void _hookXcodeDevTools(void)
             if (m != NULL) {
                 orig_runInternalErrorPanel = (void (*)(id, SEL, id))method_getImplementation(m);
                 class_replaceMethod(ahClass, @selector(_runInternalErrorPanelWithAttributedMessageString:), (IMP)hook_runInternalErrorPanel, method_getTypeEncoding(m));
+            }
+        }
+
+        Class cellCls = objc_lookUpClass("XCSplashScreenHighlightButtonCell");
+        if (cellCls != Nil) {
+            Method m = class_getInstanceMethod(cellCls, @selector(drawWithFrame:inView:));
+            if (m != NULL) {
+                orig_cell_drawWithFrame = (void (*)(id, SEL, NSRect, id))method_getImplementation(m);
+                class_replaceMethod(cellCls, @selector(drawWithFrame:inView:), (IMP)hook_cell_drawWithFrame, method_getTypeEncoding(m));
             }
         }
 

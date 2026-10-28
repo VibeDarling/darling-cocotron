@@ -362,11 +362,25 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
 }
 
 + (NSArray *) _checkBundles {
-    return [NSArray
-            arrayWithObjects: [NSBundle
-                                      mainBundle], // Check the main bundle
-                                                   // first according to the doc
-                              [NSBundle bundleForClass: self], nil];
+    NSMutableArray *result = [NSMutableArray array];
+    NSMutableSet *seen = [NSMutableSet set];
+
+    void (^addBundle)(NSBundle *) = ^(NSBundle *b) {
+        if (b != nil && ![seen containsObject: b]) {
+            [seen addObject: b];
+            [result addObject: b];
+        }
+    };
+
+    addBundle([NSBundle mainBundle]);
+    addBundle([NSBundle bundleForClass: self]);
+    for (NSBundle *b in [NSBundle allFrameworks]) {
+        addBundle(b);
+    }
+    for (NSBundle *b in [NSBundle allBundles]) {
+        addBundle(b);
+    }
+    return result;
 }
 
 + (NSMutableDictionary *) allImages {
