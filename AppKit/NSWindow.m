@@ -252,8 +252,6 @@ NSInteger NSBitsPerPixelFromDepth(NSWindowDepth depth) {
 
 @implementation NSWindow
 
-	NSWindowTabbingMode _tabbingMode;
-
 @synthesize appearance = _appearance;
 @synthesize identifier = _identifier;
 @synthesize accessibilityElement = _isAccessible;
