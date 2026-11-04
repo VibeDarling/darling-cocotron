@@ -279,6 +279,7 @@ set(AppKit_sources
 	NSEvent.subproj/NSEvent_other.m
 	NSEvent.subproj/NSEvent_keyboard.m
 	NSEvent.subproj/NSEvent_gesture.m
+	NSTouch.m
 	NSEvent.subproj/NSEvent.m
 
 	NSButton.m
@@ -651,6 +652,7 @@ add_backend(X11
 		X11.backend/X11DraggingManager.m
 		X11.backend/X11FileURLs.m
 		X11.backend/X11GlobalMenu.m
+		X11.backend/X11Touch.m
 	INFO_PLIST
 		X11.backend/Info.plist
 	DEPENDENCIES
@@ -673,7 +675,8 @@ add_backend(X11
 		dbus
 )
 pkg_check_modules(DBUS dbus-1)
-target_include_directories(X11_backend PRIVATE ${DBUS_INCLUDE_DIRS})
+target_include_directories(X11_backend PRIVATE ${DBUS_INCLUDE_DIRS}
+	${CMAKE_SOURCE_DIR}/src/startup/mldr/elfcalls)
 
 # Wayland backend, selected at run time with DARLING_APPKIT_BACKEND=wayland.
 # libwayland-client and libxkbcommon are loaded with dlopen() only when it is

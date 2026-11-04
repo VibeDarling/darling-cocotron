@@ -99,6 +99,8 @@
 - (X11Frame) primaryFrameInPoints;
 
 - (void) setWindow: (id) window forID: (XID) i;
+- (NSArray *) windowsAboveLevel: (int) level;
+- (id) windowForID: (XID) i;
 
 - (void) processPendingEvents;
 - (CGFloat) doubleClickInterval;

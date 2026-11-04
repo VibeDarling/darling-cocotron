@@ -49,6 +49,7 @@
 #import "X11KeySymToUCS.h"
 #import "X11KeyEvent.h"
 #import "X11RandR.h"
+#import "X11Touch.h"
 #import <X11/XKBlib.h>
 #import <X11/Xutil.h>
 #import <X11/extensions/XKBrules.h>
@@ -155,6 +156,8 @@ static void socketCallback(CFSocketRef s, CFSocketCallBackType type,
         if (XRRQueryExtension(_display, &_rrEventBase, &errorBase)) {
             XRRSelectInput(_display, DefaultRootWindow(_display), X11_RANDR_EVENT_MASK);
         }
+
+        X11TouchInit(_display);
 
         int xwaylandOpcode, xwaylandEvent, xwaylandError;
         _isXwayland = XQueryExtension(_display, "XWAYLAND", &xwaylandOpcode,
@@ -1145,6 +1148,17 @@ static int compareFontPatterns(const void *a, const void *b) {
     }
 }
 
+// The mapped windows of a higher level than the one given.
+- (NSArray *) windowsAboveLevel: (int) level {
+    NSMutableArray *above = [NSMutableArray array];
+    for (NSNumber *xid in _windowsByID) {
+        X11Window *window = _windowsByID[xid];
+        if ([window isKindOfClass: [X11Window class]] && [window isMapped] && [window x11Level] > level)
+            [above addObject: window];
+    }
+    return above;
+}
+
 - (id) windowForID: (XID) i {
     return [_windowsByID objectForKey: [NSNumber numberWithUnsignedLong: i]];
 }
@@ -1976,7 +1990,8 @@ static BOOL relativeEventPoint(Display *dpy, X11Window *window, const X11Relativ
         break;
 
     case GenericEvent:
-        NSLog(@"GenericEvent");
+        if (!X11TouchHandleEvent(self, ev))
+            NSLog(@"GenericEvent");
         break;
 
     default:

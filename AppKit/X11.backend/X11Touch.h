@@ -1,0 +1,34 @@
+/*
+ This file is part of Darling.
+
+ Copyright (C) 2026 Darling Team
+
+ Darling is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
+
+ Darling is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+
+ You should have received a copy of the GNU General Public License
+ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+#import <X11/Xlib.h>
+
+@class X11Display;
+
+/*
+ * Touch screens, through XInput 2.2. libXi is loaded when the display opens,
+ * so a host without it (or a server without XInput 2.2, such as Xvfb) just
+ * has no touches. A window that selects touch events no longer gets the
+ * pointer events the server would emulate from them: AppKit's touch router
+ * (NSTouchPost) moves the mouse itself for views that take no touches.
+ */
+BOOL X11TouchInit(Display *display);
+void X11TouchSelectWindow(Display *display, Window window);
+// YES when the event was an XInput touch event (handled or not).
+BOOL X11TouchHandleEvent(X11Display *display, XEvent *event);

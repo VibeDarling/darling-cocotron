@@ -86,6 +86,8 @@
 
 - (Window) windowHandle;
 - (BOOL) isMapped;
+- (int) x11Level;
+- (void) keepHigherLevelsInFront;
 
 - (void) frameChanged;
 - (void) setLastKnownCursorPosition: (CGPoint) point;

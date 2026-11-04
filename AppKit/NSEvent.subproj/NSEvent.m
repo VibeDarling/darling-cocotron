@@ -62,6 +62,18 @@ static BOOL _mouseCoalescingEnabled = YES;
     return [NSSet set];
 }
 
+- (NSSet *) allTouches {
+    return [NSSet set];
+}
+
+- (NSSet *) touchesForView: (NSView *) view {
+    return [NSSet set];
+}
+
+- (NSArray *) coalescedTouchesForTouch: (id) touch {
+    return @[];
+}
+
 + (NSPoint) mouseLocation {
     return [[NSDisplay currentDisplay] mouseLocation];
 }
@@ -462,5 +474,6 @@ static NSTimer *_periodicTimer = nil;
 @end
 
 NSEventMask NSEventMaskFromType(NSEventType type) {
-    return 1 << type;
+    // Types from 32 up (touches) need the full width; NSAppKitSystem has no bit.
+    return type < 64 ? 1ULL << type : 0;
 }
