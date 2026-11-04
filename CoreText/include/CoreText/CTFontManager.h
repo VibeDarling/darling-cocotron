@@ -14,6 +14,17 @@ typedef CF_ENUM(uint32_t, CTFontManagerScope)
 
 CORETEXT_EXPORT const CFStringRef kCTFontManagerRegisteredFontsChangedNotification;
 
+CORETEXT_EXPORT const CFStringRef kCTFontManagerErrorDomain;
+
+typedef CF_ENUM(CFIndex, CTFontManagerError)
+{
+    kCTFontManagerErrorFileNotFound = 101,
+    kCTFontManagerErrorInsufficientPermissions = 102,
+    kCTFontManagerErrorUnrecognizedFormat = 103,
+    kCTFontManagerErrorInvalidFontData = 104,
+    kCTFontManagerErrorAlreadyRegistered = 105,
+};
+
 CORETEXT_EXPORT bool CTFontManagerRegisterGraphicsFont(CGFontRef font, CFErrorRef* error);
 CORETEXT_EXPORT bool CTFontManagerUnregisterGraphicsFont(CGFontRef font, CFErrorRef *error);
 
