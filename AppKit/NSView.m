@@ -2465,9 +2465,10 @@ static NSView *viewBeingPrinted = nil;
     [[graphicsContext focusStack] removeLastObject];
     [NSGraphicsContext restoreGraphicsState];
 
-    if (_window != nil) {
-        [[_window platformWindow] flushBuffer];
-    }
+    // Through the window, so the flush waits while flushing is disabled: a
+    // display pass draws many views, and each platform flush pushes the whole
+    // backing surface to the screen.
+    [_window flushWindow];
 }
 
 - (BOOL) needsToDrawRect: (NSRect) rect {
