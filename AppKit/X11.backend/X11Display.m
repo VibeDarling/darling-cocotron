@@ -49,6 +49,7 @@
 #import "X11KeySymToUCS.h"
 #import "X11KeyEvent.h"
 #import "X11RandR.h"
+#import "X11Touch.h"
 #import <X11/XKBlib.h>
 #import <X11/Xutil.h>
 #import <X11/extensions/XKBrules.h>
@@ -155,6 +156,8 @@ static void socketCallback(CFSocketRef s, CFSocketCallBackType type,
         if (XRRQueryExtension(_display, &_rrEventBase, &errorBase)) {
             XRRSelectInput(_display, DefaultRootWindow(_display), X11_RANDR_EVENT_MASK);
         }
+
+        X11TouchInit(_display);
 
         int xwaylandOpcode, xwaylandEvent, xwaylandError;
         _isXwayland = XQueryExtension(_display, "XWAYLAND", &xwaylandOpcode,
@@ -1976,7 +1979,8 @@ static BOOL relativeEventPoint(Display *dpy, X11Window *window, const X11Relativ
         break;
 
     case GenericEvent:
-        NSLog(@"GenericEvent");
+        if (!X11TouchHandleEvent(self, ev))
+            NSLog(@"GenericEvent");
         break;
 
     default:

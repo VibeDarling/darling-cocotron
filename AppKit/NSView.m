@@ -53,6 +53,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSLayoutConstraint.h>
 #import "NSGestureRecognizer-Private.h"
 #import <objc/runtime.h>
+#import <AppKit/NSTouch.h>
 #include <math.h>
 #import "DarlingLayout.h"
 
@@ -3609,11 +3610,19 @@ static NSMutableArray *installedViewConstraints(NSView *view, BOOL create) {
     [_gestureRecognizers removeObjectIdenticalTo: recognizer];
 }
 
+static char NSViewAllowedTouchTypesKey;
+
+// Trackpad touches only by default, as in AppKit: a touch screen finger moves
+// the mouse over views that do not ask for direct touches.
 - (void) setAllowedTouchTypes: (NSUInteger) mask {
+    objc_setAssociatedObject(self, &NSViewAllowedTouchTypesKey,
+                             mask == NSTouchTypeMaskIndirect ? nil : [NSNumber numberWithUnsignedInteger: mask],
+                             OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 - (NSUInteger) allowedTouchTypes {
-    return 0;
+    NSNumber *mask = objc_getAssociatedObject(self, &NSViewAllowedTouchTypesKey);
+    return mask != nil ? [mask unsignedIntegerValue] : NSTouchTypeMaskIndirect;
 }
 
 @end

@@ -74,6 +74,11 @@ NSNotificationName const NSScreenColorSpaceDidChangeNotification = @"NSScreenCol
     return 1.0;
 }
 
+// Backends whose screens have a notch override this (PocketScreen).
+- (NSEdgeInsets) safeAreaInsets {
+    return NSEdgeInsetsMake(0, 0, 0, 0);
+}
+
 - (id) description {
     return [NSString stringWithFormat: @"< %@ - frame %@, visible %@ >",
                                        [super description],

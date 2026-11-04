@@ -47,6 +47,8 @@ typedef NSString *NSDeviceDescriptionKey;
 
 - (CGFloat) userSpaceScaleFactor;
 @property (readonly) CGFloat backingScaleFactor;
+// What a notch or a camera housing covers, in points.
+@property (readonly) NSEdgeInsets safeAreaInsets;
 
 @end
 

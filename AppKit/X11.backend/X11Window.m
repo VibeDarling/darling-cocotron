@@ -18,6 +18,7 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE. */
 
+#import "X11Touch.h"
 #import <AppKit/NSMenuWindow.h>
 #import <AppKit/NSPanel.h>
 #import <AppKit/NSPopUpWindow.h>
@@ -495,6 +496,7 @@ static NSData *makeWindowIcon() {
                 SubstructureRedirectMask;
 
     XSelectInput(_display, _window, mask);
+    X11TouchSelectWindow(_display, _window);
 
     // Click-through windows (overlays, tooltips) must not take the pointer from
     // the window below. Only a change needs a request.
