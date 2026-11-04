@@ -67,6 +67,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) scrollWheel: (NSEvent *) event NS_SWIFT_NAME(scrollWheel(with:));
 - (void) magnifyWithEvent: (NSEvent *) event;
 - (void) rotateWithEvent: (NSEvent *) event;
+- (void) touchesBeganWithEvent: (NSEvent *) event;
+- (void) touchesMovedWithEvent: (NSEvent *) event;
+- (void) touchesEndedWithEvent: (NSEvent *) event;
+- (void) touchesCancelledWithEvent: (NSEvent *) event;
 
 - (void) mouseUp: (NSEvent *) event NS_SWIFT_NAME(mouseUp(with:));
 - (void) mouseDown: (NSEvent *) event NS_SWIFT_NAME(mouseDown(with:));
