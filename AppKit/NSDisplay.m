@@ -21,6 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSErrors.h>
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSColorList.h>
+#import <dispatch/dispatch.h>
 
 // Handling this source is what makes -[NSRunLoop runMode:beforeDate:] return
 // for a posted event; timers alone never end it.
@@ -44,7 +45,14 @@ static void eventPosted(void *info) {}
 }
 
 + (NSDisplay *) currentDisplay {
-    return NSThreadSharedInstance(@"NSDisplay");
+    // One display per process: a backend's sources run on the main thread's run loop, so a
+    // display made for another thread would share them and be torn down with that thread.
+    static NSDisplay *display;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        display = [[[NSThread mainThread] sharedObjectForClassName: @"NSDisplay"] retain];
+    });
+    return display;
 }
 
 - (instancetype) init {
