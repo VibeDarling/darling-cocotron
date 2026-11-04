@@ -48,6 +48,19 @@ const CGSize CGSizeZero = {0, 0};
 // Is this value the same as Apple CG?
 const CGRect CGRectInfinite = {{0, 0}, {INFINITY, INFINITY}};
 
+/* The same rectangle with a non-negative width and height. */
+CGRect CGRectStandardize(CGRect rect) {
+    if (rect.size.width < 0) {
+        rect.origin.x += rect.size.width;
+        rect.size.width = -rect.size.width;
+    }
+    if (rect.size.height < 0) {
+        rect.origin.y += rect.size.height;
+        rect.size.height = -rect.size.height;
+    }
+    return rect;
+}
+
 CGRect CGRectIntersection(CGRect rect0, CGRect rect1) {
     CGRect result;
 

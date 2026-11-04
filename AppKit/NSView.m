@@ -2725,13 +2725,10 @@ static NSView *viewBeingPrinted = nil;
 
             CGContextClipToRect(graphicsPort, rect);
 
-            const NSRect *rects;
-            NSInteger rectsCount;
-            [self getRectsBeingDrawn: &rects count: &rectsCount];
-            // If there is only one rect, it's the visible rect - it's already
-            // clipped
-            if (rectsCount > 1)
-                CGContextClipToRects(graphicsPort, rects, rectsCount);
+            // No clip to the separate rects being drawn: Onyx2D clips to a
+            // path's bounding box, so a view clipped to several rects paints
+            // all of rect anyway.  Its subviews, clipped to their own (fewer)
+            // rects, would then leave holes in what it painted.
 
             // [_window dirtyRect:[self convertRect:rect toView:nil]];
             if ([NSGraphicsContext inQuartzDebugMode]) {

@@ -94,6 +94,7 @@ COREGRAPHICS_EXPORT bool CGRectIsInfinite(CGRect rect);
 COREGRAPHICS_EXPORT bool CGRectIsNull(CGRect rect);
 
 COREGRAPHICS_EXPORT CGRect CGRectUnion(CGRect a, CGRect b);
+COREGRAPHICS_EXPORT CGRect CGRectStandardize(CGRect rect);
 COREGRAPHICS_EXPORT CGRect CGRectIntersection(CGRect a, CGRect b);
 COREGRAPHICS_EXPORT CGRect CGRectIntegral(CGRect rect);
 
