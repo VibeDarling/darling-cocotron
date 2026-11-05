@@ -39,7 +39,7 @@
         _destination = [[target delegate] retain];
         _source = source;
         _types = [types copy];
-        _sourceOperations = operations;
+        _enterOperations = _sourceOperations = operations;
         static int nextSequence = 0;
         _sequence = ++nextSequence;
     }
@@ -83,6 +83,11 @@
     // renegotiate it.
     if (_dropAnnounced)
         return NSDragOperationNone;
+
+    // A source that is not this backend carries no per-action properties, so the
+    // action it requests here is the one thing that tells what it allows. It is
+    // the current request, not an accumulation: the user can change it mid-drag.
+    _sourceOperations = _enterOperations | actions;
 
     id receiver = [_targetWindow isMapped] ? [_destination _receiverForDragSession: self]
                                      : nil;
