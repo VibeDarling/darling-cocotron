@@ -107,6 +107,29 @@ typedef NS_OPTIONS(unsigned int, NSCellAppleFlags2) {
 
 NSNotificationName NSControlTintDidChangeNotification = @"NSControlTintDidChangeNotification";
 
+/* Nib cell flags keep the original macOS alignment numbering (right 1,
+ * center 2) on every architecture; NSTextAlignment swaps the two where the
+ * ABI uses iOS values. */
+static NSTextAlignment NSCellAlignmentFromArchive(unsigned value) {
+#if TARGET_ABI_USES_IOS_VALUES
+    if (value == 1)
+        return NSTextAlignmentRight;
+    if (value == 2)
+        return NSTextAlignmentCenter;
+#endif
+    return (NSTextAlignment) value;
+}
+
+static unsigned NSCellAlignmentToArchive(NSTextAlignment alignment) {
+#if TARGET_ABI_USES_IOS_VALUES
+    if (alignment == NSTextAlignmentRight)
+        return 1;
+    if (alignment == NSTextAlignmentCenter)
+        return 2;
+#endif
+    return (unsigned) alignment;
+}
+
 @implementation NSCell
 
 @synthesize identifier = _identifier;
@@ -185,7 +208,7 @@ NSNotificationName NSControlTintDidChangeNotification = @"NSControlTintDidChange
 
     // importsGraph  = (flags2 & 0x10000000)
 
-    _textAlignment = (flags2 & NSCellAppleFlag2TextAlignmentMask) >> NSCellAppleFlag2TextAlignmentShift;
+    _textAlignment = NSCellAlignmentFromArchive((flags2 & NSCellAppleFlag2TextAlignmentMask) >> NSCellAppleFlag2TextAlignmentShift);
 
     // layoutDirRTL  = (flags2 & 0x01000000)
     _writingDirection = NSWritingDirectionNatural;
@@ -241,7 +264,7 @@ NSNotificationName NSControlTintDidChangeNotification = @"NSControlTintDidChange
     if (_isRichText)
         *flags2 |= NSCellAppleFlag2RichText;
 
-    *flags2 |= (_textAlignment << NSCellAppleFlag2TextAlignmentShift) & NSCellAppleFlag2TextAlignmentMask;
+    *flags2 |= (NSCellAlignmentToArchive(_textAlignment) << NSCellAppleFlag2TextAlignmentShift) & NSCellAppleFlag2TextAlignmentMask;
 
     if (_refusesFirstResponder)
         *flags2 |= NSCellAppleFlag2RefusesFirstResponder;
