@@ -472,6 +472,15 @@ static NSData *makeWindowIcon() {
     }
 }
 
+// Restacking and making a window key only map it while AppKit shows it:
+// -[NSWindow makeKeyWindow] on an ordered-out window must not bring it back.
+// -[NSWindow orderWindow:relativeTo:] marks the window visible before it
+// restacks, so ordering a window in still maps it.
+- (void) ensureMappedIfVisible {
+    if (_delegate == nil || [_delegate isVisible])
+        [self ensureMapped];
+}
+
 - (BOOL) isMapped {
     return _mapped;
 }
@@ -733,7 +742,7 @@ static NSData *makeWindowIcon() {
 
 - (void) placeAboveWindow: (NSInteger) otherNumber {
     X11Window *other = [X11Window windowWithWindowNumber: otherNumber];
-    [self ensureMapped];
+    [self ensureMappedIfVisible];
 
     if (!other) {
         XRaiseWindow(_display, _window);
@@ -745,7 +754,7 @@ static NSData *makeWindowIcon() {
 
 - (void) placeBelowWindow: (NSInteger) otherNumber {
     X11Window *other = [X11Window windowWithWindowNumber: otherNumber];
-    [self ensureMapped];
+    [self ensureMappedIfVisible];
 
     if (!other) {
         XLowerWindow(_display, _window);
@@ -839,7 +848,7 @@ static BOOL windowManagerIsRunning(Display *display) {
 }
 
 - (void) makeKey {
-    [self ensureMapped];
+    [self ensureMappedIfVisible];
     XRaiseWindow(_display, _window);
     // FocusIn activates the NSWindow, which makes it key again and ends up here.
     // Requesting focus from that path would answer every (possibly stale) FocusIn
