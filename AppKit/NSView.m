@@ -1368,10 +1368,13 @@ static void alignAxis(CGFloat *origin, CGFloat *length, NSAlignmentOptions optio
     else {
         [view removeFromSuperview];
 
-        [view _setWindow: _window];
-
+        // Superview first, then window: -viewWillMoveToWindow: and
+        // -viewDidMoveToWindow then run with -superview and the next
+        // responder (which -addSubview: sets) already in place.
         [view viewWillMoveToSuperview: self];
         [view _setSuperview: self];
+
+        [view _setWindow: _window];
     }
 
     if (index == NSNotFound)
