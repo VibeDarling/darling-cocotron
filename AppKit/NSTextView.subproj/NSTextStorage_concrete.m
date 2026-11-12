@@ -32,18 +32,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         // A mutable copy, as -initWithString: keeps: the decoded string is immutable, and edits change it in place.
         NSString *decoded = [keyed decodeObjectForKey: @"NSString"];
         _string = decoded ? [decoded mutableCopy] : [NSMutableString new];
-        _rangeToAttributes = NSCreateRangeToCopiedObjectEntries(0);
-        NSRangeEntryInsert(_rangeToAttributes, NSMakeRange(0, [_string length]),
+        _rangeToAttributes = AKCreateRangeToCopiedObjectEntries(0);
+        AKRangeEntryInsert(_rangeToAttributes, NSMakeRange(0, [_string length]),
                            [NSDictionary dictionary]);
     } else {
         // Typedstream: the string, then "iI" runs of (1-based attribute dictionary number, length) covering it; a
         // dictionary is archived right after the first run that uses it.
         NSString *decoded = [coder decodeObject];
         _string = decoded ? [decoded mutableCopy] : [NSMutableString new];
-        _rangeToAttributes = NSCreateRangeToCopiedObjectEntries(0);
+        _rangeToAttributes = AKCreateRangeToCopiedObjectEntries(0);
         NSUInteger length = [_string length], location = 0;
         if (length == 0)
-            NSRangeEntryInsert(_rangeToAttributes, NSMakeRange(0, 0), [NSDictionary dictionary]);
+            AKRangeEntryInsert(_rangeToAttributes, NSMakeRange(0, 0), [NSDictionary dictionary]);
         NSMutableArray *dictionaries = [NSMutableArray array];
         while (location < length) {
             int number;
@@ -58,7 +58,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                 [NSException raise: NSInvalidArgumentException
                             format: @"-[%@ %s]: bad attribute run %d length %u at %lu of %lu", [self class],
                                     sel_getName(_cmd), number, runLength, (unsigned long) location, (unsigned long) length];
-            NSRangeEntryInsert(_rangeToAttributes, NSMakeRange(location, runLength), dictionaries[number - 1]);
+            AKRangeEntryInsert(_rangeToAttributes, NSMakeRange(location, runLength), dictionaries[number - 1]);
             location += runLength;
         }
     }
@@ -68,8 +68,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - initWithString: (NSString *) string {
     [super initWithString: string];
     _string = [string mutableCopy];
-    _rangeToAttributes = NSCreateRangeToCopiedObjectEntries(0);
-    NSRangeEntryInsert(_rangeToAttributes, NSMakeRange(0, [_string length]),
+    _rangeToAttributes = AKCreateRangeToCopiedObjectEntries(0);
+    AKRangeEntryInsert(_rangeToAttributes, NSMakeRange(0, [_string length]),
                        [NSDictionary dictionary]);
     return self;
 }
@@ -88,7 +88,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 - (void) dealloc {
     [_string release];
-    NSFreeRangeEntries(_rangeToAttributes);
+    AKFreeRangeEntries(_rangeToAttributes);
     [super dealloc];
 }
 
@@ -104,7 +104,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     NSAssert2(location <= [self length], @"index %lu beyond length %lu", (unsigned long) location,
               (unsigned long) [self length]);
 
-    if ((result = NSRangeEntryAtIndex(_rangeToAttributes, location,
+    if ((result = AKRangeEntryAtIndex(_rangeToAttributes, location,
                                       effectiveRangep)) == nil)
         result = [NSDictionary dictionary];
 
@@ -122,15 +122,13 @@ replaceCharactersInRangeWithString(NSTextStorage_concrete *self, NSRange range,
 
     [self->_string replaceCharactersInRange: range withString: string];
 
-    // NSRangeEntriesDump(self->_rangeToAttributes);
-
-    NSRangeEntriesExpandAndWipe(self->_rangeToAttributes, range, delta);
-    if (NSCountRangeEntries(self->_rangeToAttributes) == 0)
-        NSRangeEntryInsert(self->_rangeToAttributes,
+    AKRangeEntriesExpandAndWipe(self->_rangeToAttributes, range, delta);
+    if (AKCountRangeEntries(self->_rangeToAttributes) == 0)
+        AKRangeEntryInsert(self->_rangeToAttributes,
                            NSMakeRange(0, [self->_string length]),
                            [NSDictionary dictionary]);
 
-    NSRangeEntriesVerify(self->_rangeToAttributes, [self length]);
+    AKRangeEntriesVerify(self->_rangeToAttributes, [self length]);
 
     return delta;
 }
@@ -142,14 +140,14 @@ static inline void setAttributes(NSTextStorage_concrete *self,
         attributes = [NSDictionary dictionary];
 
     if ([self->_string length] == 0) {
-        NSResetRangeEntries(self->_rangeToAttributes);
-        NSRangeEntryInsert(self->_rangeToAttributes, range, attributes);
+        AKResetRangeEntries(self->_rangeToAttributes);
+        AKRangeEntryInsert(self->_rangeToAttributes, range, attributes);
     } else if (range.length > 0) {
-        NSRangeEntriesDivideAndConquer(self->_rangeToAttributes, range);
-        NSRangeEntryInsert(self->_rangeToAttributes, range, attributes);
+        AKRangeEntriesDivideAndConquer(self->_rangeToAttributes, range);
+        AKRangeEntryInsert(self->_rangeToAttributes, range, attributes);
     }
 
-    NSRangeEntriesVerify(self->_rangeToAttributes, [self length]);
+    AKRangeEntriesVerify(self->_rangeToAttributes, [self length]);
 }
 
 static inline void
@@ -176,7 +174,7 @@ replaceCharactersInRangeWithAttributedString(NSTextStorage_concrete *self,
 
     if (limit == 0) {
         // That will just try to merge attributes at the location when possible
-        NSRangeEntryInsert(self->_rangeToAttributes,
+        AKRangeEntryInsert(self->_rangeToAttributes,
                            NSMakeRange(replaced.location, 0), nil);
     }
 

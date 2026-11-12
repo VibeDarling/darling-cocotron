@@ -38,7 +38,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <ApplicationServices/ApplicationServices.h>
 #import <Foundation/NSKeyedArchiver.h>
 #import <Foundation/NSRaiseException.h>
-#import <Foundation/NSRangeEntries.h>
+#import "AKRangeEntries.h"
 
 #import "NSBidiHelper.h"
 #import "NSRulerMarker+NSTextExtensions.h"
@@ -66,7 +66,7 @@ typedef struct {
 static inline NSGlyphFragment *fragmentForGlyphRange(NSLayoutManager *self,
                                                      NSRange range)
 {
-    NSGlyphFragment *result = NSRangeEntryAtRange(self->_glyphFragments, range);
+    NSGlyphFragment *result = AKRangeEntryAtRange(self->_glyphFragments, range);
 
     if (result == NULL) {
         // That can happens in normal cases, so we don't want to crash or log
@@ -84,7 +84,7 @@ static inline NSGlyphFragment *fragmentAtGlyphIndex(NSLayoutManager *self,
                                                     NSRange *effectiveRange)
 {
     NSGlyphFragment *result =
-            NSRangeEntryAtIndex(self->_glyphFragments, index, effectiveRange);
+            AKRangeEntryAtIndex(self->_glyphFragments, index, effectiveRange);
 
     if (result == NULL) {
         // That can happens in normal cases, so we don't want to crash or log
@@ -106,8 +106,8 @@ static inline NSGlyphFragment *fragmentAtGlyphIndex(NSLayoutManager *self,
                 autorelease];
         [_textStorage addLayoutManager: self];
 
-        _rangeToTemporaryAttributes = NSCreateRangeToCopiedObjectEntries(0);
-        NSRangeEntryInsert(_rangeToTemporaryAttributes,
+        _rangeToTemporaryAttributes = AKCreateRangeToCopiedObjectEntries(0);
+        AKRangeEntryInsert(_rangeToTemporaryAttributes,
                            NSMakeRange(0, [_textStorage length]),
                            [NSDictionary dictionary]);
 
@@ -123,8 +123,8 @@ static inline NSGlyphFragment *fragmentAtGlyphIndex(NSLayoutManager *self,
                 [container setLayoutManager: self];
             }
         }
-        _glyphFragments = NSCreateRangeToOwnedPointerEntries(2);
-        _invalidFragments = NSCreateRangeToOwnedPointerEntries(2);
+        _glyphFragments = AKCreateRangeToOwnedPointerEntries(2);
+        _invalidFragments = AKCreateRangeToOwnedPointerEntries(2);
         _layoutInvalid = YES;
         _defaultAttachmentScaling = NSImageScaleNone;
         _rectCacheCapacity = 16;
@@ -143,8 +143,8 @@ static inline NSGlyphFragment *fragmentAtGlyphIndex(NSLayoutManager *self,
     _typesetter = [NSTypesetter new];
     _glyphGenerator = [[NSGlyphGenerator sharedGlyphGenerator] retain];
     _textContainers = [NSMutableArray new];
-    _glyphFragments = NSCreateRangeToOwnedPointerEntries(2);
-    _invalidFragments = NSCreateRangeToOwnedPointerEntries(2);
+    _glyphFragments = AKCreateRangeToOwnedPointerEntries(2);
+    _invalidFragments = AKCreateRangeToOwnedPointerEntries(2);
     _layoutInvalid = YES;
     _rectCacheCapacity = 16;
     _rectCacheCount = 0;
@@ -153,14 +153,14 @@ static inline NSGlyphFragment *fragmentAtGlyphIndex(NSLayoutManager *self,
 }
 
 - (void) dealloc {
-    NSFreeRangeEntries(_rangeToTemporaryAttributes);
+    AKFreeRangeEntries(_rangeToTemporaryAttributes);
     _textStorage = nil;
     [_typesetter release];
     [_glyphGenerator release];
     [_textContainers release];
     [_textFont release];
-    NSFreeRangeEntries(_glyphFragments);
-    NSFreeRangeEntries(_invalidFragments);
+    AKFreeRangeEntries(_glyphFragments);
+    AKFreeRangeEntries(_invalidFragments);
     NSZoneFree(NULL, _rectCache);
     [super dealloc];
 }
@@ -248,10 +248,10 @@ static inline NSGlyphFragment *fragmentAtGlyphIndex(NSLayoutManager *self,
         [textView _setTextStorage: textStorage];
     }
 
-    NSFreeRangeEntries(_rangeToTemporaryAttributes);
+    AKFreeRangeEntries(_rangeToTemporaryAttributes);
 
-    _rangeToTemporaryAttributes = NSCreateRangeToCopiedObjectEntries(0);
-    NSRangeEntryInsert(_rangeToTemporaryAttributes,
+    _rangeToTemporaryAttributes = AKCreateRangeToCopiedObjectEntries(0);
+    AKRangeEntryInsert(_rangeToTemporaryAttributes,
                        NSMakeRange(0, [_textStorage length]),
                        [NSDictionary dictionary]);
 
@@ -409,8 +409,8 @@ static inline NSGlyphFragment *fragmentAtGlyphIndex(NSLayoutManager *self,
 }
 
 - (void) _rollbackLatestFragment {
-    NSRangeEntriesRemoveEntryAtIndex(_glyphFragments,
-                                     NSCountRangeEntries(_glyphFragments) - 1);
+    AKRangeEntriesRemoveEntryAtIndex(_glyphFragments,
+                                     AKCountRangeEntries(_glyphFragments) - 1);
 }
 
 - (NSFont *) _fontForGlyphRange: (NSRange) glyphRange {
@@ -688,14 +688,14 @@ static inline NSGlyphFragment *fragmentAtGlyphIndex(NSLayoutManager *self,
 
     // Glyph fragments are runs sorted by glyph index; consecutive runs sharing a
     // line fragment rect form one line.
-    NSRangeEnumerator state = NSRangeEntryEnumerator(_glyphFragments);
+    AKRangeEnumerator state = AKRangeEntryEnumerator(_glyphFragments);
     NSRange range, lineRange = NSMakeRange(0, 0);
     NSGlyphFragment *fragment, *line = NULL;
     NSRect usedRect = NSZeroRect;
     BOOL more, stop = NO;
 
     do {
-        more = NSNextRangeEnumeratorEntry(&state, &range, (void **) &fragment);
+        more = AKNextRangeEnumeratorEntry(&state, &range, (void **) &fragment);
         if (line != NULL && (!more || !NSEqualRects(fragment->rect, line->rect) ||
                              fragment->container != line->container))
         {
@@ -737,7 +737,7 @@ static inline NSGlyphFragment *fragmentAtGlyphIndex(NSLayoutManager *self,
         NSLog(@"layout is invalid");
 #endif
 
-        NSResetRangeEntries(_glyphFragments);
+        AKResetRangeEntries(_glyphFragments);
         [_typesetter layoutGlyphsInLayoutManager: self
                             startingAtGlyphIndex: 0
                         maxNumberOfLineFragments: 0
@@ -809,11 +809,11 @@ static inline NSGlyphFragment *fragmentAtGlyphIndex(NSLayoutManager *self,
 
         NSRect result = NSZeroRect;
         BOOL assignFirst = YES;
-        NSRangeEnumerator state = NSRangeEntryEnumerator(_glyphFragments);
+        AKRangeEnumerator state = AKRangeEntryEnumerator(_glyphFragments);
         NSRange range;
         NSGlyphFragment *fragment;
 
-        while (NSNextRangeEnumeratorEntry(&state, &range,
+        while (AKNextRangeEnumeratorEntry(&state, &range,
                                           (void **) &fragment)) {
             if (fragment->container == container) {
                 NSRect rect = fragment->usedRect;
@@ -919,7 +919,7 @@ static inline NSGlyphFragment *fragmentAtGlyphIndex(NSLayoutManager *self,
 #endif
 
     insert->leftToRight = (bidiLevel & 1) == 0;
-    NSRangeEntryInsert(_glyphFragments, glyphRange, insert);
+    AKRangeEntryInsert(_glyphFragments, glyphRange, insert);
 }
 
 - (void) setLineFragmentRect: (NSRect) rect
@@ -1026,7 +1026,7 @@ static inline NSGlyphFragment *fragmentAtGlyphIndex(NSLayoutManager *self,
      else
       actualRange=NSUnionRange(actualRange,effectiveRange);
 
-     NSRangeEntryInsert(_invalidFragments,effectiveRange,invalid);
+     AKRangeEntryInsert(_invalidFragments,effectiveRange,invalid);
     }
    }
 #endif
@@ -1145,7 +1145,7 @@ static inline NSGlyphFragment *fragmentAtGlyphIndex(NSLayoutManager *self,
         // Update the temporary attributes ranges according to the changes
         NSRange oldRange = range;
         oldRange.length -= changeInLength;
-        NSRangeEntriesExpandAndWipe(_rangeToTemporaryAttributes, oldRange,
+        AKRangeEntriesExpandAndWipe(_rangeToTemporaryAttributes, oldRange,
                                     changeInLength);
         // And clear the attributes for the new part
         if (range.length) {
@@ -1154,7 +1154,7 @@ static inline NSGlyphFragment *fragmentAtGlyphIndex(NSLayoutManager *self,
 #endif
             [self setTemporaryAttributes: nil forCharacterRange: range];
         }
-        NSRangeEntriesVerify(_rangeToTemporaryAttributes,
+        AKRangeEntriesVerify(_rangeToTemporaryAttributes,
                              [_textStorage length]);
     }
 }
@@ -1208,7 +1208,7 @@ static inline NSGlyphFragment *fragmentAtGlyphIndex(NSLayoutManager *self,
             NSMaxRange([self glyphRangeForTextContainer: container]);
     NSRange range;
     NSGlyphFragment *fragment;
-    NSRangeEnumerator state;
+    AKRangeEnumerator state;
     // Fragments are in glyph order, but bidi lines are reordered visually:
     // the point is left of its line only if it is left of every fragment.
     BOOL leftOfLine = YES;
@@ -1219,9 +1219,9 @@ static inline NSGlyphFragment *fragmentAtGlyphIndex(NSLayoutManager *self,
 
     *fraction = 0;
 
-    state = NSRangeEntryEnumerator(_glyphFragments);
+    state = AKRangeEntryEnumerator(_glyphFragments);
 
-    while (NSNextRangeEnumeratorEntry(&state, &range, (void **) &fragment)) {
+    while (AKNextRangeEnumeratorEntry(&state, &range, (void **) &fragment)) {
         if (point.y < NSMinY(fragment->rect)) {
             // Otherwise a click in the line's left padding would return
             // the end of the line.
@@ -1384,11 +1384,11 @@ static inline NSGlyphFragment *fragmentAtGlyphIndex(NSLayoutManager *self,
 
     NSRange result = NSMakeRange(0, 0);
     BOOL assignFirst = YES;
-    NSRangeEnumerator state = NSRangeEntryEnumerator(_glyphFragments);
+    AKRangeEnumerator state = AKRangeEntryEnumerator(_glyphFragments);
     NSRange range;
     NSGlyphFragment *fragment;
 
-    while (NSNextRangeEnumeratorEntry(&state, &range, (void **) &fragment)) {
+    while (AKNextRangeEnumeratorEntry(&state, &range, (void **) &fragment)) {
         if (fragment->container == container) {
             if (assignFirst) {
                 result = range;
@@ -1442,11 +1442,11 @@ static inline NSGlyphFragment *fragmentAtGlyphIndex(NSLayoutManager *self,
 
     [self validateGlyphsAndLayoutForContainer: container]; {
         NSRange result = NSMakeRange(NSNotFound, 0);
-        NSRangeEnumerator state = NSRangeEntryEnumerator(_glyphFragments);
+        AKRangeEnumerator state = AKRangeEntryEnumerator(_glyphFragments);
         NSRange range;
         NSGlyphFragment *fragment;
 
-        while (NSNextRangeEnumeratorEntry(&state, &range,
+        while (AKNextRangeEnumeratorEntry(&state, &range,
                                           (void **) &fragment)) {
             if (fragment->container == container) {
                 NSRect check = fragment->rect;
@@ -2586,7 +2586,7 @@ static inline void _appendRectToCache(NSLayoutManager *self, NSRect rect) {
     }
     CGFloat usedHeight = [self usedRectForTextContainer: container].size.height;
 
-    NSRangeEnumerator state = NSRangeEntryEnumerator(_glyphFragments);
+    AKRangeEnumerator state = AKRangeEntryEnumerator(_glyphFragments);
     NSRange range;
     NSGlyphFragment *fragment;
 
@@ -2599,7 +2599,7 @@ static inline void _appendRectToCache(NSLayoutManager *self, NSRect rect) {
 
     // Iterate over the glyph fragments (which identify runs of common
     // attributes)
-    while (NSNextRangeEnumeratorEntry(&state, &range, (void **) &fragment)) {
+    while (AKNextRangeEnumeratorEntry(&state, &range, (void **) &fragment)) {
 
 #if DEBUG_LM_DRAWGLYPHSFORGLYPHRANGE
         NSLog(@"    looking at range: %@", NSStringFromRange(range));
@@ -2630,7 +2630,7 @@ static inline void _appendRectToCache(NSLayoutManager *self, NSRect rect) {
             BOOL tempAttributesInRange = NO;
             NSUInteger tempAttributesIndex = NSNotFound;
 
-            if (NSCountRangeEntries(_rangeToTemporaryAttributes) > 0) {
+            if (AKCountRangeEntries(_rangeToTemporaryAttributes) > 0) {
                 // But we do have to worry about the temporary attributes so
                 // let's do a quick check with the character range and find out
                 // if we have any temp attributes to be concerned about
@@ -2638,7 +2638,7 @@ static inline void _appendRectToCache(NSLayoutManager *self, NSRect rect) {
                 NSRange tempRange = NSMakeRange(0, 0);
                 while (tempAttributesInRange == NO &&
                        index < NSMaxRange(characterRange)) {
-                    if (NSRangeEntryAtIndex(_rangeToTemporaryAttributes, index,
+                    if (AKRangeEntryAtIndex(_rangeToTemporaryAttributes, index,
                                             &tempRange) != nil) {
                         tempAttributesInRange = YES;
                         tempAttributesIndex = index;
@@ -2678,7 +2678,7 @@ static inline void _appendRectToCache(NSLayoutManager *self, NSRect rect) {
                     // current fragment
                     NSRange remainingRange = NSMakeRange(
                             charIndex, NSMaxRange(characterRange) - charIndex);
-                    if (NSRangeEntryAtIndex(_rangeToTemporaryAttributes,
+                    if (AKRangeEntryAtIndex(_rangeToTemporaryAttributes,
                                             charIndex, &tempRange) != nil &&
                         NSIntersectionRange(remainingRange, tempRange).length >
                                 0) {
@@ -2796,7 +2796,7 @@ static inline void _appendRectToCache(NSLayoutManager *self, NSRect rect) {
                           actualCharacterRange: NULL];
 
     fragment =
-            NSRangeEntryAtIndex(self->_glyphFragments, result.location, NULL);
+            AKRangeEntryAtIndex(self->_glyphFragments, result.location, NULL);
     if (fragment == NULL)
         return result;
 
@@ -2805,7 +2805,7 @@ static inline void _appendRectToCache(NSLayoutManager *self, NSRect rect) {
     i = result.location;
     j = result.location;
     while ((fragment =
-                    NSRangeEntryAtIndex(self->_glyphFragments, i - 1, NULL))) {
+                    AKRangeEntryAtIndex(self->_glyphFragments, i - 1, NULL))) {
         if (fragment->location.y != origin)
             break;
         result.location = i;
@@ -2813,7 +2813,7 @@ static inline void _appendRectToCache(NSLayoutManager *self, NSRect rect) {
     }
 
     result.location = i;
-    while ((fragment = NSRangeEntryAtIndex(self->_glyphFragments, j, NULL))) {
+    while ((fragment = AKRangeEntryAtIndex(self->_glyphFragments, j, NULL))) {
         if (fragment->location.y != origin)
             break;
         j++;
@@ -2851,7 +2851,7 @@ static inline void _appendRectToCache(NSLayoutManager *self, NSRect rect) {
                          [_textStorage length]);
     }
 
-    if ((result = NSRangeEntryAtIndex(_rangeToTemporaryAttributes, charIndex,
+    if ((result = AKRangeEntryAtIndex(_rangeToTemporaryAttributes, charIndex,
                                       effectiveCharRange)) == nil) {
         result = [NSDictionary dictionary];
     }
@@ -2871,17 +2871,17 @@ static inline void _appendRectToCache(NSLayoutManager *self, NSRect rect) {
     }
 
     if ([_textStorage length] == 0) {
-        NSResetRangeEntries(_rangeToTemporaryAttributes);
+        AKResetRangeEntries(_rangeToTemporaryAttributes);
     } else if (charRange.length > 0) {
         // Make sure we don't go beyond the actual text storage range
         NSRange intersect = NSIntersectionRange(
                 NSMakeRange(0, [_textStorage length]), charRange);
 
-        NSRangeEntriesDivideAndConquer(_rangeToTemporaryAttributes, intersect);
-        NSRangeEntryInsert(_rangeToTemporaryAttributes, intersect, attrs);
+        AKRangeEntriesDivideAndConquer(_rangeToTemporaryAttributes, intersect);
+        AKRangeEntryInsert(_rangeToTemporaryAttributes, intersect, attrs);
     }
 
-    NSRangeEntriesVerify(_rangeToTemporaryAttributes, [_textStorage length]);
+    AKRangeEntriesVerify(_rangeToTemporaryAttributes, [_textStorage length]);
 
     [self invalidateDisplayForCharacterRange: charRange];
 }

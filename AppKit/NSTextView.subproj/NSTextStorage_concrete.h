@@ -17,12 +17,12 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
-#import <Foundation/NSRangeEntries.h>
+#import "AKRangeEntries.h"
 #import <AppKit/NSTextStorage.h>
 
 @interface NSTextStorage_concrete : NSTextStorage {
     NSMutableString *_string;
-    NSRangeEntries *_rangeToAttributes;
+    AKRangeEntries *_rangeToAttributes;
 }
 
 @end

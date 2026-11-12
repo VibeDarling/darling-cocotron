@@ -47,10 +47,10 @@ typedef NS_ENUM(NSInteger, NSTextLayoutOrientation) {
 
     NSMutableArray *_textContainers;
 
-    struct NSRangeEntries *_glyphFragments;
-    struct NSRangeEntries *_invalidFragments;
+    struct AKRangeEntries *_glyphFragments;
+    struct AKRangeEntries *_invalidFragments;
 
-    struct NSRangeEntries *_rangeToTemporaryAttributes;
+    struct AKRangeEntries *_rangeToTemporaryAttributes;
 
     BOOL _layoutInvalid;
     BOOL _allowsNonContiguousLayout;
