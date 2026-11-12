@@ -28,6 +28,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSMenuItem.h>
 #import <AppKit/NSNibLoading.h>
 #import <AppKit/NSRaise.h>
+#import <AppKit/AKThreadShared.h>
 
 @implementation NSFontManager
 
@@ -40,7 +41,7 @@ static Class _fontPanelFactory;
     if (_fontManagerFactory != Nil)
         name = NSStringFromClass(_fontManagerFactory);
 
-    return NSThreadSharedInstance(name);
+    return AKThreadSharedInstance(name);
 }
 
 + (void) setFontManagerFactory: (Class) value {

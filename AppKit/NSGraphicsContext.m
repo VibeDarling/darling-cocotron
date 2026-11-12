@@ -22,6 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <CoreGraphics/CoreGraphicsPrivate.h>
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSWindow-Private.h>
+#import <AppKit/AKThreadShared.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <QuartzCore/CIContext.h>
 #import <Onyx2D/O2Context.h>
@@ -155,7 +156,7 @@ NSString *const NSGraphicsContextPDFFormat = @"NSGraphicsContextPDFFormat";
 }
 
 static NSMutableArray *_contextStack() {
-    NSMutableDictionary *shared = [NSCurrentThread() sharedDictionary];
+    NSMutableDictionary *shared = AKThreadSharedDictionary();
     NSMutableArray *stack = [shared objectForKey: @"NSGraphicsContext.stack"];
 
     if (stack == nil) {
@@ -167,7 +168,7 @@ static NSMutableArray *_contextStack() {
 }
 
 static NSGraphicsContext *_currentContext() {
-    NSMutableDictionary *shared = [NSCurrentThread() sharedDictionary];
+    NSMutableDictionary *shared = AKThreadSharedDictionary();
     id result = [shared objectForKey: @"NSGraphicsContext"];
 
     if (result == [NSNull null])
@@ -197,7 +198,7 @@ NSMutableArray *NSCurrentFocusStack() {
 }
 
 + (void) setCurrentContext: (NSGraphicsContext *) context {
-    NSMutableDictionary *shared = [NSCurrentThread() sharedDictionary];
+    NSMutableDictionary *shared = AKThreadSharedDictionary();
 
     if (context == nil)
         [shared setObject: [NSNull null] forKey: @"NSGraphicsContext"];

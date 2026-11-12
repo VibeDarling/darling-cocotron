@@ -25,6 +25,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSTextContainer.h>
 #import <AppKit/NSTextStorage.h>
 #import <AppKit/NSView.h>
+#import <AppKit/AKThreadShared.h>
 #import <ApplicationServices/ApplicationServices.h>
 
 const CGFloat NSStringDrawerLargeDimension = 1000000.;
@@ -66,7 +67,7 @@ const CGFloat NSStringDrawerLargeDimension = 1000000.;
 @implementation NSStringDrawer
 
 + (NSStringDrawer *) sharedStringDrawer {
-    return NSThreadSharedInstance(@"NSStringDrawer");
+    return AKThreadSharedInstance(@"NSStringDrawer");
 }
 
 - (NSStringDrawer *) init {

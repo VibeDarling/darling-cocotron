@@ -21,6 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSErrors.h>
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSColorList.h>
+#import <AppKit/AKThreadShared.h>
 
 // Handling this source is what makes -[NSRunLoop runMode:beforeDate:] return
 // for a posted event; timers alone never end it.
@@ -44,7 +45,7 @@ static void eventPosted(void *info) {}
 }
 
 + (NSDisplay *) currentDisplay {
-    return NSThreadSharedInstance(@"NSDisplay");
+    return AKThreadSharedInstance(@"NSDisplay");
 }
 
 - (instancetype) init {
