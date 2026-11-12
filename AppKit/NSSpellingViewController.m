@@ -17,13 +17,13 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import "NSSpellingViewController.h"
+#import <AppKit/AKSpellEngines.h>
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSMenuItem.h>
 #import <AppKit/NSPopUpButton.h>
 #import <AppKit/NSSpellChecker.h>
 #import <AppKit/NSTableView.h>
 #import <AppKit/NSWindow.h>
-#import <Foundation/NSSpellEngine.h>
 
 @class NSTableColumn;
 
@@ -38,8 +38,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return [[NSLocale currentLocale] localeIdentifier];
 }
 
-- (NSSpellEngine *) currentSpellEngine {
-    return [[NSSpellEngine allSpellEngines] objectAtIndex: 0];
+- (id<AKSpellEngine>) currentSpellEngine {
+    return [AKSpellEngines() firstObject];
 }
 
 - (NSString *) currentWord {
