@@ -20,6 +20,7 @@
 #import "WaylandFileURLs.h"
 #import "WaylandDropSession.h"
 #import "WaylandLibrary.h"
+#include <elfcalls.h>
 #import "WaylandProtocol.h"
 #include <unistd.h>
 #include <fcntl.h>
@@ -354,7 +355,7 @@ void WaylandSendData(WaylandDisplay *display, NSData *data, int fd) {
         if (opcode == WP_DATA_DEVICE_EV_OFFER) {
             struct wl_proxy *offer = (struct wl_proxy *) args[0].o;
             [_offers setObject: [NSMutableArray array] forKey: [NSValue valueWithPointer: offer]];
-            WL.wl_proxy_add_dispatcher(offer, WaylandDispatch,
+            WL.wl_proxy_add_dispatcher(offer, ELFCALLS_STRIP(WaylandDispatch),
                     (void *) (uintptr_t) WaylandObjectDataOffer, self);
         } else if (opcode == WP_DATA_DEVICE_EV_SELECTION) {
             struct wl_proxy *offer = (struct wl_proxy *) args[0].o;

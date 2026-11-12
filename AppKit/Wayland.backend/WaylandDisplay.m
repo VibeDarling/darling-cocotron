@@ -27,6 +27,7 @@
 #import <OpenGL/CGLInternal.h>
 #include <dlfcn.h>
 #import "WaylandLibrary.h"
+#include <elfcalls.h>
 #import "WaylandPointerLock.h"
 #import "WaylandProtocol.h"
 #import "WaylandWindow.h"
@@ -179,7 +180,7 @@ struct wl_proxy *WaylandCreateObject(struct wl_proxy *proxy, uint32_t opcode,
         exit(1);
     }
     if (kind != 0)
-        WL.wl_proxy_add_dispatcher(created, WaylandDispatch,
+        WL.wl_proxy_add_dispatcher(created, ELFCALLS_STRIP(WaylandDispatch),
                                    (void *) (uintptr_t) kind, object);
     return created;
 }
@@ -501,7 +502,7 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
         exit(1);
     }
     if (kind != 0)
-        WL.wl_proxy_add_dispatcher(proxy, WaylandDispatch,
+        WL.wl_proxy_add_dispatcher(proxy, ELFCALLS_STRIP(WaylandDispatch),
                                    (void *) (uintptr_t) kind, object);
     return proxy;
 }
@@ -1342,9 +1343,9 @@ static NSString *stringWithCodepoint(uint32_t codepoint) {
     _lockWindow = target;
     _lockedPointer = WaylandLockPointer(_pointerConstraints, [target surface], _pointer);
     _relativePointer = WaylandGetRelativePointer(_relativePointerManager, _pointer);
-    WL.wl_proxy_add_dispatcher(_lockedPointer, WaylandDispatch,
+    WL.wl_proxy_add_dispatcher(_lockedPointer, ELFCALLS_STRIP(WaylandDispatch),
                                (void *) (uintptr_t) WaylandObjectLockedPointer, self);
-    WL.wl_proxy_add_dispatcher(_relativePointer, WaylandDispatch,
+    WL.wl_proxy_add_dispatcher(_relativePointer, ELFCALLS_STRIP(WaylandDispatch),
                                (void *) (uintptr_t) WaylandObjectRelativePointer, self);
     [self flush];
 }

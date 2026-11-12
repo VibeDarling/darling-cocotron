@@ -29,6 +29,7 @@
 #import <Foundation/NSNumber.h>
 #import <Foundation/NSString.h>
 
+#include <elfcalls.h>
 #include <poll.h>
 #include <stdlib.h>
 #include <string.h>
@@ -238,7 +239,7 @@ static void socketCallback(CFSocketRef socket, CFSocketCallBackType type,
         return NULL;
     }
     if (kind != 0)
-        WL.wl_proxy_add_dispatcher(created, CGSWaylandDispatch,
+        WL.wl_proxy_add_dispatcher(created, ELFCALLS_STRIP(CGSWaylandDispatch),
                                    (void *) (uintptr_t) kind, object);
     return created;
 }
@@ -258,7 +259,7 @@ static void socketCallback(CFSocketRef socket, CFSocketCallBackType type,
         return NULL;
     }
     if (kind != 0)
-        WL.wl_proxy_add_dispatcher(proxy, CGSWaylandDispatch,
+        WL.wl_proxy_add_dispatcher(proxy, ELFCALLS_STRIP(CGSWaylandDispatch),
                                    (void *) (uintptr_t) kind, object);
     return proxy;
 }
