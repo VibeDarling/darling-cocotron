@@ -31,6 +31,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSPDFImageRep.h>
 #import <AppKit/NSPasteboard.h>
 #import <AppKit/NSRaise.h>
+#import <AppKit/AKDecodeByte.h>
 #import <Foundation/NSKeyedArchiver.h>
 
 @interface NSImageSymbolConfiguration (Private)
@@ -462,15 +463,15 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
 
             NSUnarchiver *unarchiver = (NSUnarchiver *)coder;
 
-            uint8_t byteOne = [unarchiver decodeByte];
-            uint8_t byteTwo = [unarchiver decodeByte];
+            uint8_t byteOne = AKDecodeByte(unarchiver);
+            uint8_t byteTwo = AKDecodeByte(unarchiver);
 
             // TODO: There's some logic involving these decoded
             // bytes and the internal _flags of NSImage to determine
             // decoding the rest of these.
 
             for (int i = 0; i < 12; ++i) {
-                uint8_t btye = [unarchiver decodeByte];
+                uint8_t btye = AKDecodeByte(unarchiver);
             }
 
             _size = [coder decodeSize];
@@ -478,7 +479,7 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
             short shortValue;
             [coder decodeValueOfObjCType:"s" at: &shortValue];
 
-            uint8_t anotherBtye = [unarchiver decodeByte];
+            uint8_t anotherBtye = AKDecodeByte(unarchiver);
 
             NSBitmapImageRep *rep = [coder decodeObject];
             _representations = [NSMutableArray new];

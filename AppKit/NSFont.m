@@ -24,6 +24,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSGraphicsContextFunctions.h>
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSWindow.h>
+#import <AppKit/AKDecodeByte.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <Foundation/NSByteOrder.h>
 #import <Foundation/NSKeyedArchiver.h>
@@ -421,13 +422,13 @@ static NSLock *_cacheLock = nil;
 
             float flt;
             [coder decodeValuesOfObjCTypes: "f", &flt];
-            fx = [una decodeByte] != 0;
+            fx = AKDecodeByte(una) != 0;
 
-            fFlags = [una decodeByte];
+            fFlags = AKDecodeByte(una);
             fFlags <<= 13;
 
-            f2 = [una decodeByte] != 0;
-            uint8_t f3 = [una decodeByte];
+            f2 = AKDecodeByte(una) != 0;
+            uint8_t f3 = AKDecodeByte(una);
 
             fFlags |= f3 << 1;
 
