@@ -20,6 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Onyx2D/O2GraphicsState.h>
 
 #import <Foundation/NSArray.h>
+#import <Onyx2D/O2ClipPhase.h>
 #import <Onyx2D/O2ClipState.h>
 #import <Onyx2D/O2Color.h>
 #import <Onyx2D/O2ColorSpace.h>
@@ -127,9 +128,36 @@ O2AffineTransform O2GStateUserSpaceTransform(O2GState *self) {
     return self->_userSpaceTransform;
 }
 
+// The clip's bounds in user space. The clip paths are kept in device space;
+// masks are not narrowed down to. Without a clip this is unbounded, as the
+// context's size is not known here.
 - (O2Rect) clipBoundingBox {
-    O2UnimplementedMethod();
-    return O2RectZero;
+    O2Rect box = O2RectMake(-1.0e9, -1.0e9, 2.0e9, 2.0e9);
+    for (O2ClipPhase *phase in [_clipState clipPhases]) {
+        if (O2ClipPhasePhaseType(phase) == O2ClipPhaseMask)
+            continue;
+        box = O2RectIntersection(box,
+                O2PathGetBoundingBox((O2Path *) O2ClipPhaseObject(phase)));
+    }
+    if (box.size.width <= 0 || box.size.height <= 0)
+        return O2RectZero;
+
+    O2AffineTransform toUser = O2AffineTransformInvert(_deviceSpaceTransform);
+    O2Point corners[4] = {
+        {O2RectGetMinX(box), O2RectGetMinY(box)},
+        {O2RectGetMaxX(box), O2RectGetMinY(box)},
+        {O2RectGetMinX(box), O2RectGetMaxY(box)},
+        {O2RectGetMaxX(box), O2RectGetMaxY(box)},
+    };
+    O2Float minX = 0, minY = 0, maxX = 0, maxY = 0;
+    for (int i = 0; i < 4; i++) {
+        O2Point point = O2PointApplyAffineTransform(corners[i], toUser);
+        if (i == 0 || point.x < minX) minX = point.x;
+        if (i == 0 || point.x > maxX) maxX = point.x;
+        if (i == 0 || point.y < minY) minY = point.y;
+        if (i == 0 || point.y > maxY) maxY = point.y;
+    }
+    return O2RectMake(minX, minY, maxX - minX, maxY - minY);
 }
 
 - (O2InterpolationQuality) interpolationQuality {

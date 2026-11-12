@@ -21,11 +21,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSLock.h>
 #import <Foundation/NSObject.h>
 #import <Foundation/NSString.h>
+#import <dispatch/dispatch.h>
 
 @class NSSet, NSMutableSet, NSNotification, NSUndoManager, NSMapTable;
 @class NSManagedObject, NSManagedObjectID, NSFetchRequest, NSPersistentStore,
-        NSPersistentStoreCoordinator;
+        NSPersistentStoreCoordinator, NSPersistentStoreRequest;
 
+COREDATA_EXPORT NSString *const NSManagedObjectContextObjectsDidChangeNotification;
 COREDATA_EXPORT NSString *const NSManagedObjectContextWillSaveNotification;
 COREDATA_EXPORT NSString *const NSManagedObjectContextDidSaveNotification;
 
@@ -37,8 +39,16 @@ COREDATA_EXPORT NSString *const NSInvalidatedObjectsKey;
 COREDATA_EXPORT NSString *const NSInvalidatedAllObjectsKey;
 COREDATA_EXPORT NSString *const NSPersistentStoreSaveConflictsErrorKey;
 
+typedef NS_ENUM(NSUInteger, NSManagedObjectContextConcurrencyType) {
+    NSConfinementConcurrencyType = 0,
+    NSPrivateQueueConcurrencyType = 1,
+    NSMainQueueConcurrencyType = 2
+};
+
 @interface NSManagedObjectContext : NSObject <NSLocking> {
     NSLock *_lock;
+    NSManagedObjectContextConcurrencyType _concurrencyType;
+    dispatch_queue_t _contextQueue;
     NSPersistentStoreCoordinator *_storeCoordinator;
     NSUndoManager *_undoManager;
     BOOL _retainsRegisteredObjects;
@@ -51,14 +61,21 @@ COREDATA_EXPORT NSString *const NSPersistentStoreSaveConflictsErrorKey;
     NSMutableSet *_insertedObjects;
     NSMutableSet *_updatedObjects;
     NSMutableSet *_deletedObjects;
+    NSMutableSet *_pendingInserted, *_pendingUpdated, *_pendingDeleted;
 
     NSMapTable *_objectIdToObject;
 
     BOOL _hasChanges;
+    BOOL _automaticallyMergesChangesFromParent, _mergingChanges;
 
     //
     BOOL _requestedProcessPendingChanges;
 }
+
+- (instancetype)initWithConcurrencyType:(NSManagedObjectContextConcurrencyType)type;
+@property(readonly) NSManagedObjectContextConcurrencyType concurrencyType;
+- (void)performBlock:(void (^)(void))block;
+- (void)performBlockAndWait:(void (^)(void))block;
 
 - (NSPersistentStoreCoordinator *) persistentStoreCoordinator;
 - (NSUndoManager *) undoManager;
@@ -66,6 +83,7 @@ COREDATA_EXPORT NSString *const NSPersistentStoreSaveConflictsErrorKey;
 - (BOOL) propagatesDeletesAtEndOfEvent;
 - (NSTimeInterval) stalenessInterval;
 - (id) mergePolicy;
+@property(nonatomic) BOOL automaticallyMergesChangesFromParent;
 
 - (void) setPersistentStoreCoordinator: (NSPersistentStoreCoordinator *) value;
 - (void) setUndoManager: (NSUndoManager *) value;
@@ -98,6 +116,9 @@ COREDATA_EXPORT NSString *const NSPersistentStoreSaveConflictsErrorKey;
                             error: (NSError **) error;
 - (NSUInteger) countForFetchRequest: (NSFetchRequest *) request
                               error: (NSError **) error;
+// Runs an NSBatchDeleteRequest, answering an NSBatchDeleteResult.
+- (id) executeRequest: (NSPersistentStoreRequest *) request
+                error: (NSError **) error;
 
 - (void) insertObject: (NSManagedObject *) object;
 - (void) deleteObject: (NSManagedObject *) object;

@@ -23,7 +23,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <CoreGraphics/CGGeometry.h>
 #import <CoreGraphics/CoreGraphicsExport.h>
 
-typedef struct {
+/* Tagged as in Apple's header: Swift names an untagged struct after its typedef and mangles it as
+   a typealias (So17CGAffineTransforma), so the CoreGraphics overlay's members would not match the
+   So17CGAffineTransformV names that apps import. C and C++ code see the same type either way. */
+typedef struct CGAffineTransform {
     CGFloat a;
     CGFloat b;
     CGFloat c;

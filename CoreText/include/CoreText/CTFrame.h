@@ -4,7 +4,7 @@
 
 CF_IMPLICIT_BRIDGING_ENABLED
 
-typedef struct __CTFrame* CTFrameRef;
+typedef const struct CF_BRIDGED_TYPE(id) __CTFrame *CTFrameRef;
 
 CFTypeID CTFrameGetTypeID(void);
 

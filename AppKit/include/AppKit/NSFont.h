@@ -21,6 +21,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <ApplicationServices/ApplicationServices.h>
 #import <Foundation/Foundation.h>
 
+@class NSAffineTransform; // Foundation.h has it on macOS only; iOS code sees this through UIKit
+
 @class NSFontDescriptor;
 
 #ifndef DARLING

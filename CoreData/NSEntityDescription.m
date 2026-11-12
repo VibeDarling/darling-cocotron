@@ -27,11 +27,41 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSKeyedUnarchiver.h>
 #import <Foundation/NSRaise.h>
 #import <ctype.h>
+#import "NSEntityDescription-Private.h"
+#import "NSPropertyDescription-Private.h"
+#import "NSManagedObjectModel-Private.h"
 #import <objc/objc-class.h>
 #import <stdint.h>
 #import <string.h>
 
 @implementation NSEntityDescription
+
+- init {
+    self = [super init];
+    if (self) {
+        _properties = [[NSMutableDictionary alloc] init];
+        _subentities = [[NSMutableDictionary alloc] init];
+        _selectorPropertyMap = [[NSMutableDictionary alloc] init];
+    }
+    return self;
+}
+
+- (void)_setManagedObjectModel:(NSManagedObjectModel *)model {
+    _model = model;
+}
+
+- (void)_setInUse {
+    _hasBeenInstantiated = YES;
+}
+
+- (void)_renameProperty:(NSPropertyDescription *)property from:(NSString *)oldName to:(NSString *)newName {
+    NSPropertyDescription *existing = [_properties objectForKey:newName];
+    if (existing && existing != property)
+        [NSException raise:NSInvalidArgumentException format:@"Property names must be unique within an entity."];
+    [_properties setObject:property forKey:newName];
+    if (oldName && ![oldName isEqual:newName])
+        [_properties removeObjectForKey:oldName];
+}
 
 static id getValue(id self, SEL selector) {
     NSPropertyDescription *property =
@@ -98,15 +128,105 @@ id keyObjectForSelector(SEL selector) {
     return [NSNumber numberWithInteger: (NSInteger) selector];
 }
 
+static BOOL isGeneratedManagedAccessor(IMP implementation);
+
 static void appendMethodToList(Class class, NSString *selectorName, IMP imp,
                                const char *types, SEL *selectorp)
 {
 
     SEL selector = NSSelectorFromString(selectorName);
 
-    class_addMethod(class, selector, imp, types);
+    Method existing = class_getInstanceMethod(class, selector);
+    if (!existing || isGeneratedManagedAccessor(method_getImplementation(existing)))
+        class_addMethod(class, selector, imp, types);
 
     *selectorp = selector;
+}
+
+#define SCALAR_ACCESSORS(SUFFIX, TYPE, GET, BOX) \
+static TYPE get##SUFFIX(id object, SEL selector) { return [[object valueForKey:[[[object entity] _propertyForSelector:selector] name]] GET]; } \
+static void set##SUFFIX(id object, SEL selector, TYPE value) { [object setValue:[NSNumber BOX:value] forKey:[[[object entity] _propertyForSelector:selector] name]]; }
+SCALAR_ACCESSORS(Char, signed char, charValue, numberWithChar)
+SCALAR_ACCESSORS(Bool, _Bool, boolValue, numberWithBool)
+SCALAR_ACCESSORS(Short, short, shortValue, numberWithShort)
+SCALAR_ACCESSORS(Int, int, intValue, numberWithInt)
+SCALAR_ACCESSORS(Long, long, longValue, numberWithLong)
+SCALAR_ACCESSORS(LongLong, long long, longLongValue, numberWithLongLong)
+SCALAR_ACCESSORS(Float, float, floatValue, numberWithFloat)
+SCALAR_ACCESSORS(Double, double, doubleValue, numberWithDouble)
+#undef SCALAR_ACCESSORS
+
+static BOOL isGeneratedManagedAccessor(IMP implementation) {
+    const IMP generated[] = {
+        (IMP)getValue, (IMP)setValue, (IMP)addObject, (IMP)removeObject,
+        (IMP)addObjectSet, (IMP)removeObjectSet,
+        (IMP)getChar, (IMP)setChar, (IMP)getBool, (IMP)setBool,
+        (IMP)getShort, (IMP)setShort, (IMP)getInt, (IMP)setInt,
+        (IMP)getLong, (IMP)setLong, (IMP)getLongLong, (IMP)setLongLong,
+        (IMP)getFloat, (IMP)setFloat, (IMP)getDouble, (IMP)setDouble
+    };
+    for (NSUInteger index = 0; index < sizeof(generated) / sizeof(generated[0]); index++)
+        if (implementation == generated[index]) return YES;
+    return NO;
+}
+
+- (void)_prepareAccessors {
+    Class managedClass = NSClassFromString([self managedObjectClassName]);
+    if (!managedClass || ![managedClass isSubclassOfClass:[NSManagedObject class]])
+        [NSException raise:NSInvalidArgumentException format:@"The managed class must exist and inherit NSManagedObject."];
+    @synchronized(managedClass) {
+        for (NSPropertyDescription *property in [self properties]) {
+            NSString *name = [property name];
+            NSString *upper = [[[name substringToIndex:1] uppercaseString] stringByAppendingString:[name substringFromIndex:1]];
+            NSString *getter = name;
+            NSString *setter = [NSString stringWithFormat:@"set%@:", upper];
+            BOOL readonly = NO;
+            char type = '@';
+            objc_property_t declaration = class_getProperty(managedClass, [name UTF8String]);
+            if (declaration) {
+                NSString *attributes = [NSString stringWithUTF8String:property_getAttributes(declaration)];
+                for (NSString *attribute in [attributes componentsSeparatedByString:@","]) {
+                    if ([attribute hasPrefix:@"T"] && [attribute length] > 1) type = [attribute characterAtIndex:1];
+                    else if ([attribute hasPrefix:@"G"]) getter = [attribute substringFromIndex:1];
+                    else if ([attribute hasPrefix:@"S"]) setter = [attribute substringFromIndex:1];
+                    else if ([attribute isEqual:@"R"]) readonly = YES;
+                }
+            }
+            IMP get = NULL, set = NULL;
+            const char *encoding = NULL;
+#define ACCESSOR_CASE(CODE, SUFFIX, TYPE) case CODE: get = (IMP)get##SUFFIX; set = (IMP)set##SUFFIX; encoding = @encode(TYPE); break
+            switch (type) {
+                case '@': get = (IMP)getValue; set = (IMP)setValue; encoding = @encode(id); break;
+                ACCESSOR_CASE('c', Char, signed char);
+                ACCESSOR_CASE('B', Bool, _Bool);
+                ACCESSOR_CASE('s', Short, short);
+                ACCESSOR_CASE('i', Int, int);
+                ACCESSOR_CASE('l', Long, long);
+                ACCESSOR_CASE('q', LongLong, long long);
+                ACCESSOR_CASE('f', Float, float);
+                ACCESSOR_CASE('d', Double, double);
+                default: [NSException raise:NSInvalidArgumentException format:@"Unsupported managed property ABI."];
+            }
+#undef ACCESSOR_CASE
+            NSString *getTypes = [NSString stringWithFormat:@"%s@:", encoding];
+            NSString *setTypes = [NSString stringWithFormat:@"v@:%s", encoding];
+            SEL selector;
+            appendMethodToList(managedClass, getter, get, [getTypes UTF8String], &selector);
+            [_selectorPropertyMap setObject:property forKey:keyObjectForSelector(selector)];
+            if (!readonly) {
+                appendMethodToList(managedClass, setter, set, [setTypes UTF8String], &selector);
+                [_selectorPropertyMap setObject:property forKey:keyObjectForSelector(selector)];
+            }
+            if ([property isKindOfClass:[NSRelationshipDescription class]] && [(NSRelationshipDescription *)property isToMany]) {
+                NSArray *selectors = @[[NSString stringWithFormat:@"add%@Object:", upper], [NSString stringWithFormat:@"remove%@Object:", upper], [NSString stringWithFormat:@"add%@:", upper], [NSString stringWithFormat:@"remove%@:", upper]];
+                IMP implementations[] = {(IMP)addObject, (IMP)removeObject, (IMP)addObjectSet, (IMP)removeObjectSet};
+                for (NSUInteger index = 0; index < [selectors count]; index++) {
+                    appendMethodToList(managedClass, [selectors objectAtIndex:index], implementations[index], "v@:@", &selector);
+                    [_selectorPropertyMap setObject:property forKey:keyObjectForSelector(selector)];
+                }
+            }
+        }
+    }
 }
 
 - initWithCoder: (NSCoder *) coder {
@@ -120,7 +240,7 @@ static void appendMethodToList(Class class, NSString *selectorName, IMP imp,
     _className = [[coder decodeObjectForKey: @"NSClassNameForEntity"] retain];
     _name = [[coder decodeObjectForKey: @"NSEntityName"] retain];
     _model = [coder decodeObjectForKey: @"NSManagedObjectModel"];
-    _properties = [[coder decodeObjectForKey: @"NSProperties"] retain];
+    _properties = [[coder decodeObjectForKey: @"NSProperties"] mutableCopy];
     _subentities = [[coder decodeObjectForKey: @"NSSubentities"] retain];
     _superentity = [[coder decodeObjectForKey: @"NSSuperentity"] retain];
     _userInfo = [[coder decodeObjectForKey: @"NSUserInfo"] retain];
@@ -131,72 +251,6 @@ static void appendMethodToList(Class class, NSString *selectorName, IMP imp,
 
     _hasBeenInstantiated = NO;
 
-    if (_className) {
-        Class class = NSClassFromString(_className);
-
-        for (NSPropertyDescription *property in [_properties allValues]) {
-            NSString *propertyName = [property name];
-            NSString *upperName = [[[propertyName substringToIndex: 1]
-                    uppercaseString]
-                    stringByAppendingString: [propertyName
-                                                     substringFromIndex: 1]];
-            NSString *selectorName;
-            SEL selector;
-
-            appendMethodToList(class, propertyName, (IMP) getValue,
-                               "@@:", &selector);
-            [_selectorPropertyMap setObject: property
-                                     forKey: keyObjectForSelector(selector)];
-
-            appendMethodToList(
-                    class, [NSString stringWithFormat: @"set%@:", upperName],
-                    (IMP) setValue, "v@:@", &selector);
-            [_selectorPropertyMap setObject: property
-                                     forKey: keyObjectForSelector(selector)];
-
-            if ([property isKindOfClass: [NSRelationshipDescription class]]) {
-                NSRelationshipDescription *relationship =
-                        (NSRelationshipDescription *) property;
-
-                if ([relationship isToMany]) {
-                    appendMethodToList(
-                            class,
-                            [NSString stringWithFormat: @"add%@Object:",
-                                                        upperName],
-                            (IMP) addObject, "v@:@", &selector);
-                    [_selectorPropertyMap
-                            setObject: property
-                               forKey: keyObjectForSelector(selector)];
-
-                    appendMethodToList(
-                            class,
-                            [NSString stringWithFormat: @"remove%@Object:",
-                                                        upperName],
-                            (IMP) removeObject, "v@:@", &selector);
-                    [_selectorPropertyMap
-                            setObject: property
-                               forKey: keyObjectForSelector(selector)];
-
-                    appendMethodToList(
-                            class,
-                            [NSString stringWithFormat: @"add%@:", upperName],
-                            (IMP) addObjectSet, "v@:@", &selector);
-                    [_selectorPropertyMap
-                            setObject: property
-                               forKey: keyObjectForSelector(selector)];
-
-                    appendMethodToList(class,
-                                       [NSString stringWithFormat: @"remove%@:",
-                                                                   upperName],
-                                       (IMP) removeObjectSet, "v@:@",
-                                       &selector);
-                    [_selectorPropertyMap
-                            setObject: property
-                               forKey: keyObjectForSelector(selector)];
-                }
-            }
-        }
-    }
     return self;
 }
 
@@ -238,79 +292,7 @@ static void appendMethodToList(Class class, NSString *selectorName, IMP imp,
     return _hasBeenInstantiated;
 }
 
-/*
-- (BOOL) _computeAttribute: (NSAttributeDescription *) attribute
-                          getter: (IMP *) getter
-                          setter: (IMP *) setter
-{
-    switch([attribute attributeType]) {
-    case NSUndefinedAttributeType:
-        NSLog(@"Undefined-type attributes not implemented for %@.%@",
-              _className, [attribute name]);
-        return NO;
 
-    case NSInteger16AttributeType:
-        NSLog(@"Integer 16 attributes not implemented for %@.%@",
-              _className, [attribute name]);
-        return NO;
-
-    case NSInteger32AttributeType:
-        *getter = (IMP) getInt32;
-        *setter = (IMP) setInt32;
-        return [NSString stringWithUTF8String: @encode(int32_t)];
-
-    case NSInteger64AttributeType:
-        NSLog(@"Integer 64 attributes not implemented for %@.%@",
-              _className, [attribute name]);
-        return NO;
-
-    case NSDecimalAttributeType:
-        NSLog(@"Decimal attributes not implemented for %@.%@",
-              _className, [attribute name]);
-        return NO;
-
-    case NSDoubleAttributeType:
-        NSLog(@"Double attributes not implemented for %@.%@",
-              _className, [attribute name]);
-        return NO;
-
-    case NSFloatAttributeType:
-        NSLog(@"Float attributes not implemented for %@.%@",
-              _className, [attribute name]);
-        return NO;
-
-    case NSStringAttributeType:
-        *getter = (IMP) getString;
-        *setter = (IMP) setString;
-        return [NSString stringWithUTF8String: @encode(NSString *)];
-
-    case NSBooleanAttributeType:
-        *getter = (IMP) getBool;
-        *setter = (IMP) setBool;
-        return [NSString stringWithUTF8String: @encode(BOOL)];
-
-    case NSDateAttributeType:
-        NSLog(@"Date attributes not implemented for %@.%@",
-              _className, [attribute name]);
-        return NO;
-
-    case NSBinaryDataAttributeType:
-        NSLog(@"Binary data attributes not implemented for %@.%@",
-              _className, [attribute name]);
-        return NO;
-
-    case NSTransformableAttributeType:
-        NSLog(@"Transformable attributes not implemented for %@.%@",
-              _className, [attribute name]);
-        return NO;
-
-    default:
-        NSLog(@"Unknown attribute type for %@.%@",
-              _className, [attribute name]);
-        return NO;
-    }
-}
-*/
 
 + (NSEntityDescription *) entityForName: (NSString *) entityName
                  inManagedObjectContext: (NSManagedObjectContext *) context
@@ -335,8 +317,10 @@ static void appendMethodToList(Class class, NSString *selectorName, IMP imp,
         class = [NSManagedObject class];
     }
 
-    return [[class alloc] initWithEntity: entity
-            insertIntoManagedObjectContext: context];
+    if (!entity)
+        [NSException raise:NSInvalidArgumentException format:@"The entity is not in the context model."];
+    return [[[class alloc] initWithEntity: entity
+            insertIntoManagedObjectContext: context] autorelease];
 }
 
 - (NSManagedObjectModel *) managedObjectModel {
@@ -373,30 +357,30 @@ static void appendMethodToList(Class class, NSString *selectorName, IMP imp,
 }
 
 - (void) setName: (NSString *) value {
-    if (_hasBeenInstantiated) {
-        NSLog(@"Attempt to modify entity after instantiating it.");
-        return;
-    }
+    if (_hasBeenInstantiated)
+        [NSException raise:NSInvalidArgumentException format:@"The managed object model is in use."];
 
-    value = [value copy];
+    NSString *name = [value copy];
+    @try {
+        [_model _renameEntity:self from:_name to:name];
+    } @catch (id exception) {
+        [name release];
+        @throw;
+    }
     [_name release];
-    _name = value;
+    _name = name;
 }
 
 - (void) setAbstract: (BOOL) value {
-    if (_hasBeenInstantiated) {
-        NSLog(@"Attempt to modify entity after instantiating it.");
-        return;
-    }
+    if (_hasBeenInstantiated)
+        [NSException raise:NSInvalidArgumentException format:@"The managed object model is in use."];
 
     _isAbstract = value;
 }
 
 - (void) setManagedObjectClassName: (NSString *) value {
-    if (_hasBeenInstantiated) {
-        NSLog(@"Attempt to modify entity after instantiating it.");
-        return;
-    }
+    if (_hasBeenInstantiated)
+        [NSException raise:NSInvalidArgumentException format:@"The managed object model is in use."];
 
     value = [value copy];
     [_className release];
@@ -404,28 +388,34 @@ static void appendMethodToList(Class class, NSString *selectorName, IMP imp,
 }
 
 - (void) setProperties: (NSArray *) value {
-    if (_hasBeenInstantiated) {
-        NSLog(@"Attempt to modify entity after instantiating it.");
-        return;
+    if (_hasBeenInstantiated)
+        [NSException raise:NSInvalidArgumentException format:@"The managed object model is in use."];
+    NSMutableDictionary *properties = [NSMutableDictionary dictionary];
+    for (NSPropertyDescription *property in value) {
+        if (![property isKindOfClass:[NSPropertyDescription class]] || ![[property name] length] ||
+            ([property entity] && [property entity] != self) || [properties objectForKey:[property name]])
+            [NSException raise:NSInvalidArgumentException format:@"Invalid or duplicate entity property."];
+        [properties setObject:property forKey:[property name]];
     }
-
-    NSUnimplementedMethod();
+    for (NSPropertyDescription *property in [_properties allValues])
+        if ([properties objectForKey:[property name]] != property)
+            [property _setEntity:nil];
+    for (NSPropertyDescription *property in [properties allValues])
+        [property _setEntity:self];
+    [_properties release];
+    _properties = [properties retain];
 }
 
 - (void) setSubentities: (NSArray *) value {
-    if (_hasBeenInstantiated) {
-        NSLog(@"Attempt to modify entity after instantiating it.");
-        return;
-    }
+    if (_hasBeenInstantiated)
+        [NSException raise:NSInvalidArgumentException format:@"The managed object model is in use."];
 
     NSUnimplementedMethod();
 }
 
 - (void) setUserInfo: (NSDictionary *) value {
-    if (_hasBeenInstantiated) {
-        NSLog(@"Attempt to modify entity after instantiating it.");
-        return;
-    }
+    if (_hasBeenInstantiated)
+        [NSException raise:NSInvalidArgumentException format:@"The managed object model is in use."];
 
     value = [value copy];
     [_userInfo release];

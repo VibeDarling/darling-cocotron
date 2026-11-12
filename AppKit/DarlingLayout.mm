@@ -1,16 +1,38 @@
 #import "DarlingLayout.h"
 #import <AppKit/NSLayoutConstraint.h>
+#import <AppKit/NSLayoutGuide.h>
 #import <Foundation/NSException.h>
 #include "third_party/kiwi/kiwi.h"
 #include <map>
 #include <cmath>
+#include <objc/message.h>
+
+// UIKit's (iOS) attributes past AppKit's: an edge or center measured from a view's layout
+// margins (-[UIView layoutMargins]; UIView is an NSView here).
+enum {
+    DarlingLayoutAttributeLeftMargin = 13,
+    DarlingLayoutAttributeRightMargin,
+    DarlingLayoutAttributeTopMargin,
+    DarlingLayoutAttributeBottomMargin,
+    DarlingLayoutAttributeLeadingMargin,
+    DarlingLayoutAttributeTrailingMargin,
+    DarlingLayoutAttributeCenterXWithinMargins,
+    DarlingLayoutAttributeCenterYWithinMargins,
+};
+
+// Layout guides take part as rectangles with no view; their frame is set here.
+@interface NSLayoutGuide (DarlingLayout)
+- (void)setFrame:(NSRect)frame;
+@end
 
 namespace {
 struct Geometry { kiwi::Variable x, y, width, height; };
 class Layout {
     NSView *root;
     kiwi::Solver solver;
-    std::map<NSView *, Geometry> geometry;
+    // Views and layout guides, each a rectangle in the root's coordinates.
+    std::map<id, Geometry> geometry;
+    std::vector<NSLayoutGuide *> guides;
     std::vector<NSView *> traversal;
     NSMutableArray *constraints;
     std::map<double, std::vector<kiwi::Constraint>, std::greater<double>> optional;
@@ -19,18 +41,50 @@ class Layout {
         geometry.emplace(view, Geometry());
         traversal.push_back(view);
         [constraints addObjectsFromArray:[view constraints]];
+        for (NSLayoutGuide *guide in [view layoutGuides]) {
+            geometry.emplace(guide, Geometry());
+            guides.push_back(guide);
+        }
         for (NSView *child in [view subviews]) collect(child);
     }
 
-    kiwi::Expression attribute(NSView *view, NSInteger attr) {
-        auto found = geometry.find(view);
+    // -[UIView layoutMargins] (a UIEdgeInsets); layout guides and AppKit views have none.
+    struct Margins { CGFloat top, left, bottom, right; };
+    static Margins margins(id item) {
+        SEL selector = @selector(layoutMargins);
+        if ([item isKindOfClass:[NSLayoutGuide class]] || ![item respondsToSelector:selector])
+            return Margins{0, 0, 0, 0};
+        return ((Margins (*)(id, SEL))objc_msgSend)(item, selector);
+    }
+
+    bool contains(id item) {
+        return item != nil && geometry.find(item) != geometry.end();
+    }
+    kiwi::Expression attribute(id item, NSInteger attr) {
+        auto found = geometry.find(item);
         if (found == geometry.end())
-            [NSException raise:NSInvalidArgumentException format:@"Layout item is outside the view tree: %@", view];
+            [NSException raise:NSInvalidArgumentException format:@"Layout item is outside the view tree: %@", item];
         Geometry &g = found->second;
+        NSView *view = [item isKindOfClass:[NSLayoutGuide class]] ? [(NSLayoutGuide *)item owningView] : (NSView *)item;
         bool rtl = [view userInterfaceLayoutDirection] == NSUserInterfaceLayoutDirectionRightToLeft;
         switch (attr) {
         case NSLayoutAttributeLeading: attr = rtl ? NSLayoutAttributeRight : NSLayoutAttributeLeft; break;
         case NSLayoutAttributeTrailing: attr = rtl ? NSLayoutAttributeLeft : NSLayoutAttributeRight; break;
+        case DarlingLayoutAttributeLeadingMargin: attr = rtl ? DarlingLayoutAttributeRightMargin : DarlingLayoutAttributeLeftMargin; break;
+        case DarlingLayoutAttributeTrailingMargin: attr = rtl ? DarlingLayoutAttributeLeftMargin : DarlingLayoutAttributeRightMargin; break;
+        }
+        if (attr >= DarlingLayoutAttributeLeftMargin && attr <= DarlingLayoutAttributeCenterYWithinMargins) {
+            Margins m = margins(item);
+            switch (attr) {
+            case DarlingLayoutAttributeLeftMargin: return attribute(item, NSLayoutAttributeLeft) + m.left;
+            case DarlingLayoutAttributeRightMargin: return attribute(item, NSLayoutAttributeRight) - m.right;
+            case DarlingLayoutAttributeTopMargin: return attribute(item, NSLayoutAttributeTop) + m.top;
+            case DarlingLayoutAttributeBottomMargin: return attribute(item, NSLayoutAttributeBottom) - m.bottom;
+            case DarlingLayoutAttributeCenterXWithinMargins:
+                return attribute(item, NSLayoutAttributeCenterX) + (m.left - m.right) * 0.5;
+            default:
+                return attribute(item, NSLayoutAttributeCenterY) + (m.top - m.bottom) * 0.5;
+            }
         }
         // Auto Layout y values increase downwards in AppKit too, so an unflipped
         // root's y is measured from its top edge.
@@ -105,8 +159,12 @@ public:
         collect(root);
         if ([constraints count] == 0) return;
         for (auto &entry : geometry) {
-            NSView *view = entry.first;
             Geometry &g = entry.second;
+            if ([entry.first isKindOfClass:[NSLayoutGuide class]]) {
+                add(g.width >= 0.0); add(g.height >= 0.0);
+                continue;
+            }
+            NSView *view = entry.first;
             NSRect frame = view == root ? [root bounds] : [view convertRect:[view bounds] toView:root];
             if (view == root) {
                 add(g.x == frame.origin.x); add(g.y == frame.origin.y);
@@ -147,6 +205,10 @@ public:
         }
         for (NSLayoutConstraint *constraint in constraints) {
             if (![constraint isActive]) continue;
+            // An item not (yet) in this tree: the constraint waits for a
+            // layout that includes it, as iOS lays out once views are in place.
+            if (!contains([constraint firstItem]) || ([constraint secondItem] && !contains([constraint secondItem])))
+                continue;
             double priority = [constraint priority];
             if (!std::isfinite(priority) || priority <= 0 || priority > NSLayoutPriorityRequired)
                 [NSException raise:NSInvalidArgumentException format:@"Invalid layout priority: %@", constraint];
@@ -191,6 +253,19 @@ public:
         }
         for (NSUInteger i = 0; i < [views count]; ++i)
             [[views objectAtIndex:i] setFrame:[[frames objectAtIndex:i] rectValue]];
+        // A guide's frame is in its owning view's bounds.
+        for (NSLayoutGuide *guide : guides) {
+            NSView *owner = [guide owningView];
+            auto g_it = geometry.find(guide), p_it = geometry.find(owner);
+            if (owner == nil || g_it == geometry.end() || p_it == geometry.end()) continue;
+            Geometry &g = g_it->second, &p = p_it->second;
+            NSRect relative = NSMakeRect(g.x.value() - p.x.value(), g.y.value() - p.y.value(), g.width.value(), g.height.value());
+            if ([owner isFlipped] != [root isFlipped])
+                relative.origin.y = p.height.value() - relative.origin.y - relative.size.height;
+            relative.origin.x += [owner bounds].origin.x;
+            relative.origin.y += [owner bounds].origin.y;
+            [guide setFrame:relative];
+        }
     }
 };
 }

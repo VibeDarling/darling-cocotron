@@ -4,7 +4,9 @@
 
 CF_IMPLICIT_BRIDGING_ENABLED
 
-typedef struct __CTTypesetter* CTTypesetterRef;
+typedef const struct CF_BRIDGED_TYPE(id) __CTTypesetter *CTTypesetterRef;
+
+CORETEXT_EXPORT const CFStringRef kCTTypesetterOptionForcedEmbeddingLevel;
 
 CORETEXT_EXPORT CFTypeID CTTypesetterGetTypeID(void);
 

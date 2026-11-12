@@ -20,6 +20,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/AppKitExport.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <Foundation/Foundation.h>
+// Foundation.h leaves NSGeometry out for iOS, but iOS code sees AppKit through UIKit (UIView is an
+// NSView here).
+#import <Foundation/NSGeometry.h>
 
 @class NSColor;
 

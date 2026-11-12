@@ -33,7 +33,7 @@ CORETEXT_EXPORT const CFStringRef kCTFontDescriptorLanguageAttribute;
 
 CF_IMPLICIT_BRIDGING_ENABLED
 
-typedef struct __CTFontDescriptor* CTFontDescriptorRef;
+typedef const struct CF_BRIDGED_TYPE(id) __CTFontDescriptor *CTFontDescriptorRef;
 
 typedef enum CTFontOrientation : uint32_t {
   kCTFontOrientationDefault = 0,

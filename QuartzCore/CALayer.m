@@ -1046,6 +1046,25 @@ static void replaceColor(CGColorRef *slot, CGColorRef value) {
     return [_animations allKeys];
 }
 
+// As on Apple's platforms, a layer keeps a value for any key it has no property for.
+static char CALayerUndefinedValuesKey;
+
+- (void) setValue: (id) value forUndefinedKey: (NSString *) key {
+    NSMutableDictionary *values = objc_getAssociatedObject(self, &CALayerUndefinedValuesKey);
+    if (values == nil) {
+        values = [NSMutableDictionary dictionary];
+        objc_setAssociatedObject(self, &CALayerUndefinedValuesKey, values, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    if (value != nil)
+        [values setObject: value forKey: key];
+    else
+        [values removeObjectForKey: key];
+}
+
+- (id) valueForUndefinedKey: (NSString *) key {
+    return [objc_getAssociatedObject(self, &CALayerUndefinedValuesKey) objectForKey: key];
+}
+
 - valueForKey: (NSString *) key {
     // FIXME: KVC appears broken for structs
 

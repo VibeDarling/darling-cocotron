@@ -3,7 +3,7 @@
 
 CF_IMPLICIT_BRIDGING_ENABLED
 
-typedef struct __CTFramesetter* CTFramesetterRef;
+typedef const struct CF_BRIDGED_TYPE(id) __CTFramesetter *CTFramesetterRef;
 
 CORETEXT_EXPORT CFTypeID CTFramesetterGetTypeID(void);
 CORETEXT_EXPORT CTFramesetterRef CTFramesetterCreateWithTypesetter(CTTypesetterRef typesetter);

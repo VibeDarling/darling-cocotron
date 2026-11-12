@@ -25,6 +25,7 @@ const CFStringRef kCTFontSymbolicTrait = CFSTR("NSCTFontSymbolicTrait");
 const CFStringRef kCTForegroundColorFromContextAttributeName = CFSTR("CTForegroundColorFromContext");
 const CFStringRef kCTStrokeWidthAttributeName = CFSTR("NSStrokeWidth");
 const CFStringRef kCTForegroundColorAttributeName = CFSTR("CTForegroundColor");
+const CFStringRef kCTSuperscriptAttributeName = CFSTR("NSSuperScript");
 const CFStringRef kCTParagraphStyleAttributeName = CFSTR("NSParagraphStyle");
 const CFStringRef kCTKernAttributeName = CFSTR("CTKernAttributeName");
 const CFStringRef kCTLanguageAttributeName = CFSTR("CTLanguageAttributeName");

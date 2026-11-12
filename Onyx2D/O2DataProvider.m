@@ -28,6 +28,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @implementation O2DataProvider
 
 - initWithData: (NSData *) data {
+    // No data, no provider: NSInputStream would halt in CoreFoundation on nil.
+    if (data == nil) {
+        [self release];
+        return nil;
+    }
     _inputStream = [[NSInputStream inputStreamWithData: data] retain];
     [_inputStream open];
     _data = [data retain];
@@ -61,6 +66,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return self;
 }
 
+// A URL that cannot be read gives no provider, as CGDataProviderCreateWithURL does.
 - initWithURL: (NSURL *) url {
     NSData *data = [[NSData alloc] initWithContentsOfURL: url];
     id result = [self initWithData: data];

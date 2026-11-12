@@ -487,6 +487,11 @@ static Class _fontPanelFactory;
 
     NSFontFamily *family =
             [NSFontFamily fontFamilyWithTypefaceName: [font fontName]];
+    // A name no installed face has (the system font's "San Francisco" where
+    // no such font is installed) is taken as a family: its faces are those
+    // of the family fontconfig draws it with.
+    if (family == nil)
+        family = [NSFontFamily fontFamilyWithName: [font fontName]];
     NSFontTypeface *typeface = [family typefaceWithName: [font fontName]];
     NSFontTraitMask traits = [typeface traits];
     NSFontTypeface *newface;

@@ -91,6 +91,9 @@ typedef NS_ENUM(NSUInteger, NSEventType) {
 
     NSEventTypeMagnify = 30,
 
+    // A touch screen; see NSTouch.h.
+    NSEventTypeDirectTouch = 37,
+
     NSAppKitSystem = 100,
 
     // Cocotron-private; numbered where AppKit defines no event type.
@@ -121,11 +124,12 @@ typedef NS_OPTIONS(unsigned long long, NSEventMask) {
     NSEventMaskOtherMouseDragged = 1ULL << NSEventTypeOtherMouseDragged,
     NSEventMaskRotate = 1ULL << NSEventTypeRotate,
     NSEventMaskMagnify = 1ULL << NSEventTypeMagnify,
+    NSEventMaskDirectTouch = 1ULL << NSEventTypeDirectTouch,
+    NSEventMaskAny = NSUIntegerMax,
 };
 
-// Pre-10.12 spellings.  NSAnyEventMask keeps Cocotron's 32-bit value rather
-// than AppKit's NSEventMaskAny (NSUIntegerMax); widening it is a behaviour
-// change and is left alone here.
+// Pre-10.12 spellings. NSAnyEventMask is AppKit's NSEventMaskAny: a 32-bit
+// mask would leave out the touch events (type 37).
 static const NSEventMask NSLeftMouseDownMask = NSEventMaskLeftMouseDown;
 static const NSEventMask NSLeftMouseUpMask = NSEventMaskLeftMouseUp;
 static const NSEventMask NSRightMouseDownMask = NSEventMaskRightMouseDown;
@@ -146,7 +150,7 @@ static const NSEventMask NSOtherMouseUpMask = NSEventMaskOtherMouseUp;
 static const NSEventMask NSOtherMouseDraggedMask = NSEventMaskOtherMouseDragged;
 static const NSEventMask NSApplicationDefinedMask = NSEventMaskApplicationDefined;
 static const NSEventMask NSAppKitDefinedMask = NSEventMaskAppKitDefined;
-static const NSEventMask NSAnyEventMask = 0xffffffff;
+static const NSEventMask NSAnyEventMask = NSUIntegerMax;
 static const NSEventMask NSPlatformSpecificDisplayMask =
         1ULL << NSPlatformSpecificDisplayEvent;
 
@@ -275,6 +279,11 @@ enum { NSApplicationActivated = 0, NSApplicationDeactivated = 1 };
 + (void) setMouseCoalescingEnabled: (BOOL) flag;
 + (BOOL) isMouseCoalescingEnabled;
 - (NSSet *) touchesMatchingPhase: (NSUInteger) phase inView: (NSView *) view;
+// Touch events only: the fingers down in the window, each in the phase this
+// event left it in, or those that went to a view or one of its subviews.
+- (NSSet *) allTouches;
+- (NSSet *) touchesForView: (NSView *) view;
+- (NSArray *) coalescedTouchesForTouch: (id) touch;
 
 - (instancetype) initWithType: (NSEventType) type
                      location: (NSPoint) location

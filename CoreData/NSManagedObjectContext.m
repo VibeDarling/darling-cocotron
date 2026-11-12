@@ -1,3 +1,4 @@
+#include <darling-boundary-diagnostics.h>
 /* Copyright(c)2008 Dan Knapp
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -17,11 +18,18 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import "NSEntityDescription-Private.h"
+#import "NSSQLitePersistentStore.h"
+#import <CoreData/NSMergePolicy.h>
+#import <Foundation/NSComparisonPredicate.h>
+#import <Foundation/NSExpression.h>
 #import "NSManagedObject-Private.h"
 #import "NSManagedObjectID-Private.h"
 #import "NSPersistentStoreCoordinator-Private.h"
 #import <CoreData/CoreDataErrors.h>
 #import <CoreData/NSAtomicStore.h>
+#import "NSBatchDeleteRequest-Private.h"
+#import <CoreData/NSAttributeDescription.h>
+#import <CoreData/NSRelationshipDescription.h>
 #import <CoreData/NSEntityDescription.h>
 #import <CoreData/NSFetchRequest.h>
 #import <CoreData/NSManagedObject.h>
@@ -31,6 +39,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSRaise.h>
 #import <Foundation/NSUndoManager.h>
 
+NSString *const NSManagedObjectContextObjectsDidChangeNotification = @"NSManagedObjectContextObjectsDidChangeNotification";
 NSString *const NSManagedObjectContextWillSaveNotification =
         @"NSManagedObjectContextWillSaveNotification";
 NSString *const NSManagedObjectContextDidSaveNotification =
@@ -48,9 +57,37 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
 - (void) _uniqueObjectID: (NSManagedObjectID *) objectID;
 @end
 
+static char ContextQueueKey;
+
 @implementation NSManagedObjectContext
 
 - init {
+    return [self initWithConcurrencyType:NSConfinementConcurrencyType];
+}
+
+- (instancetype)initWithConcurrencyType:(NSManagedObjectContextConcurrencyType)type {
+    darling_boundary_emit(getenv("DARLING_BOUNDARY_SOCKET"), DARLING_DIAG_CONTEXT_INIT_ENTER);
+    self = [super init];
+    if (!self)
+        return nil;
+    if (type > NSMainQueueConcurrencyType) {
+        [self release];
+        [NSException raise:NSInvalidArgumentException format:@"Invalid context concurrency type"];
+        return nil;
+    }
+    _concurrencyType = type;
+    if (type == NSPrivateQueueConcurrencyType) {
+        _contextQueue = dispatch_queue_create("org.darling.CoreData.context", DISPATCH_QUEUE_SERIAL);
+        dispatch_queue_set_specific(_contextQueue, &ContextQueueKey, self, NULL);
+    } else if (type == NSMainQueueConcurrencyType) {
+        _contextQueue = dispatch_get_main_queue();
+        dispatch_retain(_contextQueue);
+    }
+    [NSMergePolicy class];
+    _mergePolicy = [NSErrorMergePolicy retain];
+    _pendingInserted = [NSMutableSet new];
+    _pendingUpdated = [NSMutableSet new];
+    _pendingDeleted = [NSMutableSet new];
     _lock = [[NSLock alloc] init];
     _storeCoordinator = nil;
     _undoManager = [[NSUndoManager alloc] init];
@@ -62,15 +99,61 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
     _objectIdToObject = NSCreateMapTable(NSObjectMapKeyCallBacks,
                                          NSObjectMapValueCallBacks, 0);
     _requestedProcessPendingChanges = NO;
+    darling_boundary_emit(getenv("DARLING_BOUNDARY_SOCKET"), DARLING_DIAG_CONTEXT_INIT_OK);
     return self;
 }
 
+- (NSManagedObjectContextConcurrencyType)concurrencyType {
+    return _concurrencyType;
+}
+
+- (BOOL)_isOnContextQueue {
+    return (_concurrencyType == NSMainQueueConcurrencyType && [NSThread isMainThread]) ||
+           dispatch_get_specific(&ContextQueueKey) == self;
+}
+
+- (void)performBlock:(void (^)(void))block {
+    if (!_contextQueue)
+        [NSException raise:NSInvalidArgumentException format:@"A queue-based context is required"];
+    dispatch_async(_contextQueue, ^{
+        @autoreleasepool {
+            block();
+            [self processPendingChanges];
+        }
+    });
+}
+
+- (void)performBlockAndWait:(void (^)(void))block {
+    if (!_contextQueue)
+        [NSException raise:NSInvalidArgumentException format:@"A queue-based context is required"];
+    void (^work)(void) = ^{
+        @autoreleasepool {
+            block();
+            [self processPendingChanges];
+        }
+    };
+    if ([self _isOnContextQueue])
+        work();
+    else
+        dispatch_sync(_contextQueue, work);
+}
+
 - (void) dealloc {
+    if (_contextQueue)
+        dispatch_release(_contextQueue);
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
     [_storeCoordinator release];
     [_undoManager release];
     [_registeredObjects release];
     [_insertedObjects release];
-    [_objectIdToObject release];
+    [_updatedObjects release];
+    [_deletedObjects release];
+    [_pendingInserted release];
+    [_pendingUpdated release];
+    [_pendingDeleted release];
+    [_mergePolicy release];
+    [_lock release];
+    NSFreeMapTable(_objectIdToObject);
     [super dealloc];
 }
 
@@ -96,6 +179,49 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
 
 - mergePolicy {
     return _mergePolicy;
+}
+
+- (BOOL)automaticallyMergesChangesFromParent { return _automaticallyMergesChangesFromParent; }
+- (void)setAutomaticallyMergesChangesFromParent:(BOOL)value { _automaticallyMergesChangesFromParent = value; }
+
+- (void)_siblingDidSave:(NSNotification *)notification {
+    NSManagedObjectContext *source = [notification object];
+    if (source == self || !_automaticallyMergesChangesFromParent || [source persistentStoreCoordinator] != _storeCoordinator) return;
+    NSMutableDictionary *identifiers = [NSMutableDictionary dictionary];
+    for (NSString *key in @[NSInsertedObjectsKey, NSUpdatedObjectsKey, NSDeletedObjectsKey]) {
+        NSMutableArray *ids = [NSMutableArray array];
+        for (NSManagedObject *object in [[notification userInfo] objectForKey:key]) [ids addObject:[object objectID]];
+        [identifiers setObject:ids forKey:key];
+    }
+    void (^merge)(void) = ^{
+        _mergingChanges = YES;
+        @try {
+            for (NSManagedObjectID *objectID in [identifiers objectForKey:NSUpdatedObjectsKey]) {
+                NSManagedObject *object = [self objectRegisteredForID:objectID];
+                if (object && ![_deletedObjects containsObject:object]) {
+                    [object _mergeCommittedValues];
+                    [_pendingUpdated addObject:object];
+                }
+            }
+            for (NSManagedObjectID *objectID in [identifiers objectForKey:NSInsertedObjectsKey]) {
+                NSManagedObject *object = [self objectWithID:objectID];
+                [_pendingInserted addObject:object];
+            }
+            for (NSManagedObjectID *objectID in [identifiers objectForKey:NSDeletedObjectsKey]) {
+                NSManagedObject *object = [self objectRegisteredForID:objectID];
+                if (object && ![_updatedObjects containsObject:object]) {
+                    [_pendingDeleted addObject:object];
+                    [object _setInserted:NO updated:NO deleted:YES];
+                    for (NSString *key in [[[object entity] propertiesByName] allKeys])
+                        [object removeObserver:self forKeyPath:key];
+                    [_registeredObjects removeObject:object];
+                    NSMapRemove(_objectIdToObject, [object objectID]);
+                }
+            }
+        } @finally { _mergingChanges = NO; }
+        [self processPendingChanges];
+    };
+    if (_contextQueue) [self performBlock:merge]; else merge();
 }
 
 - (void) persistentStoresDidChange: (NSNotification *) note {
@@ -127,6 +253,10 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
 }
 
 - (void) setPersistentStoreCoordinator: (NSPersistentStoreCoordinator *) value {
+    if (_contextQueue && ![self _isOnContextQueue]) {
+        [self performBlockAndWait:^{ [self setPersistentStoreCoordinator:value]; }];
+        return;
+    }
     if (_storeCoordinator != nil) {
         [[NSNotificationCenter defaultCenter]
                 removeObserver: self
@@ -137,6 +267,8 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
     value = [value retain];
     [_storeCoordinator release];
     _storeCoordinator = value;
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:NSManagedObjectContextDidSaveNotification object:nil];
+    if (value) [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_siblingDidSave:) name:NSManagedObjectContextDidSaveNotification object:nil];
 
     if (_storeCoordinator != nil) {
         [[NSNotificationCenter defaultCenter]
@@ -148,26 +280,46 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
 }
 
 - (void) setUndoManager: (NSUndoManager *) value {
+    if (_contextQueue && ![self _isOnContextQueue]) {
+        [self performBlockAndWait:^{ [self setUndoManager:value]; }];
+        return;
+    }
     value = [value retain];
     [_undoManager release];
     _undoManager = value;
 }
 
 - (void) setRetainsRegisteredObjects: (BOOL) value {
+    if (_contextQueue && ![self _isOnContextQueue]) {
+        [self performBlockAndWait:^{ [self setRetainsRegisteredObjects:value]; }];
+        return;
+    }
     _retainsRegisteredObjects = value;
     // FIXME: actually release/retain if needed
     NSUnimplementedMethod();
 }
 
 - (void) setPropagatesDeletesAtEndOfEvent: (BOOL) value {
+    if (_contextQueue && ![self _isOnContextQueue]) {
+        [self performBlockAndWait:^{ [self setPropagatesDeletesAtEndOfEvent:value]; }];
+        return;
+    }
     _propagatesDeletesAtEndOfEvent = value;
 }
 
 - (void) setStalenessInterval: (NSTimeInterval) value {
+    if (_contextQueue && ![self _isOnContextQueue]) {
+        [self performBlockAndWait:^{ [self setStalenessInterval:value]; }];
+        return;
+    }
     _stalenessInterval = value;
 }
 
 - (void) setMergePolicy: value {
+    if (_contextQueue && ![self _isOnContextQueue]) {
+        [self performBlockAndWait:^{ [self setMergePolicy:value]; }];
+        return;
+    }
     value = [value retain];
     [_mergePolicy release];
     _mergePolicy = value;
@@ -221,8 +373,16 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
     NSUnimplementedMethod();
 }
 
-- (void) rollback {
-    NSUnimplementedMethod();
+- (void)rollback {
+    for (NSManagedObject *object in _registeredObjects) [object _discardPendingValues];
+    for (NSManagedObject *object in _insertedObjects) {
+        for (NSString *key in [[[object entity] propertiesByName] allKeys]) [object removeObserver:self forKeyPath:key];
+        [_registeredObjects removeObject:object];
+        NSMapRemove(_objectIdToObject, [object objectID]);
+    }
+    [_insertedObjects removeAllObjects]; [_updatedObjects removeAllObjects]; [_deletedObjects removeAllObjects];
+    [_pendingInserted removeAllObjects]; [_pendingUpdated removeAllObjects]; [_pendingDeleted removeAllObjects];
+    _hasChanges = NO;
 }
 
 - (NSAtomicStoreCacheNode *) _cacheNodeForObjectID:
@@ -271,6 +431,34 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
 - (NSArray *) executeFetchRequest: (NSFetchRequest *) fetchRequest
                             error: (NSError **) error
 {
+    NSEntityDescription *requestedEntity = [fetchRequest entity];
+    if (!requestedEntity) requestedEntity = [[[_storeCoordinator managedObjectModel] entitiesByName] objectForKey:[fetchRequest entityName]];
+    BOOL supported = requestedEntity && [[[_storeCoordinator managedObjectModel] entities] containsObject:requestedEntity] &&
+        [fetchRequest resultType] == NSManagedObjectResultType && ![fetchRequest fetchOffset] && ![fetchRequest fetchBatchSize] &&
+        [fetchRequest includesPendingChanges] && ![fetchRequest returnsDistinctResults] && ![[fetchRequest propertiesToFetch] count] && ![[fetchRequest relationshipKeyPathsForPrefetching] count];
+    NSPredicate *predicate = [fetchRequest predicate];
+    if (predicate) {
+        supported = supported && [predicate isKindOfClass:[NSComparisonPredicate class]];
+        if (supported) {
+            NSComparisonPredicate *comparison = (NSComparisonPredicate *)predicate;
+            NSExpression *left = [comparison leftExpression], *right = [comparison rightExpression];
+            supported = [comparison predicateOperatorType] == NSEqualToPredicateOperatorType && [comparison comparisonPredicateModifier] == NSDirectPredicateModifier && ![comparison options] &&
+                [left expressionType] == NSKeyPathExpressionType && [right expressionType] == NSConstantValueExpressionType &&
+                [[[requestedEntity attributesByName] objectForKey:[left keyPath]] attributeType] == NSStringAttributeType && [[right constantValue] isKindOfClass:[NSString class]];
+        }
+    }
+    for (NSSortDescriptor *descriptor in [fetchRequest sortDescriptors]) {
+        NSAttributeDescription *attribute = [[requestedEntity attributesByName] objectForKey:[descriptor key]];
+        NSAttributeType type = [attribute attributeType];
+        BOOL comparable = type == NSStringAttributeType || type == NSDateAttributeType ||
+            type == NSInteger16AttributeType || type == NSInteger32AttributeType || type == NSInteger64AttributeType ||
+            type == NSFloatAttributeType || type == NSDoubleAttributeType || type == NSBooleanAttributeType;
+        supported = supported && attribute && comparable && [descriptor selector] == @selector(compare:);
+    }
+    if (!supported) {
+        if (error) *error = [NSError errorWithDomain:NSCocoaErrorDomain code:NSPersistentStoreOperationError userInfo:nil];
+        return nil;
+    }
     NSArray *affectedStores = [fetchRequest affectedStores];
 
     if (affectedStores == nil)
@@ -281,7 +469,7 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
     for (NSManagedObject *check in _registeredObjects) {
         NSEntityDescription *entity = [check entity];
 
-        if ([entity _isKindOfEntity: [fetchRequest entity]]) {
+        if ([entity _isKindOfEntity: requestedEntity]) {
             if (![_deletedObjects containsObject: check]) {
                 if ([affectedStores count] == 0 ||
                     [[check objectID] persistentStore] == nil ||
@@ -296,7 +484,7 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
     for (NSManagedObject *check in _insertedObjects) {
         NSEntityDescription *entity = [check entity];
 
-        if ([entity _isKindOfEntity: [fetchRequest entity]]) {
+        if ([entity _isKindOfEntity: requestedEntity]) {
             if (![_deletedObjects containsObject: check]) {
                 if ([affectedStores count] == 0 ||
                     [[check objectID] persistentStore] == nil ||
@@ -315,7 +503,7 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
             NSManagedObjectID *checkID = [node objectID];
             NSEntityDescription *entity = [checkID entity];
 
-            if ([entity _isKindOfEntity: [fetchRequest entity]]) {
+            if ([entity _isKindOfEntity: requestedEntity]) {
                 NSManagedObject *check = [self objectWithID: checkID];
 
                 if (![_deletedObjects containsObject: check]) {
@@ -347,7 +535,52 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
 - (NSUInteger) countForFetchRequest: (NSFetchRequest *) request
                               error: (NSError **) error
 {
-    return [[self executeFetchRequest: request error: error] count];
+    NSArray *result = [self executeFetchRequest:request error:error];
+    return result ? [result count] : NSNotFound;
+}
+
+- (id) executeRequest: (NSPersistentStoreRequest *) request
+                error: (NSError **) error
+{
+    if (![request isKindOfClass: [NSBatchDeleteRequest class]]) {
+        if (error) *error = [NSError errorWithDomain:NSCocoaErrorDomain code:NSPersistentStoreOperationError userInfo:nil];
+        return nil;
+    }
+    NSBatchDeleteRequest *batch = (NSBatchDeleteRequest *) request;
+    // The deletes go through a context of their own and its save, so the caller's pending
+    // changes stay unsaved; contexts that merge from their siblings see them in its notification.
+    NSManagedObjectContext *context = [[[NSManagedObjectContext alloc] initWithConcurrencyType:NSConfinementConcurrencyType] autorelease];
+    [context setPersistentStoreCoordinator:_storeCoordinator];
+    NSMutableArray *deletedIDs = [NSMutableArray array];
+    @try {
+        NSArray *objects;
+        if ([batch _objectIDs]) {
+            NSMutableArray *found = [NSMutableArray array];
+            for (NSManagedObjectID *objectID in [batch _objectIDs]) [found addObject:[context objectWithID:objectID]];
+            objects = found;
+        } else {
+            NSFetchRequest *fetch = [batch fetchRequest];
+            if ([batch affectedStores]) [fetch setAffectedStores:[batch affectedStores]];
+            objects = [context executeFetchRequest:fetch error:error];
+            if (!objects) return nil;
+        }
+        for (NSManagedObject *object in objects) {
+            [deletedIDs addObject:[object objectID]];
+            [context deleteObject:object];
+        }
+        if (![context save:error]) return nil;
+    } @catch (NSException *exception) {
+        if (error) *error = [NSError errorWithDomain:NSCocoaErrorDomain code:NSPersistentStoreOperationError
+                                            userInfo:@{NSLocalizedDescriptionKey: [exception reason] ?: @"The batch delete failed."}];
+        return nil;
+    }
+    id result;
+    switch ([batch resultType]) {
+    case NSBatchDeleteResultTypeObjectIDs: result = deletedIDs; break;
+    case NSBatchDeleteResultTypeCount: result = [NSNumber numberWithUnsignedInteger:[deletedIDs count]]; break;
+    default: result = [NSNumber numberWithBool:YES]; break;
+    }
+    return [[[NSBatchDeleteResult alloc] _initWithResult:result type:[batch resultType]] autorelease];
 }
 
 - (void) insertObject: (NSManagedObject *) object {
@@ -358,17 +591,27 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
     [[object objectID] setPersistentStore: store];
 
     [_insertedObjects addObject: object];
-    [_updatedObjects addObject: object];
-    [self _registerObject: object];
+    [object _setInserted:YES updated:NO deleted:NO];
+    _hasChanges = YES;
+    [_pendingInserted addObject:object];
+    [self _registerObject:object];
+    [self _requestProcessPendingChanges];
 }
 
 - (void) deleteObject: (NSManagedObject *) object {
-    NSArray *properties = [[object entity] properties];
-
-    for (NSPropertyDescription *property in properties)
-        [object setValue: nil forKey: [property name]];
-
-    [_deletedObjects addObject: object];
+    if ([object managedObjectContext] != self)
+        [NSException raise:NSInvalidArgumentException format:@"The object belongs to another context."];
+    for (NSRelationshipDescription *relationship in [[[object entity] relationshipsByName] allValues]) {
+        if ([relationship deleteRule] != NSNullifyDeleteRule)
+            [NSException raise:NSInvalidArgumentException format:@"Unsupported delete rule."];
+        [object setValue:([relationship isToMany] ? (id)[NSSet set] : nil) forKey:[relationship name]];
+    }
+    [_deletedObjects addObject:object];
+    [_pendingDeleted addObject:object];
+    [_pendingUpdated removeObject:object];
+    [object _setInserted:[_insertedObjects containsObject:object] updated:NO deleted:YES];
+    _hasChanges = YES;
+    [self _requestProcessPendingChanges];
 }
 
 - (void) assignObject: object toPersistentStore: (NSPersistentStore *) store {
@@ -396,7 +639,11 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
 
 - (void) _requestProcessPendingChanges {
     if (!_requestedProcessPendingChanges) {
-
+        if (_contextQueue) {
+            _requestedProcessPendingChanges = YES;
+            dispatch_async(_contextQueue, ^{ [self _processPendingChangesForRequest]; });
+            return;
+        }
         NSRunLoop *runLoop = [NSRunLoop mainRunLoop];
         [runLoop performSelector: @selector(_processPendingChangesForRequest)
                           target: self
@@ -410,10 +657,15 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
 
 - (void) _processPendingChanges {
     _requestedProcessPendingChanges = NO;
+    if ([_pendingInserted count] || [_pendingUpdated count] || [_pendingDeleted count]) {
+        NSDictionary *changes = @{NSInsertedObjectsKey:[NSSet setWithSet:_pendingInserted], NSUpdatedObjectsKey:[NSSet setWithSet:_pendingUpdated], NSDeletedObjectsKey:[NSSet setWithSet:_pendingDeleted]};
+        [_pendingInserted removeAllObjects]; [_pendingUpdated removeAllObjects]; [_pendingDeleted removeAllObjects];
+        [[NSNotificationCenter defaultCenter] postNotificationName:NSManagedObjectContextObjectsDidChangeNotification object:self userInfo:changes];
+    }
 }
 
 - (void) processPendingChanges {
-    if (_requestedProcessPendingChanges) {
+    if (_requestedProcessPendingChanges && !_contextQueue) {
         [[NSRunLoop mainRunLoop] cancelPerformSelector: @selector
                                  (_processPendingChangesForRequest)
                                                 target: self
@@ -424,7 +676,8 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
 }
 
 - (void) _processPendingChangesForRequest {
-    [self _processPendingChanges];
+    if (_requestedProcessPendingChanges)
+        [self _processPendingChanges];
 }
 
 - (void) observeValueForKeyPath: (NSString *) keyPath
@@ -432,8 +685,16 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
                          change: (NSDictionary *) change
                         context: (void *) context
 {
-    if (NSMapGet(_objectIdToObject, [object objectID]) == object)
-        [_updatedObjects addObject: object];
+    if (!_mergingChanges && NSMapGet(_objectIdToObject, [object objectID]) == object && ![_deletedObjects containsObject:object]) {
+        if (![_insertedObjects containsObject:object]) {
+            [_updatedObjects addObject:object];
+            [object _setInserted:NO updated:YES deleted:NO];
+        }
+        if (![_pendingInserted containsObject:object])
+            [_pendingUpdated addObject:object];
+        _hasChanges = YES;
+        [self _requestProcessPendingChanges];
+    }
 }
 
 - (BOOL) obtainPermanentIDsForObjects: (NSArray *) objects
@@ -448,31 +709,17 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
 
             NSMapRemove(_objectIdToObject, checkID);
 
-#if 1
-            if (store == nil)
-                NSLog(@"internal inconsistency , object had no store %@",
-                      check);
-#else
-            if (store == nil) {
-                NSString *storeIdentifier = [checkID storeIdentifier];
-
-                if (storeIdentifier != nil)
-                    store = (NSAtomicStore *) [_storeCoordinator
-                            _persistentStoreWithIdentifier: storeIdentifier];
-                else {
-                    store = (NSAtomicStore *) [_storeCoordinator
-                            _persistentStoreForObject: check];
-                    [checkID setStoreIdentifier: [store identifier]];
-                }
-
-                [checkID setPersistentStore: store];
+            if (!store) {
+                NSMapInsert(_objectIdToObject, checkID, check);
+                if (error) *error = [NSError errorWithDomain:NSCocoaErrorDomain code:NSPersistentStoreIncompleteSaveError userInfo:nil];
+                return NO;
             }
-#endif
 
             id referenceObject =
                     [store newReferenceObjectForManagedObject: check];
 
-            [checkID setReferenceObject: referenceObject];
+            [checkID setReferenceObject:referenceObject];
+            [referenceObject release];
 
             [store _uniqueObjectID: checkID];
 
@@ -483,107 +730,57 @@ NSString *const NSAffectedObjectsErrorKey = @"NSAffectedObjectsErrorKey";
     return YES;
 }
 
-- (BOOL) save: (NSError **) errorp {
-    NSMutableArray *errors = [NSMutableArray array];
-    NSMutableArray *errorStores = [NSMutableArray array];
-    NSError *idError = nil;
-    NSMutableSet *affectedStores = [NSMutableSet set];
-
-    [[NSNotificationCenter defaultCenter]
-            postNotificationName: NSManagedObjectContextWillSaveNotification
-                          object: self];
-
-    // delete cache nodes
-    for (NSManagedObject *deleted in _deletedObjects) {
-        NSAtomicStore *store = (NSAtomicStore *) [_storeCoordinator
-                _persistentStoreForObject: deleted];
-        NSAtomicStoreCacheNode *node =
-                [store cacheNodeForObjectID: [deleted objectID]];
-
-        [store willRemoveCacheNodes: [NSSet setWithObject: node]];
-
-        [affectedStores addObject: store];
-
-        // Don't process deleted objects
-        NSMapRemove(_objectIdToObject, [deleted objectID]);
-
-        [_insertedObjects removeObject: deleted];
-        [_updatedObjects removeObject: deleted];
-    }
-
-    if (![self obtainPermanentIDsForObjects: [_insertedObjects allObjects]
-                                      error: &idError]) {
-        NSMutableDictionary *userInfo = [NSMutableDictionary dictionary];
-
-        [userInfo setObject: @"obtainPermanentIDsForObjects failed"
-                     forKey: NSLocalizedDescriptionKey];
-
-        if (errorp != NULL)
-            *errorp = [NSError
-                    errorWithDomain: NSCocoaErrorDomain
-                               code: NSPersistentStoreIncompleteSaveError
-                           userInfo: userInfo];
-
-        return NO;
-    }
-
-    for (NSManagedObject *inserted in _insertedObjects) {
-        NSAtomicStore *store = (NSAtomicStore *) [_storeCoordinator
-                _persistentStoreForObject: inserted];
-        NSAtomicStoreCacheNode *node =
-                [store newCacheNodeForManagedObject: inserted];
-
-        [store addCacheNodes: [NSSet setWithObject: node]];
-
-        [affectedStores addObject: store];
-    }
-
-    [_insertedObjects removeAllObjects];
-
-    for (NSManagedObject *updated in _updatedObjects) {
-        NSAtomicStore *store = (NSAtomicStore *) [_storeCoordinator
-                _persistentStoreForObject: updated];
-        NSAtomicStoreCacheNode *node =
-                [store cacheNodeForObjectID: [updated objectID]];
-
-        [store updateCacheNode: node fromManagedObject: updated];
-
-        [affectedStores addObject: store];
-    }
-
-    for (NSPersistentStore *store in affectedStores) {
-        NSError *saveError = nil;
-
-        if ([store isKindOfClass: [NSAtomicStore class]]) {
-            NSAtomicStore *atomicStore = (NSAtomicStore *) store;
-
-            if (![atomicStore save: &saveError]) {
-                [errorStores addObject: atomicStore];
-                [errors addObject: saveError];
+- (BOOL)save:(NSError **)error {
+    [[NSNotificationCenter defaultCenter] postNotificationName:NSManagedObjectContextWillSaveNotification object:self];
+    [self processPendingChanges];
+    NSMutableSet *inserted = [NSMutableSet setWithSet:_insertedObjects];
+    [inserted minusSet:_deletedObjects];
+    if (![self obtainPermanentIDsForObjects:[inserted allObjects] error:error]) return NO;
+    NSDictionary *changes = @{NSInsertedObjectsKey:[NSSet setWithSet:inserted], NSUpdatedObjectsKey:[NSSet setWithSet:_updatedObjects], NSDeletedObjectsKey:[NSSet setWithSet:_deletedObjects]};
+    BOOL success = YES;
+    [_storeCoordinator lock];
+    @try {
+        for (NSAtomicStore *store in [_storeCoordinator persistentStores]) {
+            NSMutableSet *storeInserted = [NSMutableSet set], *storeUpdated = [NSMutableSet set], *storeDeleted = [NSMutableSet set];
+            for (NSManagedObject *object in inserted) if ([[object objectID] persistentStore] == store) [storeInserted addObject:object];
+            for (NSManagedObject *object in _updatedObjects) if ([[object objectID] persistentStore] == store) [storeUpdated addObject:object];
+            for (NSManagedObject *object in _deletedObjects)
+                if ([[object objectID] persistentStore] == store && ![_insertedObjects containsObject:object])
+                    [storeDeleted addObject:object];
+            if (![storeInserted count] && ![storeUpdated count] && ![storeDeleted count]) continue;
+            if ([store isKindOfClass:[NSSQLitePersistentStore class]]) {
+                success = [(NSSQLitePersistentStore *)store _commitInserted:storeInserted updated:storeUpdated deleted:storeDeleted error:error];
+            } else {
+                for (NSManagedObject *object in storeDeleted) {
+                    NSAtomicStoreCacheNode *node = [store cacheNodeForObjectID:[object objectID]];
+                    if (node) [store willRemoveCacheNodes:[NSSet setWithObject:node]];
+                }
+                for (NSManagedObject *object in storeInserted) {
+                    NSAtomicStoreCacheNode *node = [store newCacheNodeForManagedObject:object];
+                    [store addCacheNodes:[NSSet setWithObject:node]];
+                    [node release];
+                }
+                for (NSManagedObject *object in storeUpdated) if (![storeDeleted containsObject:object]) [store updateCacheNode:[store cacheNodeForObjectID:[object objectID]] fromManagedObject:object];
+                success = [store save:error];
             }
+            if (!success) break;
         }
-    }
-
-    [[NSNotificationCenter defaultCenter]
-            postNotificationName: NSManagedObjectContextDidSaveNotification
-                          object: self];
-
-    if ([errors count] == 0)
-        return YES;
-
-    NSMutableDictionary *userInfo = [NSMutableDictionary dictionary];
-
-    [userInfo setObject: @"Unable to save managed object context"
-                 forKey: NSLocalizedDescriptionKey];
-    [userInfo setObject: errorStores forKey: NSAffectedStoresErrorKey];
-    [userInfo setObject: errors forKey: NSDetailedErrorsKey];
-
-    if (errorp != NULL)
-        *errorp = [NSError errorWithDomain: NSCocoaErrorDomain
-                                      code: NSPersistentStoreIncompleteSaveError
-                                  userInfo: userInfo];
-
-    return NO;
+        if (success) {
+            for (NSManagedObject *object in _registeredObjects) {
+                if ([_deletedObjects containsObject:object]) continue;
+                if ([inserted containsObject:object] || [_updatedObjects containsObject:object]) [object _didCommit];
+            }
+            for (NSManagedObject *object in _deletedObjects) {
+                NSMapRemove(_objectIdToObject, [object objectID]);
+                [_registeredObjects removeObject:object];
+            }
+            [_insertedObjects removeAllObjects]; [_updatedObjects removeAllObjects]; [_deletedObjects removeAllObjects];
+            _hasChanges = NO;
+        }
+    } @finally { [_storeCoordinator unlock]; }
+    if (!success) return NO;
+    [[NSNotificationCenter defaultCenter] postNotificationName:NSManagedObjectContextDidSaveNotification object:self userInfo:changes];
+    return YES;
 }
 
 - (void) mergeChangesFromContextDidSaveNotification:

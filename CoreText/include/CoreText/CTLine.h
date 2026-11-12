@@ -3,7 +3,7 @@
 
 CF_IMPLICIT_BRIDGING_ENABLED
 
-typedef struct __CTLine* CTLineRef;
+typedef const struct CF_BRIDGED_TYPE(id) __CTLine *CTLineRef;
 
 typedef CF_OPTIONS(CFOptionFlags, CTLineBoundsOptions)
 {

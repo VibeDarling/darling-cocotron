@@ -3,8 +3,10 @@
 #import <Foundation/NSArray.h>
 #import <Foundation/NSData.h>
 #import <Foundation/NSURL.h>
+#import <Foundation/NSFileManager.h>
 
 const CFStringRef kCTFontManagerRegisteredFontsChangedNotification = CFSTR("CTFontManagerFontChangedNotification");
+const CFStringRef kCTFontManagerErrorDomain = CFSTR("com.apple.CoreText.CTFontManagerErrorDomain");
 
 bool CTFontManagerRegisterGraphicsFont(CGFontRef font, CFErrorRef* error)
 {
@@ -65,8 +67,21 @@ CFArrayRef CTFontManagerCreateFontDescriptorsFromURL(CFURLRef fontURL)
     return CTFontManagerCreateFontDescriptorsFromData((CFDataRef)data);
 }
 
+// Onyx2D resolves font names through fontconfig; this adds the file there for this process
+// (every scope behaves as kCTFontManagerScopeProcess).
+BOOL O2FontRegisterFontFile(NSString *path);
+
 bool CTFontManagerRegisterFontsForURL(CFURLRef fontURL, CTFontManagerScope scope, CFErrorRef * error)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+    NSURL *url = (NSURL *)fontURL;
+    if (url != nil && [url isFileURL] && O2FontRegisterFontFile([url path])) {
+        if (error) *error = NULL;
+        CFNotificationCenterPostNotification(CFNotificationCenterGetLocalCenter(),
+            kCTFontManagerRegisteredFontsChangedNotification, NULL, NULL, true);
+        return true;
+    }
+    if (error) *error = CFErrorCreate(kCFAllocatorDefault, kCTFontManagerErrorDomain,
+        url != nil && [url isFileURL] && ![[NSFileManager defaultManager] fileExistsAtPath: [url path]]
+            ? kCTFontManagerErrorFileNotFound : kCTFontManagerErrorInvalidFontData, NULL);
     return false;
 }

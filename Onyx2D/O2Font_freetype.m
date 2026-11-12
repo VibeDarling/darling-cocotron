@@ -33,19 +33,41 @@ FT_Library O2FontSharedFreeTypeLibrary() {
     return library;
 }
 
-static void addAppFont(FcConfig *config, NSString *path) {
-    path = [[NSBundle mainBundle] pathForResource: path ofType: nil];
+int __darling_vchroot_expand(const char *path, char *out);
+
+// fontconfig and FreeType are native libraries: they open files by host path, while the app's
+// files have guest paths inside the prefix.
+static NSString *hostPath(NSString *path) {
+    char expanded[4096];
+    if ([path length] >= sizeof(expanded) || __darling_vchroot_expand([path fileSystemRepresentation], expanded) != 0)
+        return path;
+    return [NSString stringWithUTF8String: expanded];
+}
+
+static BOOL addFontFile(FcConfig *config, NSString *path) {
+    BOOL isDirectory = NO;
+    if (![[NSFileManager defaultManager] fileExistsAtPath: path isDirectory: &isDirectory])
+        return NO;
+    const FcChar8 *host = (const FcChar8 *) [hostPath(path) UTF8String];
+    return isDirectory ? FcConfigAppFontAddDir(config, host) : FcConfigAppFontAddFile(config, host);
+}
+
+static void addAppFont(FcConfig *config, NSString *name) {
+    NSString *path = [[NSBundle mainBundle] pathForResource: name ofType: nil];
     if (path == nil) {
-        NSLog(@"Cannot find font %@ in resources", path);
+        NSLog(@"Cannot find font %@ in resources", name);
         return;
     }
-    BOOL isDirectory;
-    [[NSFileManager defaultManager] fileExistsAtPath: path
-                                         isDirectory: &isDirectory];
-    if (isDirectory) {
-        FcConfigAppFontAddDir(config, (const FcChar8 *) [path UTF8String]);
-    } else {
-        FcConfigAppFontAddFile(config, (const FcChar8 *) [path UTF8String]);
+    addFontFile(config, path);
+}
+
+static void addAppFonts(FcConfig *config, id paths) {
+    if ([paths isKindOfClass: [NSString class]]) {
+        addAppFont(config, paths);
+    } else if ([paths isKindOfClass: [NSArray class]]) {
+        for (NSString *path in paths) {
+            addAppFont(config, path);
+        }
     }
 }
 
@@ -55,18 +77,20 @@ FcConfig *O2FontSharedFontConfig() {
     if (fontConfig == NULL) {
         fontConfig = FcInitLoadConfigAndFonts();
 
-        id appFontsPath = [[NSBundle mainBundle]
-                objectForInfoDictionaryKey: @"ATSApplicationFontsPath"];
-        if ([appFontsPath isKindOfClass: [NSString class]]) {
-            addAppFont(fontConfig, appFontsPath);
-        } else if ([appFontsPath isKindOfClass: [NSArray class]]) {
-            for (NSString *path in appFontsPath) {
-                addAppFont(fontConfig, path);
-            }
-        }
+        // A Mac app's fonts (ATSApplicationFontsPath) and an iOS app's (UIAppFonts).
+        NSBundle *bundle = [NSBundle mainBundle];
+        addAppFonts(fontConfig, [bundle objectForInfoDictionaryKey: @"ATSApplicationFontsPath"]);
+        addAppFonts(fontConfig, [bundle objectForInfoDictionaryKey: @"UIAppFonts"]);
     }
 
     return fontConfig;
+}
+
+BOOL O2FontRegisterFontFile(NSString *path) {
+    @synchronized([O2Font_freetype class]) {
+        FcConfig *config = O2FontSharedFontConfig();
+        return config != NULL && path != nil && addFontFile(config, path);
+    }
 }
 
 O2FontRef O2FontCreateWithCodePointCoverage(const uint32_t *codePoints,
@@ -129,38 +153,74 @@ O2FontRef O2FontCreateWithCodePointCoverage(const uint32_t *codePoints,
         return nil;
     }
     FcDefaultSubstitute(pattern);
+    // The best match can be a color bitmap font (Android's emoji fonts cover
+    // symbols like U+2699), which this renderer cannot draw: take the first
+    // outline font, in fontconfig's order, that has every code point.
     FcResult result;
-    FcPattern *match = FcFontMatch(config, pattern, &result);
+    FcFontSet *candidates = FcFontSort(config, pattern, FcFalse, NULL, &result);
     FcPatternDestroy(pattern);
-    if (match == NULL)
+    if (candidates == NULL)
         return nil;
 
-    FcChar8 *filename = NULL;
-    int faceIndex = 0;
-    FcResult indexResult = FcPatternGetInteger(match, FC_INDEX, 0, &faceIndex);
-    if (FcPatternGetString(match, FC_FILE, 0, &filename) != FcResultMatch ||
-        (indexResult != FcResultMatch && indexResult != FcResultNoMatch) ||
-        faceIndex < 0) {
-        FcPatternDestroy(match);
-        return nil;
-    }
     FT_Face face = NULL;
-    FT_Error error = FT_New_Face(O2FontSharedFreeTypeLibrary(),
-                                 (const char *)filename, faceIndex, &face);
-    FcPatternDestroy(match);
-    if (error != 0)
-        return nil;
-    if (FT_Select_Charmap(face, FT_ENCODING_UNICODE) != 0) {
-        FT_Done_Face(face);
-        return nil;
-    }
-    for (size_t index = 0; index < count; ++index) {
-        if (FT_Get_Char_Index(face, codePoints[index]) == 0) {
+    for (int candidate = 0; candidate < candidates->nfont && face == NULL; ++candidate) {
+        FcPattern *font = candidates->fonts[candidate];
+        FcBool outline = FcTrue, color = FcFalse;
+        FcPatternGetBool(font, FC_OUTLINE, 0, &outline);
+        FcPatternGetBool(font, FC_COLOR, 0, &color);
+        if (!outline || color)
+            continue;
+        FcChar8 *filename = NULL;
+        int faceIndex = 0;
+        FcResult indexResult = FcPatternGetInteger(font, FC_INDEX, 0, &faceIndex);
+        if (FcPatternGetString(font, FC_FILE, 0, &filename) != FcResultMatch ||
+            (indexResult != FcResultMatch && indexResult != FcResultNoMatch) ||
+            faceIndex < 0)
+            continue;
+        if (FT_New_Face(O2FontSharedFreeTypeLibrary(), (const char *)filename,
+                        faceIndex, &face) != 0) {
+            face = NULL;
+            continue;
+        }
+        BOOL covers = FT_Select_Charmap(face, FT_ENCODING_UNICODE) == 0;
+        for (size_t index = 0; covers && index < count; ++index)
+            covers = FT_Get_Char_Index(face, codePoints[index]) != 0;
+        if (!covers) {
             FT_Done_Face(face);
-            return nil;
+            face = NULL;
         }
     }
-    return [[O2Font_freetype alloc] initWithFace: face];
+    FcFontSetDestroy(candidates);
+    return face != NULL ? [[O2Font_freetype alloc] initWithFace: face] : nil;
+}
+
+// The file of the font whose PostScript name is exactly name ("Lato-Bold"), or nil.
++ (NSString *) filenameForPostScriptName: (NSString *) name {
+    FcConfig *config = O2FontSharedFontConfig();
+    FcPattern *pat = FcPatternCreate();
+    // Not FcObjectSetBuild: fontconfig is a native library, and Darwin's arm64 calling convention
+    // passes variadic arguments differently from Linux's.
+    FcObjectSet *objects = FcObjectSetCreate();
+    if (objects != NULL && !FcObjectSetAdd(objects, FC_FILE)) {
+        FcObjectSetDestroy(objects);
+        objects = NULL;
+    }
+    NSString *res = nil;
+    if (pat != NULL && objects != NULL &&
+        FcPatternAddString(pat, FC_POSTSCRIPT_NAME, (const FcChar8 *) [name UTF8String])) {
+        FcFontSet *set = FcFontList(config, pat, objects);
+        FcChar8 *filename = NULL;
+        if (set != NULL && set->nfont > 0 &&
+            FcPatternGetString(set->fonts[0], FC_FILE, 0, &filename) == FcResultMatch)
+            res = [NSString stringWithUTF8String: (char *) filename];
+        if (set != NULL)
+            FcFontSetDestroy(set);
+    }
+    if (objects != NULL)
+        FcObjectSetDestroy(objects);
+    if (pat != NULL)
+        FcPatternDestroy(pat);
+    return res;
 }
 
 /* fontconfig ranks bitmap faces (the X11 .pcf fonts) above outline fonts for some generic
@@ -233,7 +293,10 @@ static NSString *filenameOfFirstScalableFace(FcFontSet *set) {
 - (instancetype) initWithFontName: (NSString *) name {
     self = [super initWithFontName: name];
 
-    NSString *filename = [[self class] filenameForPattern: name];
+    NSString *filename = [[self class] filenameForPostScriptName: name];
+    if (filename == nil) {
+        filename = [[self class] filenameForPattern: name];
+    }
     if (filename == nil) {
         filename = [[self class] filenameForPattern: @""];
     }
@@ -397,7 +460,11 @@ static NSString *filenameOfFirstScalableFace(FcFontSet *set) {
             if (_coveredCharSet == nil && _face != NULL) {
                 CFMutableCharacterSetRef set = CFCharacterSetCreateMutable(kCFAllocatorDefault);
                 FT_UInt gindex = 0;
-                FT_ULong charcode = FT_Get_First_Char(_face, &gindex);
+                // Glyphs are drawn as plain outlines: a color font (bitmap
+                // emoji, or COLR layers whose base glyphs are empty) covers
+                // nothing, so font substitution passes it by.
+                FT_ULong charcode = FT_IS_SCALABLE(_face) && !FT_HAS_COLOR(_face)
+                        ? FT_Get_First_Char(_face, &gindex) : 0;
                 FT_ULong rangeStart = 0;
                 FT_ULong rangeLength = 0;
 

@@ -130,13 +130,13 @@ static inline void _clearCurrentContext() {
 }
 
 - (void) updateViewParameters {
-    if (_view == nil || [_view window] == nil) return;
+    if (_view == nil || [_view _appKitWindow] == nil) return;
     NSRect rect = [_view bounds];
 
-    if ([_view window] != nil)
+    if ([_view _appKitWindow] != nil)
         rect = [_view convertRect: rect toView: nil];
     if (_subwindow == nil) {
-        _subwindow = [[[_view window] _createSubWindowWithFrame: rect] retain];
+        _subwindow = [[[_view _appKitWindow] _createSubWindowWithFrame: rect] retain];
         _cglWindow = CGLGetWindowForContext(_glContext, [_subwindow nativeWindow]);
     } else {
         [_subwindow setFrame: rect];

@@ -37,6 +37,16 @@ enum {
     NSParagraphSeparatorCharacter = 0x2029
 };
 
+/* Apple's SDKs use the iOS numbering (center 1, right 2) everywhere but on
+ * x86, so arm64 macOS and iOS binaries pass those values. */
+#ifndef TARGET_ABI_USES_IOS_VALUES
+#if defined(__x86_64__) || defined(__i386__)
+#define TARGET_ABI_USES_IOS_VALUES 0
+#else
+#define TARGET_ABI_USES_IOS_VALUES 1
+#endif
+#endif
+
 #if !__NSTEXT_ALIGNMENT_SHARED_SECTION__
 #define __NSTEXT_ALIGNMENT_SHARED_SECTION__ 1
 typedef NS_ENUM(NSInteger, NSTextAlignment) {

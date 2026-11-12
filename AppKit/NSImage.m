@@ -1694,10 +1694,24 @@ static NSUInteger scaledRepCacheBytes(NSArray *cache) {
      respectFlipped: (BOOL) respectFlipped
                  hints: (NSDictionary<NSString *, id> *) hints
 {
-    [[self _imageWithConfiguration: hints] drawInRect: rect
-            fromRect: source
-           operation: operation
-            fraction: fraction];
+    NSImage *image = [self _imageWithConfiguration: hints];
+    if (!respectFlipped || ![[NSGraphicsContext currentContext] isFlipped]) {
+        [image drawInRect: rect
+                 fromRect: source
+                operation: operation
+                 fraction: fraction];
+        return;
+    }
+    // Upright in a flipped view: flip the rect's own coordinates back.
+    CGContextRef context = NSCurrentGraphicsPort();
+    CGContextSaveGState(context);
+    CGContextTranslateCTM(context, 0, NSMinY(rect) + NSMaxY(rect));
+    CGContextScaleCTM(context, 1, -1);
+    [image drawInRect: rect
+             fromRect: source
+            operation: operation
+             fraction: fraction];
+    CGContextRestoreGState(context);
 }
 
 - (NSImage *) _imageWithConfiguration: (NSDictionary<NSString *, id> *) hints {

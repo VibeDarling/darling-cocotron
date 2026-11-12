@@ -74,6 +74,7 @@ typedef enum {
     WaylandObjectPinchGesture,
     WaylandObjectLockedPointer,
     WaylandObjectRelativePointer,
+    WaylandObjectTouch,
 } WaylandObjectKind;
 
 // The dispatcher installed on every proxy (see WaylandLibrary.h for why listeners
@@ -123,6 +124,9 @@ struct wl_proxy *WaylandCreateObject(struct wl_proxy *proxy, uint32_t opcode,
     WaylandWindow *_lockWindow; // Nonretained; cleared on unmap.
     CGFloat _pinchScale;
     struct wl_proxy *_keyboard;
+    struct wl_proxy *_touch;
+    // Finger id -> WaylandWindow it went down on (up and motion name no surface).
+    NSMutableDictionary *_touchWindows;
     CFSocketRef _wlSocket;
     CFRunLoopSourceRef _wlSource;
     NSMutableArray *_outputs;

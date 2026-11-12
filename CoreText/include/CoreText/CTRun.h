@@ -3,7 +3,7 @@
 
 CF_IMPLICIT_BRIDGING_ENABLED
 
-typedef struct __CTRun* CTRunRef;
+typedef const struct CF_BRIDGED_TYPE(id) __CTRun *CTRunRef;
 
 typedef CF_OPTIONS(uint32_t, CTRunStatus)
 {

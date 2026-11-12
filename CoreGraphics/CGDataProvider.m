@@ -39,6 +39,10 @@ CGDataProviderCreateWithData(void *info, const void *data, size_t size,
     return (CGDataProviderRef)O2DataProviderCreateWithData(info, data, size, releaseCallback);
 }
 
+CGDataProviderRef CGDataProviderCreateWithFilename(const char *filename) {
+    return (CGDataProviderRef)O2DataProviderCreateWithFilename(filename);
+}
+
 COREGRAPHICS_EXPORT CFDataRef CGDataProviderCopyData(CGDataProviderRef self) {
     return (CFDataRef) O2DataProviderCopyData((O2DataProviderRef)self);
 }

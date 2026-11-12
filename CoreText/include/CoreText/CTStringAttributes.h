@@ -7,3 +7,8 @@ CORETEXT_EXPORT const CFStringRef kCTForegroundColorFromContextAttributeName;
 CORETEXT_EXPORT const CFStringRef kCTLigatureAttributeName;
 CORETEXT_EXPORT const CFStringRef kCTUnderlineStyleAttributeName;
 CORETEXT_EXPORT const CFStringRef kCTRunDelegateAttributeName;
+CORETEXT_EXPORT const CFStringRef kCTKernAttributeName;
+CORETEXT_EXPORT const CFStringRef kCTStrokeWidthAttributeName;
+CORETEXT_EXPORT const CFStringRef kCTSuperscriptAttributeName;
+CORETEXT_EXPORT const CFStringRef kCTVerticalFormsAttributeName;
+CORETEXT_EXPORT const CFStringRef kCTLanguageAttributeName;

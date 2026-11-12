@@ -9,6 +9,7 @@
 #include <setjmp.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 @implementation O2ImageDecoder_JPEG_libjpeg
 
@@ -64,8 +65,11 @@ BOOL O2JPEGGetDimensions(CFDataRef data, size_t *width, size_t *height) {
 static unsigned char *stbi_jpeg_load_from_memory(const uint8_t const *buffer,
                                                  int len, int *x, int *y)
 {
+    // Zeroed, and its error manager set before jpeg_create_decompress: that
+    // reports through cinfo.err (a libjpeg built for another
+    // JPEG_LIB_VERSION fails there), and destroying needs a null cinfo.mem.
     struct jpeg_decompress_struct cinfo;
-    jpeg_create_decompress(&cinfo);
+    memset(&cinfo, 0, sizeof(cinfo));
 
     o2jpg_error_mgr jerr;
 
@@ -79,6 +83,7 @@ static unsigned char *stbi_jpeg_load_from_memory(const uint8_t const *buffer,
         jpeg_destroy_decompress(&cinfo);
         return 0;
     }
+    jpeg_create_decompress(&cinfo);
 
     /// Read the data from our memory buffer
     jpeg_mem_src(&cinfo, (unsigned char *) buffer, len);
@@ -240,7 +245,9 @@ static unsigned char *stbi_jpeg_load_from_memory(const uint8_t const *buffer,
 - (void) dealloc {
     [_dataProvider release];
     [_colorSpace release];
-    CFRelease(_pixelData);
+    // Unset when decoding failed.
+    if (_pixelData != NULL)
+        CFRelease(_pixelData);
     [super dealloc];
 }
 

@@ -681,8 +681,9 @@ NSUInteger NSUnderlineByWordMask = 0x8000;
 - (NSRect) boundingRectWithSize: (NSSize) size
                         options: (NSStringDrawingOptions) options
 {
-    NSUnimplementedMethod();
-    return NSMakeRect(0, 0, 0, 0);
+    NSSize used = [[NSStringDrawer sharedStringDrawer] sizeOfAttributedString: self
+                                                                       inSize: size];
+    return NSMakeRect(0, 0, used.width, used.height);
 }
 
 #pragma mark -

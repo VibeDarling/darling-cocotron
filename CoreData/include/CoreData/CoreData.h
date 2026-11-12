@@ -14,3 +14,7 @@
 #import <CoreData/NSPropertyDescription.h>
 #import <CoreData/NSPropertyMapping.h>
 #import <CoreData/NSRelationshipDescription.h>
+#import <CoreData/NSPersistentStoreDescription.h>
+#import <CoreData/NSPersistentContainer.h>
+#import <CoreData/NSPersistentStoreRequest.h>
+#import <CoreData/NSBatchDeleteRequest.h>

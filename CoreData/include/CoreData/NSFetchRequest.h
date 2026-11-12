@@ -17,6 +17,7 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSObject.h>
+#import <CoreData/NSFetchRequestResult.h>
 
 @class NSEntityDescription, NSPredicate, NSArray;
 
@@ -30,6 +31,7 @@ typedef NSUInteger NSFetchRequestResultType;
 @interface NSFetchRequest : NSObject <NSCoding, NSCopying> {
     NSFetchRequestResultType _resultType;
     NSEntityDescription *_entity;
+    NSString *_entityName;
     NSPredicate *_predicate;
     NSArray *_sortDescriptors;
     NSArray *_affectedStores;
@@ -44,6 +46,10 @@ typedef NSUInteger NSFetchRequestResultType;
     NSArray *_propertiesToFetch;
     NSArray *_relationshipKeyPathsForPrefetching;
 }
+
++ (instancetype)fetchRequestWithEntityName:(NSString *)entityName;
+- (instancetype)initWithEntityName:(NSString *)entityName;
+- (NSString *)entityName;
 
 - (NSFetchRequestResultType) resultType;
 
