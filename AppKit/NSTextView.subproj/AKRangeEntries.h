@@ -58,3 +58,11 @@ AKRangeEntryEnumerator(AKRangeEntries *self);
 AK_PRIVATE_EXTERN BOOL AKNextRangeEnumeratorEntry(AKRangeEnumerator *state,
                                                   NSRange *rangep,
                                                   void **value);
+
+AK_PRIVATE_EXTERN void AKRangeEntriesExpandAndWipe(AKRangeEntries *self,
+                                                   NSRange range,
+                                                   NSInteger delta);
+AK_PRIVATE_EXTERN void AKRangeEntriesDivideAndConquer(AKRangeEntries *self,
+                                                      NSRange range);
+AK_PRIVATE_EXTERN void AKRangeEntriesVerify(AKRangeEntries *self,
+                                            NSUInteger length);

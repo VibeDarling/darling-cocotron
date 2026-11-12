@@ -326,3 +326,101 @@ BOOL AKNextRangeEnumeratorEntry(AKRangeEnumerator *state, NSRange *rangep,
 void AKRangeEntriesRemoveEntryAtIndex(AKRangeEntries *self, NSUInteger index) {
     removeEntryAtIndex(self, index);
 }
+
+void AKRangeEntriesExpandAndWipe(AKRangeEntries *self, NSRange range,
+                                 NSInteger delta)
+{
+    NSInteger count = self->count;
+    NSUInteger max = NSMaxRange(range);
+    enum { useBefore, useFirst, useAfter, useNone } useAttributes;
+
+    // NSLog(@"expand wipe %d %d by %d",range.location,range.length,delta);
+
+    if (range.length > 0)
+        useAttributes = useFirst;
+    else if (range.location > 0)
+        useAttributes = useBefore;
+    else
+        useAttributes = useAfter;
+
+    while (--count >= 0) {
+        NSRange check = self->entries[count].range;
+
+        if (check.location > max)
+            self->entries[count].range.location += delta;
+        else if (check.location == max) {
+            if (useAttributes == useAfter)
+                self->entries[count].range.length += delta;
+            else
+                self->entries[count].range.location += delta;
+        } else if (check.location > range.location) {
+            if (NSMaxRange(check) <= max)
+                removeEntryAtIndex(self, count);
+            else
+                self->entries[count].range =
+                        NSMakeRange(max + delta, NSMaxRange(check) - max);
+        } else if (check.location == range.location) {
+            if (delta < 0 && -delta >= check.length)
+                removeEntryAtIndex(self, count);
+            else if (useAttributes == useFirst) {
+                self->entries[count].range.length =
+                        MAX(max + delta, NSMaxRange(check) + delta) -
+                        check.location;
+                useAttributes = useNone;
+            }
+        } else if (check.location < range.location) {
+            if (NSMaxRange(check) < range.location)
+                break;
+            if (NSMaxRange(check) >= max)
+                self->entries[count].range.length += delta;
+            else if (useAttributes == useBefore || useAttributes == useFirst)
+                self->entries[count].range.length =
+                        (max + delta) - check.location;
+            else
+                self->entries[count].range.length =
+                        range.location - check.location;
+        }
+    }
+}
+
+void AKRangeEntriesDivideAndConquer(AKRangeEntries *self, NSRange range) {
+    NSInteger count = self->count;
+    NSUInteger max = NSMaxRange(range);
+
+    while (--count >= 0) {
+        NSRange check = self->entries[count].range;
+
+        if (check.location < max) {
+            NSUInteger maxCheck = NSMaxRange(check);
+
+            if (check.location >= range.location) {
+                if (maxCheck <= max) {
+                    // The entry is completely covered by the added range - it's
+                    // not needed anymore
+                    removeEntryAtIndex(self, count);
+                } else {
+                    // Remove the part of the entry covered by the added range
+                    self->entries[count].range.length = maxCheck - max;
+                    self->entries[count].range.location = max;
+                }
+            } else if (maxCheck <= range.location) {
+                // The entry is completely before the new range - we're done
+                break;
+            } else {
+                // The end of the entry is covered by the added one
+                if (maxCheck > max) {
+                    insertEntryAtIndex(self, count + 1,
+                                       NSMakeRange(max, maxCheck - max),
+                                       self->entries[count].value);
+                }
+                // Shorten the entry to make room for the added one
+                self->entries[count].range.length =
+                        range.location - check.location;
+            }
+        }
+    }
+}
+
+/* Upstream kept a gap/overlap checker here behind #if 0; it is intentionally empty. */
+void AKRangeEntriesVerify(AKRangeEntries *self, NSUInteger length) {
+}
