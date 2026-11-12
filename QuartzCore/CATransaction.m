@@ -3,6 +3,7 @@
 #import <Foundation/NSArray.h>
 #import <Foundation/NSNumber.h>
 #import <Foundation/NSString.h>
+#import <Foundation/NSThread.h>
 #import <QuartzCore/CALayerContext.h>
 #import <QuartzCore/CATransaction.h>
 
@@ -17,12 +18,13 @@ NSString *const kCATransactionCompletionBlock =
 @implementation CATransaction
 
 static NSMutableArray *transactionStack() {
-    NSMutableDictionary *shared = [NSCurrentThread() sharedDictionary];
-    id stack = [shared objectForKey: @"CATransactionStack"];
+    NSMutableDictionary *threadDictionary =
+            [[NSThread currentThread] threadDictionary];
+    id stack = [threadDictionary objectForKey: @"CATransactionStack"];
 
     if (stack == nil) {
         stack = [NSMutableArray array];
-        [shared setObject: stack forKey: @"CATransactionStack"];
+        [threadDictionary setObject: stack forKey: @"CATransactionStack"];
     }
 
     return stack;

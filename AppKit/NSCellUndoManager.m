@@ -22,11 +22,63 @@
 
 #import <Foundation/Foundation.h>
 
+// Target of the throwaway registration that clears the next manager's redo stack.
+@interface AKCellUndoSentinel : NSObject
+- (void) noop: (id) unused;
+@end
+
+@implementation AKCellUndoSentinel
+- (void) noop: (id) unused {
+}
+@end
+
+static AKCellUndoSentinel *sentinel;
+
 @implementation NSCellUndoManager
 
++ (void) initialize {
+    if (self == [NSCellUndoManager class])
+        sentinel = [AKCellUndoSentinel new];
+}
+
+- (instancetype) init {
+    self = [super init];
+    if (self != nil)
+        [[NSNotificationCenter defaultCenter]
+                addObserver: self
+                   selector: @selector(_cellUndoGroupWillClose:)
+                       name: NSUndoManagerWillCloseUndoGroupNotification
+                     object: self];
+    return self;
+}
+
 - (void) dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver: self];
     [_nextUndoManager release];
     [super dealloc];
+}
+
+// A new undo registration discards the redo stack of the manager it goes to. Registrations here
+// go to this manager, so make the next one forget its redo stack the documented way: register
+// outside undo and redo, then take that action back. Nothing is left on its undo stack.
+- (void) _dropRedoOfNext {
+    NSUndoManager *next = _nextUndoManager;
+
+    if (next == nil || [next isUndoing] || [next isRedoing] ||
+        ![next isUndoRegistrationEnabled] || ![next canRedo])
+        return;
+
+    BOOL openedGroup = [next groupingLevel] == 0;
+    if (openedGroup)
+        [next beginUndoGrouping];
+    [next registerUndoWithTarget: sentinel selector: @selector(noop:) object: nil];
+    [next removeAllActionsWithTarget: sentinel];
+    if (openedGroup)
+        [next endUndoGrouping];
+}
+
+- (void) _cellUndoGroupWillClose: (NSNotification *) note {
+    [self _dropRedoOfNext];
 }
 
 - (BOOL) canUndo {
@@ -61,7 +113,7 @@
 
 - (void) forwardInvocation: (NSInvocation *) invocation {
     [super forwardInvocation: invocation];
-    [_nextUndoManager clearRedoStackIfStateIsNormal];
+    [self _dropRedoOfNext];
 }
 
 - (void) registerUndoWithTarget: (id) target
@@ -69,7 +121,7 @@
                          object: (id) object
 {
     [super registerUndoWithTarget: target selector: selector object: object];
-    [_nextUndoManager clearRedoStackIfStateIsNormal];
+    [self _dropRedoOfNext];
 }
 
 @end

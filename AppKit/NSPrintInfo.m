@@ -19,6 +19,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSPrintInfo.h>
 #import <AppKit/NSPrinter.h>
+#import <AppKit/AKThreadShared.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <Foundation/NSDictionary.h>
 #import <Foundation/NSString.h>
@@ -62,7 +63,7 @@ NSString *const NSPrintSavePath = @"NSPrintSavePath";
 @implementation NSPrintInfo
 
 + (NSPrintInfo *) sharedPrintInfo {
-    return NSThreadSharedInstance(@"NSPrintInfo");
+    return AKThreadSharedInstance(@"NSPrintInfo");
 }
 
 + (NSPrinter *) defaultPrinter {
@@ -70,7 +71,7 @@ NSString *const NSPrintSavePath = @"NSPrintSavePath";
 }
 
 + (void) setSharedPrintInfo: (NSPrintInfo *) printInfo {
-    NSMutableDictionary *shared = [[NSThread currentThread] sharedDictionary];
+    NSMutableDictionary *shared = AKThreadSharedDictionary();
     if (printInfo != nil)
         [shared setObject: printInfo forKey: @"NSPrintInfo"];
     else

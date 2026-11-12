@@ -51,6 +51,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <AppKit/NSFontMetric.h>
 #import <AppKit/NSFontTypeface.h>
+#import <AppKit/AKThreadShared.h>
 
 #ifndef WM_MOUSEHWHEEL
 #define WM_MOUSEHWHEEL 0x020E
@@ -265,7 +266,7 @@ static BOOL CALLBACK monitorEnumerator(HMONITOR hMonitor, HDC hdcMonitor,
 }
 
 - (NSDraggingManager *) draggingManager {
-    return NSThreadSharedInstance(@"Win32DraggingManager");
+    return AKThreadSharedInstance(@"Win32DraggingManager");
 }
 
 - (CGWindow *) windowWithFrame: (NSRect) frame

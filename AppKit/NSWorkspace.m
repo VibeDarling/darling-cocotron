@@ -20,6 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSWorkspace.h>
 #import <AppKit/NSRunningApplication.h>
+#import <AppKit/AKThreadShared.h>
 #import <Foundation/Foundation.h>
 
 NSString *const NSWorkspaceApplicationKey = @"NSWorkspaceApplicationKey";
@@ -72,7 +73,7 @@ NSNotificationName NSWorkspaceWillUnmountNotification = @"NSWorkspaceWillUnmount
 @implementation NSWorkspace
 
 + (NSWorkspace *) sharedWorkspace {
-    return NSThreadSharedInstance(@"NSWorkspace");
+    return AKThreadSharedInstance(@"NSWorkspace");
 }
 
 - init {

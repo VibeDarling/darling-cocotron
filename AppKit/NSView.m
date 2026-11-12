@@ -51,6 +51,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSHashTable.h>
 #import <objc/message.h>
 #import <AppKit/NSLayoutConstraint.h>
+#import <AppKit/AKDecodeByte.h>
+#import <AppKit/AKLayoutAnchor.h>
 #import "NSGestureRecognizer-Private.h"
 #import <objc/runtime.h>
 #include <math.h>
@@ -398,8 +400,8 @@ typedef struct __VFlags {
                                             &frameMatrix, &_draggedTypes];
 
             uint8_t flags1, flags2;
-            flags1 = [una decodeByte];
-            flags2 = [una decodeByte];
+            flags1 = AKDecodeByte(una);
+            flags2 = AKDecodeByte(una);
 
             union {
                 _VFlags vf;
@@ -411,10 +413,10 @@ typedef struct __VFlags {
             vflags.vf.rotatedOrScaledFromBase = flags2 & 1;
 
             uint8_t flags3, flags4, flags5;
-            flags3 = [una decodeByte];
-            flags4 = [una decodeByte];
-            flags5 = [una decodeByte];
-            [una decodeByte];
+            flags3 = AKDecodeByte(una);
+            flags4 = AKDecodeByte(una);
+            flags5 = AKDecodeByte(una);
+            AKDecodeByte(una);
 
             vflags.vf.autosizing = flags3 & 0x3F;
             vflags.vf.autoresizeSubviews = flags4 & 1;
@@ -422,7 +424,7 @@ typedef struct __VFlags {
 
             if (version >= 25) {
                 [self setNextKeyView: [coder decodeObject]];
-                [una decodeByte];
+                AKDecodeByte(una);
             }
         } else {
             int flags;
@@ -3372,58 +3374,44 @@ static CGFloat backingScaleFactor(NSView *view) {
     _hasPreparedContentRect = YES;
 }
 
-// A new anchor of the named Foundation class, or of NSLayoutAnchor when that
-// subclass is missing; nil when Foundation can't create anchors.
-static id anchorForView(NSView *view, NSString *className,
-                        NSLayoutAttribute attribute)
-{
-    Class cls = NSClassFromString(className);
-    if (cls == Nil)
-        cls = NSClassFromString(@"NSLayoutAnchor");
-    if (cls == Nil ||
-        ![cls instancesRespondToSelector: @selector(initWithItem:attribute:)])
-        return nil;
-    return [[[cls alloc] initWithItem: view attribute: attribute] autorelease];
-}
-
 - (NSLayoutDimension *) widthAnchor {
-    return anchorForView(self, @"NSLayoutDimension", NSLayoutAttributeWidth);
+    return AKLayoutAnchorForItem(self, @"NSLayoutDimension", NSLayoutAttributeWidth);
 }
 
 - (NSLayoutDimension *) heightAnchor {
-    return anchorForView(self, @"NSLayoutDimension", NSLayoutAttributeHeight);
+    return AKLayoutAnchorForItem(self, @"NSLayoutDimension", NSLayoutAttributeHeight);
 }
 
 - (NSLayoutXAxisAnchor *) leadingAnchor {
-    return anchorForView(self, @"NSLayoutXAxisAnchor", NSLayoutAttributeLeading);
+    return AKLayoutAnchorForItem(self, @"NSLayoutXAxisAnchor", NSLayoutAttributeLeading);
 }
 
 - (NSLayoutXAxisAnchor *) trailingAnchor {
-    return anchorForView(self, @"NSLayoutXAxisAnchor", NSLayoutAttributeTrailing);
+    return AKLayoutAnchorForItem(self, @"NSLayoutXAxisAnchor", NSLayoutAttributeTrailing);
 }
 
 - (NSLayoutXAxisAnchor *) leftAnchor {
-    return anchorForView(self, @"NSLayoutXAxisAnchor", NSLayoutAttributeLeft);
+    return AKLayoutAnchorForItem(self, @"NSLayoutXAxisAnchor", NSLayoutAttributeLeft);
 }
 
 - (NSLayoutXAxisAnchor *) rightAnchor {
-    return anchorForView(self, @"NSLayoutXAxisAnchor", NSLayoutAttributeRight);
+    return AKLayoutAnchorForItem(self, @"NSLayoutXAxisAnchor", NSLayoutAttributeRight);
 }
 
 - (NSLayoutXAxisAnchor *) centerXAnchor {
-    return anchorForView(self, @"NSLayoutXAxisAnchor", NSLayoutAttributeCenterX);
+    return AKLayoutAnchorForItem(self, @"NSLayoutXAxisAnchor", NSLayoutAttributeCenterX);
 }
 
 - (NSLayoutYAxisAnchor *) topAnchor {
-    return anchorForView(self, @"NSLayoutYAxisAnchor", NSLayoutAttributeTop);
+    return AKLayoutAnchorForItem(self, @"NSLayoutYAxisAnchor", NSLayoutAttributeTop);
 }
 
 - (NSLayoutYAxisAnchor *) bottomAnchor {
-    return anchorForView(self, @"NSLayoutYAxisAnchor", NSLayoutAttributeBottom);
+    return AKLayoutAnchorForItem(self, @"NSLayoutYAxisAnchor", NSLayoutAttributeBottom);
 }
 
 - (NSLayoutYAxisAnchor *) centerYAnchor {
-    return anchorForView(self, @"NSLayoutYAxisAnchor", NSLayoutAttributeCenterY);
+    return AKLayoutAnchorForItem(self, @"NSLayoutYAxisAnchor", NSLayoutAttributeCenterY);
 }
 
 - (NSSize) intrinsicContentSize {

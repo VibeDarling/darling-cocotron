@@ -23,12 +23,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSPageLayout.h>
 #import <AppKit/NSPrintInfo.h>
 #import <AppKit/NSWindow.h>
+#import <AppKit/AKThreadShared.h>
 #import <objc/message.h>
 
 @implementation NSPageLayout
 
 + (NSPageLayout *) pageLayout {
-    return NSThreadSharedInstance(@"NSPageLayout");
+    return AKThreadSharedInstance(@"NSPageLayout");
 }
 
 - (int) runModalWithPrintInfo: (NSPrintInfo *) printInfo {

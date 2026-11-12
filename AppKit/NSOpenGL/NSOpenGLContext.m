@@ -22,6 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSRaise.h>
 #import <AppKit/NSView.h>
 #import <AppKit/NSWindow-Private.h>
+#import <AppKit/AKThreadShared.h>
 #import <OpenGL/OpenGL.h>
 
 @interface NSOpenGLContext (private)
@@ -31,13 +32,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @implementation NSOpenGLContext
 
 static inline NSOpenGLContext *_currentContext() {
-    return (NSOpenGLContext *) NSThreadSharedInstanceDoNotCreate(
+    return (NSOpenGLContext *) AKThreadSharedInstanceIfExists(
             @"NSOpenGLContext");
 }
 
 static void _setCurrentContext(NSOpenGLContext *context) {
-    [NSCurrentThread() setSharedObject: context
-                          forClassName: @"NSOpenGLContext"];
+    AKThreadSetSharedObject(context, @"NSOpenGLContext");
 }
 
 static inline void _clearCurrentContext() {

@@ -21,6 +21,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import "NSCustomObject.h"
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSFontManager.h>
+#import <AppKit/AKThreadShared.h>
 #import <Foundation/NSException.h>
 #import <Foundation/NSKeyedArchiver.h>
 #import <Foundation/NSString.h>
@@ -104,8 +105,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
         // like NSApplication and NSFontManager above... Perhaps that's more
         // explicit and it prevents the race condition - but seems quite high
         // maintenance
-    } else if (NSThreadSharedInstanceDoNotCreate(_className) != nil) {
-        ret = [NSThreadSharedInstanceDoNotCreate(_className) retain];
+    } else if (AKThreadSharedInstanceIfExists(_className) != nil) {
+        ret = [AKThreadSharedInstanceIfExists(_className) retain];
     } else {
         ret = [[class alloc] init];
     }

@@ -17,6 +17,7 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#import <AppKit/AKLayoutAnchor.h>
 #import <AppKit/NSLayoutGuide.h>
 #import <AppKit/NSView.h>
 #import <Foundation/NSLayoutConstraint.h>
@@ -91,53 +92,61 @@
     _frame = frame;
 }
 
-static id anchorForItem(id item, NSString *className, NSLayoutAttribute attribute) {
+id AKLayoutAnchorForItem(id item, NSString *className, NSLayoutAttribute attribute) {
     Class cls = NSClassFromString(className);
     if (cls == Nil)
         cls = NSClassFromString(@"NSLayoutAnchor");
-    if (cls == Nil || ![cls instancesRespondToSelector: @selector(initWithItem:attribute:)])
+    if (cls == Nil || ![cls instancesRespondToSelector: @selector(initWithItem:attribute:)]) {
+        static dispatch_once_t once;
+        dispatch_once(&once, ^{
+            NSLog(@"AppKit: layout anchors are unavailable: Foundation has no layout anchor class "
+                  @"implementing -initWithItem:attribute: (looked for %@ and NSLayoutAnchor); "
+                  @"anchor properties return nil",
+                  className);
+        });
         return nil;
+    }
     return [[[cls alloc] initWithItem: item attribute: attribute] autorelease];
 }
 
 - (NSLayoutXAxisAnchor *) leadingAnchor {
-    return anchorForItem(self, @"NSLayoutXAxisAnchor", NSLayoutAttributeLeading);
+    return AKLayoutAnchorForItem(self, @"NSLayoutXAxisAnchor", NSLayoutAttributeLeading);
 }
 
 - (NSLayoutXAxisAnchor *) trailingAnchor {
-    return anchorForItem(self, @"NSLayoutXAxisAnchor", NSLayoutAttributeTrailing);
+    return AKLayoutAnchorForItem(self, @"NSLayoutXAxisAnchor", NSLayoutAttributeTrailing);
 }
 
 - (NSLayoutXAxisAnchor *) leftAnchor {
-    return anchorForItem(self, @"NSLayoutXAxisAnchor", NSLayoutAttributeLeft);
+    return AKLayoutAnchorForItem(self, @"NSLayoutXAxisAnchor", NSLayoutAttributeLeft);
 }
 
 - (NSLayoutXAxisAnchor *) rightAnchor {
-    return anchorForItem(self, @"NSLayoutXAxisAnchor", NSLayoutAttributeRight);
+    return AKLayoutAnchorForItem(self, @"NSLayoutXAxisAnchor", NSLayoutAttributeRight);
 }
 
 - (NSLayoutYAxisAnchor *) topAnchor {
-    return anchorForItem(self, @"NSLayoutYAxisAnchor", NSLayoutAttributeTop);
+    return AKLayoutAnchorForItem(self, @"NSLayoutYAxisAnchor", NSLayoutAttributeTop);
 }
 
 - (NSLayoutYAxisAnchor *) bottomAnchor {
-    return anchorForItem(self, @"NSLayoutYAxisAnchor", NSLayoutAttributeBottom);
+    return AKLayoutAnchorForItem(self, @"NSLayoutYAxisAnchor", NSLayoutAttributeBottom);
 }
 
 - (NSLayoutDimension *) widthAnchor {
-    return anchorForItem(self, @"NSLayoutDimension", NSLayoutAttributeWidth);
+    return AKLayoutAnchorForItem(self, @"NSLayoutDimension", NSLayoutAttributeWidth);
 }
 
 - (NSLayoutDimension *) heightAnchor {
-    return anchorForItem(self, @"NSLayoutDimension", NSLayoutAttributeHeight);
+    return AKLayoutAnchorForItem(self, @"NSLayoutDimension", NSLayoutAttributeHeight);
 }
 
 - (NSLayoutXAxisAnchor *) centerXAnchor {
-    return anchorForItem(self, @"NSLayoutXAxisAnchor", NSLayoutAttributeCenterX);
+    return AKLayoutAnchorForItem(self, @"NSLayoutXAxisAnchor", NSLayoutAttributeCenterX);
 }
 
 - (NSLayoutYAxisAnchor *) centerYAnchor {
-    return anchorForItem(self, @"NSLayoutYAxisAnchor", NSLayoutAttributeCenterY);
+    return AKLayoutAnchorForItem(self, @"NSLayoutYAxisAnchor", NSLayoutAttributeCenterY);
 }
 
 @end

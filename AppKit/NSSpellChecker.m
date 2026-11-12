@@ -19,6 +19,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import "NSSpellCheckerTagData.h"
 #import "NSSpellingViewController.h"
+#import <AppKit/AKSpellEngines.h>
 #import <AppKit/NSMenu.h>
 #import <AppKit/NSMenuItem.h>
 #import <AppKit/NSPanel.h>
@@ -27,7 +28,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSBundle.h>
 #import <Foundation/NSNumber.h>
 #import <Foundation/NSOrthography.h>
-#import <Foundation/NSSpellEngine.h>
 #import <Foundation/NSUserDefaults.h>
 
 NSString *const NSSpellCheckerDidChangeAutomaticTextReplacementNotification =
@@ -75,8 +75,8 @@ static BOOL automaticSettingEnabled(NSString *key) {
 #pragma mark -
 #pragma mark Getting the Spell Checker
 
-+ (NSSpellEngine *) _currentSpellEngine {
-    return [[NSSpellEngine allSpellEngines] firstObject];
++ (id<AKSpellEngine>) _currentSpellEngine {
+    return [AKSpellEngines() firstObject];
 }
 
 static NSSpellChecker *shared = nil;
@@ -105,7 +105,7 @@ static NSSpellChecker *shared = nil;
     if (availableLanguages == nil) {
         availableLanguages = [[NSMutableArray alloc] init];
 
-        for (NSSpellEngine *engine in [NSSpellEngine allSpellEngines]) {
+        for (id<AKSpellEngine> engine in AKSpellEngines()) {
             [availableLanguages addObjectsFromArray: [engine languages]];
         }
 
@@ -316,7 +316,7 @@ static NSSpellChecker *shared = nil;
                    orthography: (NSOrthography **) orthography
                      wordCount: (NSInteger *) wordCount
 {
-    NSSpellEngine *spellEngine = [[self class] _currentSpellEngine];
+    id<AKSpellEngine> spellEngine = [[self class] _currentSpellEngine];
 
     /* NSSpellChecker and NSSpellServer have inconsistent API, we accept a range
      * but the server only takes an offset. */
@@ -374,7 +374,7 @@ static NSSpellChecker *shared = nil;
                          language: (NSString *) language
            inSpellDocumentWithTag: (NSInteger) tag
 {
-    NSSpellEngine *spellEngine = [[self class] _currentSpellEngine];
+    id<AKSpellEngine> spellEngine = [[self class] _currentSpellEngine];
 
     NSString *word = [string substringWithRange: range];
 
@@ -480,7 +480,7 @@ static NSSpellChecker *shared = nil;
                 atLocation: (NSPoint) location
                     inView: (NSView *) view
 {
-    NSSpellEngine *engine = [[self class] _currentSpellEngine];
+    id<AKSpellEngine> engine = [[self class] _currentSpellEngine];
 
     NSMenu *result = [[NSMenu alloc] initWithTitle: @""];
 

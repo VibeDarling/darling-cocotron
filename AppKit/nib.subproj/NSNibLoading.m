@@ -23,7 +23,6 @@
 #import <Foundation/NSAutoreleasePool.h>
 #import <Foundation/NSDictionary.h>
 #import <Foundation/NSPathUtilities.h>
-#import <Foundation/NSPlatform.h>
 #import <Foundation/NSString.h>
 #import <dispatch/dispatch.h>
 
@@ -104,16 +103,8 @@ static NSMutableArray<NSString *> *_nibPaths(void) {
         NSString *name = [[fileName copy] autorelease];
         name = [name stringByDeletingPathExtension];
         NSBundle *bundle = self;
-        NSString *platformName = [name
-                stringByAppendingFormat: @"-%@", NSPlatformResourceNameSuffix];
 
-        path = [bundle pathForResource: platformName ofType: @"nib"];
-        if (path == nil)
-            path = [[NSBundle mainBundle] pathForResource: platformName
-                                                   ofType: @"nib"];
-
-        if (path == nil)
-            path = [bundle pathForResource: name ofType: @"nib"];
+        path = [bundle pathForResource: name ofType: @"nib"];
 
         if (path == nil)
             path = [[NSBundle mainBundle] pathForResource: name ofType: @"nib"];

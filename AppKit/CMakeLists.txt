@@ -254,6 +254,7 @@ set(AppKit_sources
 
 	NSTextView.subproj/NSTextView.m
 	NSTextView.subproj/NSBidiHelper.m
+	NSTextView.subproj/AKRangeEntries.m
 	NSTextView.subproj/NSLayoutManager.m
 	NSTextView.subproj/NSTextViewSharedData.m
 	NSTextView.subproj/NSTextStorage.m
