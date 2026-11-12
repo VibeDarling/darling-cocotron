@@ -90,7 +90,12 @@ APPKIT_EXPORT const NSNotificationName NSViewGlobalFrameDidChangeNotification;
 
 APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPresentationOptions;
 
-@interface NSView : NSResponder <NSAnimatablePropertyContainer, NSUserInterfaceItemIdentification, NSAppearanceCustomization> {
+@interface NSView : NSResponder <NSAnimatablePropertyContainer, NSUserInterfaceItemIdentification, NSAppearanceCustomization>
+// The instance variables are AppKit's own. UIKit's classes are built on this one, and iOS
+// code that subclasses them must not see them: names such as _frame or _layer would clash
+// with its own. The runtime places a subclass's ivars after them either way.
+#if !TARGET_OS_IPHONE
+{
     NSRect _frame;
     NSRect _bounds;
     NSWindow *_window;
@@ -157,6 +162,7 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
     BOOL _hasUserInterfaceLayoutDirection;
     NSUserInterfaceLayoutDirection _userInterfaceLayoutDirection;
 }
+#endif
 
 @property NSUserInterfaceLayoutDirection userInterfaceLayoutDirection;
 @property(class, readonly) BOOL requiresConstraintBasedLayout;
@@ -183,7 +189,13 @@ APPKIT_EXPORT const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPre
 
 - (void) scaleUnitSquareToSize: (NSSize) size;
 
+// UIKit's UIView, built on NSView, answers -window with its UIWindow as on iOS, so iOS code does
+// not see this declaration. -_appKitWindow is the AppKit window for any view.
+#if !TARGET_OS_IPHONE
 @property (readonly, weak) NSWindow *window;
+#endif
+- (NSWindow *) _appKitWindow;
+- (void) _drawRectForDisplay: (NSRect) rect;
 @property (readonly, weak) NSView *superview;
 - (BOOL) isDescendantOf: (NSView *) other;
 - (NSView *) ancestorSharedWithView: (NSView *) view;

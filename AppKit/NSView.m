@@ -107,7 +107,7 @@ const NSViewFullScreenModeOptionKey NSFullScreenModeApplicationPresentationOptio
 }
 - (void)frame:(CADisplayLink *)link {
     NSView *view = [_view anyObject];
-    NSWindow *window = [view window];
+    NSWindow *window = [view _appKitWindow];
     if (view && ![view isHiddenOrHasHiddenAncestor] && [window isVisible] &&
         ![window isMiniaturized] && [window screen])
         ((void (*)(id, SEL, id))objc_msgSend)(_target, _selector, link);
@@ -752,6 +752,15 @@ static inline void buildTransformsIfNeeded(NSView *self) {
     return _window;
 }
 
+- (NSWindow *) _appKitWindow {
+    return _window;
+}
+
+// Where display draws the view: a subclass (UIKit's UIView) may draw it elsewhere first.
+- (void) _drawRectForDisplay: (NSRect) rect {
+    [self drawRect: rect];
+}
+
 - (NSView *) superview {
     return _superview;
 }
@@ -1052,7 +1061,7 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 
 - (NSPoint) convertPoint: (NSPoint) point fromView: (NSView *) viewOrNil {
     NSView *fromView =
-            (viewOrNil != nil) ? viewOrNil : [[self window] _backgroundView];
+            (viewOrNil != nil) ? viewOrNil : [_window _backgroundView];
     CGAffineTransform toWindow = [fromView transformToWindow];
     CGAffineTransform fromWindow = [self transformFromWindow];
 
@@ -1062,7 +1071,7 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 
 - (NSPoint) convertPoint: (NSPoint) point toView: (NSView *) viewOrNil {
     NSView *toView =
-            (viewOrNil != nil) ? viewOrNil : [[self window] _backgroundView];
+            (viewOrNil != nil) ? viewOrNil : [_window _backgroundView];
     CGAffineTransform toWindow = [self transformToWindow];
     CGAffineTransform fromWindow = [toView transformFromWindow];
 
@@ -1072,7 +1081,7 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 
 - (NSSize) convertSize: (NSSize) size fromView: (NSView *) viewOrNil {
     NSView *fromView =
-            (viewOrNil != nil) ? viewOrNil : [[self window] _backgroundView];
+            (viewOrNil != nil) ? viewOrNil : [_window _backgroundView];
     CGAffineTransform toWindow = [fromView transformToWindow];
     CGAffineTransform fromWindow = [self transformFromWindow];
 
@@ -1082,7 +1091,7 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 
 - (NSSize) convertSize: (NSSize) size toView: (NSView *) viewOrNil {
     NSView *toView =
-            (viewOrNil != nil) ? viewOrNil : [[self window] _backgroundView];
+            (viewOrNil != nil) ? viewOrNil : [_window _backgroundView];
     CGAffineTransform toWindow = [self transformToWindow];
     CGAffineTransform fromWindow = [toView transformFromWindow];
 
@@ -1092,7 +1101,7 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 
 - (NSRect) convertRect: (NSRect) rect fromView: (NSView *) viewOrNil {
     NSView *fromView =
-            (viewOrNil != nil) ? viewOrNil : [[self window] _backgroundView];
+            (viewOrNil != nil) ? viewOrNil : [_window _backgroundView];
     CGAffineTransform toWindow = [fromView transformToWindow];
     CGAffineTransform fromWindow = [self transformFromWindow];
     NSPoint point1 = rect.origin;
@@ -1114,7 +1123,7 @@ static inline void buildTransformsIfNeeded(NSView *self) {
 
 - (NSRect) convertRect: (NSRect) rect toView: (NSView *) viewOrNil {
     NSView *toView =
-            (viewOrNil != nil) ? viewOrNil : [[self window] _backgroundView];
+            (viewOrNil != nil) ? viewOrNil : [_window _backgroundView];
     CGAffineTransform toWindow = [self transformToWindow];
     CGAffineTransform fromWindow = [toView transformFromWindow];
     NSPoint point1 = rect.origin;
@@ -1177,7 +1186,7 @@ static void alignAxis(CGFloat *origin, CGFloat *length, NSAlignmentOptions optio
 // Cocotron's backing store has one pixel per point in window coordinates. Without a window
 // there is no backing store, so align in view coordinates.
 - (NSRect) backingAlignedRect: (NSRect) rect options: (NSAlignmentOptions) options {
-    BOOL inWindow = ([self window] != nil);
+    BOOL inWindow = (_window != nil);
     NSRect base = inWindow ? [self convertRect: rect toView: nil] : rect;
     // A flipped view's min-Y edge is the max-Y edge in window coordinates.
     BOOL swapY = inWindow && [self isFlipped];
@@ -1363,7 +1372,8 @@ static void alignAxis(CGFloat *origin, CGFloat *length, NSAlignmentOptions optio
 - (void) _insertSubview: (NSView *) view atIndex: (NSInteger) index {
 
     [view retain];
-    if ([view superview] == self)
+    BOOL added = [view superview] != self;
+    if (!added)
         [_subviews removeObjectIdenticalTo: view];
     else {
         [view removeFromSuperview];
@@ -1388,6 +1398,10 @@ static void alignAxis(CGFloat *origin, CGFloat *length, NSAlignmentOptions optio
 
     if (_wantsLayer)
         [view setWantsLayer: YES];
+
+    // As AppKit and UIKit do, the superview hears about a view it gained.
+    if (added)
+        [self didAddSubview: view];
 }
 
 - (void) addSubview: (NSView *) view {
@@ -1442,12 +1456,11 @@ static void alignAxis(CGFloat *origin, CGFloat *length, NSAlignmentOptions optio
     NSUnimplementedMethod();
 }
 
+// Overridden by subclasses that track their subviews; NSView itself has nothing to do.
 - (void) didAddSubview: (NSView *) subview {
-    NSUnimplementedMethod();
 }
 
 - (void) willRemoveSubview: (NSView *) subview {
-    NSUnimplementedMethod();
 }
 
 - (void) setAutoresizesSubviews: (BOOL) flag {
@@ -1654,7 +1667,7 @@ static void alignAxis(CGFloat *origin, CGFloat *length, NSAlignmentOptions optio
 }
 
 - (void) _trackingAreasChanged {
-    [[self window] _invalidateTrackingAreas];
+    [_window _invalidateTrackingAreas];
 }
 
 - (void) addTrackingArea: (NSTrackingArea *) trackingArea {
@@ -1740,8 +1753,10 @@ static void alignAxis(CGFloat *origin, CGFloat *length, NSAlignmentOptions optio
 
 - (void) removeFromSuperviewWithoutNeedingDisplay {
     [[self retain] autorelease];
+    // ...and about one it is about to lose, while it still has it.
+    [_superview willRemoveSubview: self];
     NSView *removeFrom = [_superview retain];
-    NSWindow *window = [[self window] retain];
+    NSWindow *window = [_window retain];
 
     for (NSView *ancestor = _superview; ancestor != nil; ancestor = [ancestor superview]) {
         NSArray *constraints = [[ancestor constraints] copy];
@@ -2328,7 +2343,7 @@ static void clearNeedsDisplay(NSView *self) {
     clearInvalidRects(self);
 
     if (_needsDisplay) {
-        [[self window] setViewsNeedDisplay: YES];
+        [_window setViewsNeedDisplay: YES];
     }
 }
 
@@ -2364,7 +2379,7 @@ static void clearNeedsDisplay(NSView *self) {
     }
 
     _needsDisplay = YES;
-    [[self window] setViewsNeedDisplay: YES];
+    [_window setViewsNeedDisplay: YES];
 }
 
 - (void) setKeyboardFocusRingNeedsDisplayInRect: (NSRect) rect {
@@ -2692,7 +2707,7 @@ static NSView *viewBeingPrinted = nil;
 }
 
 - (void) displayRect: (NSRect) rect {
-    NSWindow *window = [self window];
+    NSWindow *window = _window;
     BOOL isRootFlush = NO;
     if (window != nil && [window isFlushWindowDisabled] == NO) {
         [window disableFlushWindow];
@@ -2721,7 +2736,7 @@ static NSView *viewBeingPrinted = nil;
     if (NSIsEmptyRect(rect))
         return;
 
-    NSWindow *window = [self window];
+    NSWindow *window = _window;
     BOOL isRootFlush = NO;
     if (window != nil && [window isFlushWindowDisabled] == NO) {
         [window disableFlushWindow];
@@ -2759,7 +2774,7 @@ static NSView *viewBeingPrinted = nil;
                     [_layer setNeedsDisplay];
                 }
                 else
-                    [self drawRect: rect];
+                    [self _drawRectForDisplay: rect];
                 if (NSShowAllViews) {
                     [[self _borderColorForNSShowAllViews] set];
                     NSFrameRect(rect);
@@ -2923,7 +2938,7 @@ static NSView *viewBeingPrinted = nil;
 
 // The window's document's display name, else the window's title.
 - (NSString *) printJobTitle {
-    NSWindow *window = [self window];
+    NSWindow *window = _window;
     NSDocument *document = [[window windowController] document];
     if (document != nil)
         return [document displayName];
@@ -3161,7 +3176,7 @@ static NSRect scaleRect(NSRect rect, CGFloat scale) {
 }
 
 static CGFloat backingScaleFactor(NSView *view) {
-    NSWindow *window = [view window];
+    NSWindow *window = [view _appKitWindow];
     return window != nil ? [window backingScaleFactor] : 1.0;
 }
 
@@ -3351,7 +3366,7 @@ static CGFloat backingScaleFactor(NSView *view) {
     _needsUpdateConstraints = flag;
     if (flag) {
         _needsLayout = YES;
-        [[self window] setViewsNeedDisplay: YES];
+        [_window setViewsNeedDisplay: YES];
     }
 }
 

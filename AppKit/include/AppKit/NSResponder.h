@@ -22,11 +22,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 @class NSMenu, NSUndoManager, NSTouchBar;
 
-@interface NSResponder : NSObject <NSCoding> {
+@interface NSResponder : NSObject <NSCoding>
+// The instance variables are AppKit's own. UIKit's classes are built on this one, and iOS
+// code that subclasses them must not see them: names such as _frame or _layer would clash
+// with its own. The runtime places a subclass's ivars after them either way.
+#if !TARGET_OS_IPHONE
+{
     id _nextResponder;
     NSTouchBar *_touchBar;
     NSUserActivity *_userActivity;
 }
+#endif
 
 @property (weak) NSResponder *nextResponder NS_SWIFT_NAME(nextResponder);
 
