@@ -37,7 +37,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSStringDrawing.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <Foundation/NSKeyedArchiver.h>
-#import <Foundation/NSRaiseException.h>
 #import "AKRangeEntries.h"
 
 #import "NSBidiHelper.h"
@@ -2846,9 +2845,11 @@ static inline void _appendRectToCache(NSLayoutManager *self, NSRect rect) {
     NSDictionary *result;
 
     if (charIndex >= [_textStorage length]) {
-        NSRaiseException(NSRangeException, self, _cmd,
-                         @"index %d beyond length %d", charIndex,
-                         [_textStorage length]);
+        [NSException raise: NSRangeException
+                    format: @"-[%@ %@] index %lu beyond length %lu",
+                            [self class], NSStringFromSelector(_cmd),
+                            (unsigned long) charIndex,
+                            (unsigned long) [_textStorage length]];
     }
 
     if ((result = AKRangeEntryAtIndex(_rangeToTemporaryAttributes, charIndex,
@@ -2927,9 +2928,11 @@ static inline void _appendRectToCache(NSLayoutManager *self, NSRect rect) {
     NSUInteger location = charRange.location;
 
     if (location >= [_textStorage length]) {
-        NSRaiseException(NSRangeException, self, _cmd,
-                         @"index %d beyond length %d", location,
-                         [_textStorage length]);
+        [NSException raise: NSRangeException
+                    format: @"-[%@ %@] index %lu beyond length %lu",
+                            [self class], NSStringFromSelector(_cmd),
+                            (unsigned long) location,
+                            (unsigned long) [_textStorage length]];
     }
 
     NSUInteger limit = MIN(NSMaxRange(charRange), [_textStorage length]);
