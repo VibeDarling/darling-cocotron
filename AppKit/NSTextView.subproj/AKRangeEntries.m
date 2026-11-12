@@ -159,7 +159,10 @@ void AKRangeEntryInsert(AKRangeEntries *self, NSRange range, void *value) {
         if (self->objects && insertAt > 0 && insertAt < self->count) {
             id prev = self->entries[insertAt - 1].value;
             id next = self->entries[insertAt].value;
-            if ([prev isEqual: next]) {
+            if (NSMaxRange(self->entries[insertAt - 1].range) ==
+                        self->entries[insertAt].range.location &&
+                [prev isEqual: next])
+            {
                 range = NSUnionRange(self->entries[insertAt].range,
                                      self->entries[insertAt - 1].range);
                 self->entries[insertAt - 1].range = range;
@@ -172,9 +175,11 @@ void AKRangeEntryInsert(AKRangeEntries *self, NSRange range, void *value) {
         if (self->objects) {
             if (insertAt > 0) {
                 // Check if we can just merge the new entry with the previous
-                // one
-                if (range.length == 0 ||
-                    [(id)(self->entries[insertAt - 1].value) isEqual: value]) {
+                // one; a gap in between must stay a gap
+                if (NSMaxRange(self->entries[insertAt - 1].range) ==
+                            range.location &&
+                    [(id)(self->entries[insertAt - 1].value) isEqual: value])
+                {
                     range = NSUnionRange(self->entries[insertAt - 1].range,
                                          range);
                     self->entries[insertAt - 1].range = range;
@@ -183,8 +188,9 @@ void AKRangeEntryInsert(AKRangeEntries *self, NSRange range, void *value) {
             }
             if (insertAt < self->count) {
                 // Check if we can just merge the new entry with the next one
-                if (range.length == 0 ||
-                    [(id)(self->entries[insertAt].value) isEqual: value]) {
+                if (NSMaxRange(range) == self->entries[insertAt].range.location &&
+                    [(id)(self->entries[insertAt].value) isEqual: value])
+                {
                     range = NSUnionRange(self->entries[insertAt].range, range);
                     if (merged) {
                         // We merged with both the previous entry and the next
@@ -280,9 +286,9 @@ void *AKRangeEntryAtRange(AKRangeEntries *self, NSRange range) {
     if (self == NULL) {
         return NULL;
     }
-    NSInteger bottom = 0, top = self->count;
+    NSInteger bottom = 0, top = (NSInteger) self->count - 1;
 
-    if (top > 0) {
+    if (top >= 0) {
         while (top >= bottom) {
             NSInteger mid = (bottom + top) / 2;
             NSRange check = self->entries[mid].range;
