@@ -98,7 +98,7 @@ void O2JPGEncoderWriteImage(O2JPGEncoderRef self, O2ImageRef image,
 #include <elfcalls.h>
     extern const struct elf_calls *_elfcalls;
     void (*elf_free)(void *);
-    *((void **) (&elf_free)) = _elfcalls->dlsym_fatal(NULL, "free");
+    *((void **) (&elf_free)) = ELFCALLS_SIGN(ELFCALL(_elfcalls, dlsym_fatal)(NULL, "free"));
 
     elf_free(outbuffer);
 #endif

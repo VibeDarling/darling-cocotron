@@ -33,9 +33,9 @@ extern struct elf_calls *_elfcalls;
 struct WaylandLibrary WL;
 
 static void *openLibrary(const char *name) {
-    void *handle = _elfcalls->dlopen(name);
+    void *handle = ELFCALL(_elfcalls, dlopen)(name);
     if (handle == NULL) {
-        const char *error = _elfcalls->dlerror();
+        const char *error = ELFCALL(_elfcalls, dlerror)();
         NSLog(@"Wayland backend: cannot load %s: %s", name,
               error ? error : "unknown error");
     }
@@ -43,10 +43,14 @@ static void *openLibrary(const char *name) {
 }
 
 static bool resolve(void *handle, const char *name, void **slot) {
-    *slot = _elfcalls->dlsym(handle, name);
-    if (*slot == NULL)
+    void *raw = ELFCALL(_elfcalls, dlsym)(handle, name);
+    if (raw == NULL) {
+        *slot = NULL;
         NSLog(@"Wayland backend: missing native function %s", name);
-    return *slot != NULL;
+        return false;
+    }
+    *slot = ELFCALLS_SIGN(raw);
+    return true;
 }
 
 bool WaylandBackendSelected(void) {
@@ -128,7 +132,8 @@ bool WaylandLibraryLoad(void) {
     WAYLAND_EGL_FUNCTIONS(WAYLAND_RESOLVE_EGL)
 #undef WAYLAND_RESOLVE_EGL
 
-    WL.memfd_create = _elfcalls->dlsym(NULL, "memfd_create");
+    void *rawMemfd = ELFCALL(_elfcalls, dlsym)(NULL, "memfd_create");
+    WL.memfd_create = rawMemfd != NULL ? ELFCALLS_SIGN(rawMemfd) : NULL;
 
     loaded = 1;
     return true;
@@ -343,10 +348,10 @@ int WaylandCreateAnonymousFile(size_t size) {
                      counter++);
             // shm_open runs natively, so these are the Linux values of
             // O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC.
-            fd = _elfcalls->shm_open(name, 02 | 0100 | 0200 | 02000000, 0600);
+            fd = ELFCALL(_elfcalls, shm_open)(name, 02 | 0100 | 0200 | 02000000, 0600);
         }
         if (fd >= 0)
-            _elfcalls->shm_unlink(name);
+            ELFCALL(_elfcalls, shm_unlink)(name);
     }
 
     if (fd < 0) {
