@@ -604,6 +604,18 @@ double CTFontGetAdvancesForGlyphs(CTFontRef font, CTFontOrientation orientation,
     return sum;
 }
 
+// Signature: rung 1, the open WebKit SPI header (CoreTextSPI.h) and how WebKit calls it (FontCoreText.cpp, where it
+// replaces CTFontGetAdvancesForGlyphs for one glyph). Semantics: GUESS (rung 6), inferred from the name and that use:
+// every entry of advances gets the advance of its own glyph, not a running sum. Approximation: the rendering style
+// (antialiasing, subpixel positioning and quantization flags) is ignored, so advances are those of
+// CTFontGetAdvancesForGlyphs. NEEDS-REAL-MAC: whether a style changes the advances.
+void CTFontGetUnsummedAdvancesForGlyphsAndStyle(CTFontRef font, CTFontOrientation orientation,
+                                                CGFontRenderingStyle style, const CGGlyph *glyphs,
+                                                CGSize *advances, CFIndex count)
+{
+    CTFontGetAdvancesForGlyphs(font, orientation, glyphs, advances, count);
+}
+
 CGRect CTFontGetOpticalBoundsForGlyphs(CTFontRef font, const CGGlyph *glyphs,
                                        CGRect *boundingRects, CFIndex count,
                                        CFOptionFlags options)

@@ -35,6 +35,12 @@ CGSize CTRunGetInitialAdvance(CTRunRef run);
 // the name only; no public declaration found. Sets the per-process line-break epsilon and returns the previous value.
 CGFloat CTSwapLineBreakEpsilon(CGFloat newEpsilon);
 
+// Private CoreText interface, not installed with the SDK headers. The signature is that of the open WebKit CoreTextSPI.h;
+// the semantics are a GUESS (rung 6): one advance per glyph, unsummed.
+typedef uint32_t CGFontRenderingStyle;
+void CTFontGetUnsummedAdvancesForGlyphsAndStyle(CTFontRef font, CTFontOrientation orientation, CGFontRenderingStyle style,
+                                                const CGGlyph *glyphs, CGSize *advances, CFIndex count);
+
 // Which language's line composition rules apply (Japanese kinsoku and the like). Public values are the WebKit SPI's.
 typedef CF_ENUM(uint8_t, CTCompositionLanguage) {
     kCTCompositionLanguageUnset,
