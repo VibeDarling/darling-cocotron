@@ -27,6 +27,19 @@
         if (bundleIdentifier != nil)
             _nibBundle = [NSBundle bundleWithIdentifier: bundleIdentifier];
         _storyboard = [[NSStoryboard _instantiatingStoryboard] retain];
+
+        // The objects the view's nib asks its loader for. The controller itself is usually one of them;
+        // it is stored as NSNull so the table does not retain its owner.
+        NSDictionary *external = [coder decodeObjectForKey: @"NSExternalObjectsTableForViewLoading"];
+        if ([external isKindOfClass: [NSDictionary class]]) {
+            NSMutableDictionary *table = [NSMutableDictionary dictionaryWithCapacity: [external count]];
+
+            for (id key in external) {
+                id object = [external objectForKey: key];
+                [table setObject: object == self ? (id) [NSNull null] : object forKey: key];
+            }
+            _externalObjectsTableForViewLoading = [table retain];
+        }
     }
 
     return self;
@@ -35,6 +48,7 @@
 - (void) dealloc {
     [_identifier release];
     [_storyboard release];
+    [_externalObjectsTableForViewLoading release];
     for (NSViewController *child in _childViewControllers)
         child->_parentViewController = nil;
     [_childViewControllers release];
@@ -192,8 +206,12 @@
                     format: @"-[%@ %@] nibName is nil and %@ has no nib named %@",
                             [self class], NSStringFromSelector(_cmd), bundle, name];
 
-    NSDictionary *nameTable = [NSDictionary dictionaryWithObject: self
-                                                          forKey: NSNibOwner];
+    NSMutableDictionary *nameTable = [NSMutableDictionary dictionaryWithObject: self forKey: NSNibOwner];
+
+    for (id key in _externalObjectsTableForViewLoading) {
+        id object = [_externalObjectsTableForViewLoading objectForKey: key];
+        [nameTable setObject: object == [NSNull null] ? self : object forKey: key];
+    }
 
     if (path == nil)
         NSLog(@"NSViewController unable to find nib named %@, bundle=%@", name,
