@@ -9,9 +9,12 @@ CFTypeID KTCoreTextRunGetTypeID(void);
 CFDictionaryRef KTCoreTextObjectDictionary(CFTypeRef object);
 
 // The attributes of a font descriptor, borrowed from it (valid while the descriptor lives). Every reader of a
-// descriptor goes through this. A descriptor made by another CoreText cannot be read here: it reads as having no
-// attributes, and its class is reported once.
-CFDictionaryRef KTCoreTextDescriptorAttributes(CTFontDescriptorRef descriptor);
+// descriptor goes through this. A dictionary, or an object that answers -fontAttributes, is read as it is; a descriptor
+// made by another CoreText cannot be read here and stops by class name.
+CFDictionaryRef KTCoreTextDescriptorAttributesFrom(CTFontDescriptorRef descriptor, const char *function);
+#define KTCoreTextDescriptorAttributes(descriptor) KTCoreTextDescriptorAttributesFrom((descriptor), __func__)
+// Makes CF treat objects of a CF type as instances of the named class, when the shared cache defines it.
+bool KTCoreTextBridgeType(CFTypeID type, const char *className);
 // True for anything that can stand for a descriptor in a cascade list or collection.
 bool KTCoreTextIsDescriptor(CFTypeRef object);
 

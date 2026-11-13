@@ -7,9 +7,12 @@
 #import <Foundation/NSSet.h>
 #import <Foundation/NSString.h>
 #import <Foundation/NSObjCRuntime.h>
+#include <CoreFoundation/CFRuntime.h>
 #import <objc/runtime.h>
-#include <pthread.h>
+#include <dlfcn.h>
+#include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 
 #include <stdio.h>
 
@@ -39,13 +42,96 @@ const CFStringRef kCTFontRegistrationScopeAttribute = CFSTR("NSCTFontRegistratio
 const CFStringRef kCTFontPriorityAttribute = CFSTR("NSCTFontPriorityAttribute");
 const CFStringRef kCTFontDescriptorLanguageAttribute = CFSTR("CocotronFontDescriptorLanguageAttribute");
 
-bool KTCoreTextIsDescriptor(CFTypeRef object)
+// A descriptor is a CF object that holds its attributes. Where a class named NSCTFontDescriptor exists (the shared
+// cache's UIFoundation defines one, toll-free bridged to CTFontDescriptor), descriptors are made instances of it, so
+// that class's methods, which call the functions below with self, find the attributes in the object. Without such a
+// class they keep CF's own class. The class is looked up, never assumed.
+struct __CTFontDescriptor {
+    CFRuntimeBase base;
+    CFDictionaryRef attributes;
+};
+
+static void finalizeDescriptor(CFTypeRef value)
 {
-    return object != NULL && [(id)object isKindOfClass:[NSDictionary class]];
+    CFRelease(((struct __CTFontDescriptor *)value)->attributes);
 }
 
-// The class that the shared cache's UIFoundation defines for descriptors toll-free bridged to CF: its methods call
-// back into these functions with self, so asking an instance of it for attributes would recurse without end.
+static Boolean equalDescriptors(CFTypeRef a, CFTypeRef b)
+{
+    return CFEqual(((struct __CTFontDescriptor *)a)->attributes, ((struct __CTFontDescriptor *)b)->attributes);
+}
+
+static CFHashCode hashDescriptor(CFTypeRef value)
+{
+    return CFHash(((struct __CTFontDescriptor *)value)->attributes);
+}
+
+static const CFRuntimeClass descriptorClass = {
+    0, "CTFontDescriptor", NULL, NULL, finalizeDescriptor, equalDescriptors, hashDescriptor, NULL, NULL,
+};
+static CFTypeID descriptorType;
+static pthread_once_t descriptorTypeOnce = PTHREAD_ONCE_INIT;
+
+static void registerDescriptorType(void)
+{
+    descriptorType = _CFRuntimeRegisterClass(&descriptorClass);
+}
+
+CFTypeID CTFontDescriptorGetTypeID(void)
+{
+    pthread_once(&descriptorTypeOnce, registerDescriptorType);
+    return descriptorType;
+}
+
+static pthread_once_t bridgeOnce = PTHREAD_ONCE_INIT;
+
+// Whether a class is defined by an image of the dyld shared cache. A class of that name from anywhere else, such as a
+// stand-in framework on disk, does not stand for the cache's bridged type, whatever it answers. The environment
+// variable lets a test register its own class, since a test process has no shared cache.
+static BOOL classIsFromSharedCache(Class cls)
+{
+    if (getenv("KT_CORETEXT_BRIDGE_ANY_IMAGE") != NULL)
+        return YES;
+    size_t length = 0;
+    const void *(*cacheRange)(size_t *) = (const void *(*)(size_t *))dlsym(RTLD_DEFAULT, "_dyld_get_shared_cache_range");
+    const char *base = cacheRange != NULL ? cacheRange(&length) : NULL;
+    uintptr_t address = (uintptr_t)cls & 0x00007fffffffffffUL;
+    return base != NULL && address >= (uintptr_t)base && address - (uintptr_t)base < length;
+}
+
+// Tells CF that objects of a CF type are instances of the class of that name, as CF does for its own bridged types:
+// CF then gives every new object of the type that class as its isa and keeps handling retain, release, equality and
+// hash itself. Returns false, quietly, when no class has that name, and false, reporting it, when the class is not the
+// shared cache's or CoreFoundation has no registration function.
+bool KTCoreTextBridgeType(CFTypeID type, const char *className)
+{
+    Class cls = objc_getClass(className);
+    if (cls == Nil)
+        return false;
+    if (!classIsFromSharedCache(cls)) {
+        NSLog(@"CoreText: class %s is not defined by the shared cache, so it does not stand for the CF type; those objects stay plain CF objects", className);
+        return false;
+    }
+    void (*registerClass)(CFTypeID, const char *) = (void (*)(CFTypeID, const char *))dlsym(RTLD_DEFAULT, "_CFRuntimeBridgeClasses");
+    if (registerClass == NULL) {
+        NSLog(@"CoreText: class %s exists but CoreFoundation cannot bridge a type to it; those objects stay plain CF objects", className);
+        return false;
+    }
+    registerClass(type, className);
+    return true;
+}
+
+static void bridgeDescriptorClass(void)
+{
+    KTCoreTextBridgeType(CTFontDescriptorGetTypeID(), "NSCTFontDescriptor");
+}
+
+bool KTCoreTextIsDescriptor(CFTypeRef object)
+{
+    return object != NULL && CFGetTypeID(object) == CTFontDescriptorGetTypeID();
+}
+
+// The class that the shared cache's UIFoundation defines for descriptors toll-free bridged to CF.
 static BOOL isCacheDescriptorClass(id object)
 {
     for (Class c = object_getClass(object); c != Nil; c = class_getSuperclass(c))
@@ -54,51 +140,46 @@ static BOOL isCacheDescriptorClass(id object)
     return NO;
 }
 
-// A descriptor made here is an NSDictionary of attributes. Another object that answers -fontAttributes, such as
-// Cocotron's NSFontDescriptor, which an app may cast to a CTFontDescriptorRef, is read through that. An instance of
-// the cache's bridge class cannot be read here and, like any other object, reads as having no attributes, reported
-// once.
-CFDictionaryRef KTCoreTextDescriptorAttributes(CTFontDescriptorRef descriptor)
+// A descriptor made here holds its attributes. A dictionary, or another object that answers -fontAttributes, such as
+// Cocotron's NSFontDescriptor, which an app may cast to a CTFontDescriptorRef, is read as they are. An instance of
+// the cache's bridge class that this CoreText did not make, which another CoreText made, and any other object stop
+// here by class name: the cache's methods call back into these functions with self, so asking one for attributes
+// would recurse without end, and an empty answer would hide the cause.
+CFDictionaryRef KTCoreTextDescriptorAttributesFrom(CTFontDescriptorRef descriptor, const char *function)
 {
-    static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-    static NSMutableSet *reported;
-    static NSDictionary *none;
+    if (descriptor == NULL)
+        return NULL;
+    if (KTCoreTextIsDescriptor(descriptor))
+        return ((struct __CTFontDescriptor *)descriptor)->attributes;
 
     id object = (id)descriptor;
-    if (object == nil || [object isKindOfClass:[NSDictionary class]])
+    if ([object isKindOfClass:[NSDictionary class]])
         return (CFDictionaryRef)object;
     if (!isCacheDescriptorClass(object) && [object respondsToSelector:@selector(fontAttributes)]) {
         id attributes = [object fontAttributes];
         if ([attributes isKindOfClass:[NSDictionary class]])
             return (CFDictionaryRef)attributes;
     }
-
-    NSString *name = NSStringFromClass([object class]);
-    pthread_mutex_lock(&lock);
-    if (reported == nil) {
-        reported = [[NSMutableSet alloc] init];
-        none = [[NSDictionary alloc] init];
-    }
-    BOOL first = ![reported containsObject:name];
-    if (first)
-        [reported addObject:name];
-    pthread_mutex_unlock(&lock);
-    if (first)
-        NSLog(@"CoreText: a font descriptor of class %@ was not created by this CoreText, so its attributes cannot be read here", name);
-    return (CFDictionaryRef)none;
-}
-
-CFTypeID CTFontDescriptorGetTypeID(void)
-{
-    return CFDictionaryGetTypeID();
+    fprintf(stderr, "CoreText: %s was given a font descriptor of class %s that cannot be read here (%s)\n", function,
+            object_getClassName(object), isCacheDescriptorClass(object) ? "made by another CoreText" : "not a descriptor");
+    abort();
 }
 
 CTFontDescriptorRef CTFontDescriptorCreateWithAttributes(CFDictionaryRef attributes)
 {
-    if (!attributes) {
-        return (CTFontDescriptorRef)[[NSDictionary dictionary] retain];
+    CFDictionaryRef snapshot = attributes != NULL
+            ? CFDictionaryCreateCopy(kCFAllocatorDefault, attributes)
+            : CFDictionaryCreate(kCFAllocatorDefault, NULL, NULL, 0, &kCFTypeDictionaryKeyCallBacks,
+                                 &kCFTypeDictionaryValueCallBacks);
+    pthread_once(&bridgeOnce, bridgeDescriptorClass);
+    struct __CTFontDescriptor *descriptor = (struct __CTFontDescriptor *)_CFRuntimeCreateInstance(
+            kCFAllocatorDefault, CTFontDescriptorGetTypeID(), sizeof(*descriptor) - sizeof(CFRuntimeBase), NULL);
+    if (descriptor == NULL) {
+        CFRelease(snapshot);
+        return NULL;
     }
-    return (CTFontDescriptorRef)[(id)attributes copy];
+    descriptor->attributes = snapshot;
+    return descriptor;
 }
 
 CTFontDescriptorRef CTFontDescriptorCreateWithNameAndSize(CFStringRef name, CGFloat size)
@@ -128,14 +209,14 @@ CFTypeRef CTFontDescriptorCopyAttribute(CTFontDescriptorRef descriptor, CFString
 
 CFArrayRef CTFontDescriptorCreateMatchingFontDescriptors(CTFontDescriptorRef descriptor, CFSetRef mandatoryAttributes)
 {
-    if (!descriptor) return (CFArrayRef)[[NSArray array] retain];
-    return (CFArrayRef)[[NSArray arrayWithObject:(id)descriptor] retain];
+    if (!descriptor) return CFArrayCreate(kCFAllocatorDefault, NULL, 0, &kCFTypeArrayCallBacks);
+    return CFArrayCreate(kCFAllocatorDefault, (const void **)&descriptor, 1, &kCFTypeArrayCallBacks);
 }
 
 CTFontDescriptorRef CTFontDescriptorCreateMatchingFontDescriptor(CTFontDescriptorRef descriptor, CFSetRef mandatoryAttributes)
 {
     if (!descriptor) return NULL;
-    return (CTFontDescriptorRef)[(id)descriptor retain];
+    return (CTFontDescriptorRef)CFRetain(descriptor);
 }
 
 CTFontDescriptorRef CTFontDescriptorCreateCopyWithAttributes(CTFontDescriptorRef descriptor, CFDictionaryRef attributes)

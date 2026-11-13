@@ -1,8 +1,13 @@
-// Links CoreText without AppKit. A descriptor made by another CoreText (the shared cache's, whose methods call the
-// CTFontDescriptor functions with self) must not make this CoreText recurse through those methods.
+// Links CoreText without AppKit. A descriptor this CoreText cannot read stops by class name instead of recursing
+// through the object's own methods (the shared cache's, which call the CTFontDescriptor functions with self) or
+// reading as empty. Dictionaries and objects that answer -fontAttributes, like Cocotron's NSFontDescriptor, are read.
 #import <CoreText/CoreText.h>
 #import <Foundation/Foundation.h>
+#include <signal.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 static void expect(BOOL condition, NSString *message)
 {
@@ -21,7 +26,6 @@ static void expect(BOOL condition, NSString *message)
 - (id)copyWithZone:(NSZone *)zone { return (id)CTFontDescriptorCopyAttributes((CTFontDescriptorRef)self); }
 @end
 
-// An object that answers -fontAttributes with real attributes, like Cocotron's NSFontDescriptor, is read through it.
 @interface DuckDescriptor : NSObject
 @end
 
@@ -29,7 +33,7 @@ static void expect(BOOL condition, NSString *message)
 - (NSDictionary *)fontAttributes { return @{ (id)kCTFontNameAttribute: @"Duck" }; }
 @end
 
-// Named like the cache's class: instances are not asked for their attributes, whatever they answer.
+// Named like the cache's class: instances are never asked for their attributes, whatever they answer.
 @interface NSCTFontDescriptor : NSObject
 @end
 
@@ -37,34 +41,51 @@ static void expect(BOOL condition, NSString *message)
 - (NSDictionary *)fontAttributes { return [(id)CTFontDescriptorCopyAttributes((CTFontDescriptorRef)self) autorelease]; }
 @end
 
+// Runs the block in a child and expects SIGABRT with the class name on stderr.
+static void expectStops(const char *className, void (^block)(void))
+{
+    int pipefd[2];
+    expect(pipe(pipefd) == 0, @"pipe");
+    pid_t child = fork();
+    if (child == 0)
+    {
+        dup2(pipefd[1], 2);
+        close(pipefd[0]);
+        block();
+        _exit(0);
+    }
+    close(pipefd[1]);
+    char message[512] = {0};
+    ssize_t count = read(pipefd[0], message, sizeof(message) - 1);
+    int status = 0;
+    waitpid(child, &status, 0);
+    expect(WIFSIGNALED(status) && WTERMSIG(status) == SIGABRT, [NSString stringWithFormat:@"%s stops", className]);
+    expect(count > 0 && strstr(message, className) != NULL, [NSString stringWithFormat:@"%s is named", className]);
+}
+
 int main(void)
 {
     @autoreleasepool
     {
         ForeignDescriptor *foreign = [[ForeignDescriptor alloc] init];
-        CFTypeRef value = CTFontDescriptorCopyAttribute((CTFontDescriptorRef)foreign, kCTFontNameAttribute);
-        expect(value == NULL, @"a foreign descriptor has no attributes here");
-        CFDictionaryRef none = CTFontDescriptorCopyAttributes((CTFontDescriptorRef)foreign);
-        expect(none != NULL && CFDictionaryGetCount(none) == 0, @"a foreign descriptor copies as empty");
-        CFRelease(none);
-        CTFontRef font = CTFontCreateWithFontDescriptor((CTFontDescriptorRef)foreign, 12, NULL);
-        expect(font != NULL, @"a font can still be made from it");
-        CFRelease(font);
-        CTFontDescriptorRef derived = CTFontDescriptorCreateCopyWithSymbolicTraits(
-                (CTFontDescriptorRef)foreign, kCTFontTraitBold, kCTFontTraitBold);
-        expect(derived != NULL && CTFontDescriptorGetSymbolicTraits(derived) == kCTFontTraitBold,
-               @"a copy made from it carries the requested traits");
-        CFRelease(derived);
+        expectStops("ForeignDescriptor", ^{ CTFontDescriptorCopyAttribute((CTFontDescriptorRef)foreign, kCTFontNameAttribute); });
+        expectStops("ForeignDescriptor", ^{ CTFontCreateWithFontDescriptor((CTFontDescriptorRef)foreign, 12, NULL); });
+
+        NSCTFontDescriptor *cacheLike = [[NSCTFontDescriptor alloc] init];
+        expectStops("NSCTFontDescriptor", ^{ CTFontDescriptorCopyAttributes((CTFontDescriptorRef)cacheLike); });
 
         DuckDescriptor *duck = [[DuckDescriptor alloc] init];
         CFTypeRef duckName = CTFontDescriptorCopyAttribute((CTFontDescriptorRef)duck, kCTFontNameAttribute);
         expect(duckName != NULL && CFEqual(duckName, CFSTR("Duck")), @"an object that answers -fontAttributes is read through it");
         CFRelease(duckName);
 
-        NSCTFontDescriptor *cacheLike = [[NSCTFontDescriptor alloc] init];
-        CFDictionaryRef cacheNone = CTFontDescriptorCopyAttributes((CTFontDescriptorRef)cacheLike);
-        expect(cacheNone != NULL && CFDictionaryGetCount(cacheNone) == 0, @"an instance of the cache's class is not read through its methods");
-        CFRelease(cacheNone);
+        CTFontDescriptorRef derived = CTFontDescriptorCreateCopyWithSymbolicTraits(
+                (CTFontDescriptorRef)duck, kCTFontTraitBold, kCTFontTraitBold);
+        expect(derived != NULL && CTFontDescriptorGetSymbolicTraits(derived) == kCTFontTraitBold, @"a copy made from it carries the traits");
+        CFTypeRef derivedName = CTFontDescriptorCopyAttribute(derived, kCTFontNameAttribute);
+        expect(derivedName != NULL && CFEqual(derivedName, CFSTR("Duck")), @"and its name");
+        CFRelease(derivedName);
+        CFRelease(derived);
         NSLog(@"coretext-foreign-descriptor: ok");
     }
     return 0;
