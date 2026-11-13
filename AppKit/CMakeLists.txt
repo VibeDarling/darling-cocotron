@@ -252,6 +252,7 @@ set(AppKit_sources
 	NSTextView.subproj/NSUndoTextOperation.m
 	NSTextView.subproj/NSSubTextStorage.m
 	NSTextView.subproj/NSLayoutManager+NSTextViewSupport.m
+	NSTextView.subproj/NSArray+NSRangeSearch.m
 	NSTextSystemConstants.m
 	NSTextView.subproj/NSSecureTextView.m
 
