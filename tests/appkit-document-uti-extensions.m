@@ -49,8 +49,8 @@ int main(void) {
 #ifdef PROBE_WITHOUT_PROVIDER
         expect([controller typeFromFileExtension:@"txt"] == nil, @"optional provider unavailable");
 #else
-        expect([[controller typeFromFileExtension:@"txt"] isEqual:@"Plain document"], @"UTI-only txt");
-        expect([[controller typeFromFileExtension:@"TEXT"] isEqual:@"Plain document"], @"case and alias");
+        expect([[controller typeFromFileExtension:@"txt"] isEqual:@"public.plain-text"], @"LSItemContentTypes-only txt is named by its UTI");
+        expect([[controller typeFromFileExtension:@"TEXT"] isEqual:@"public.plain-text"], @"case and alias");
 #endif
         expect([controller typeFromFileExtension:@"png"] == nil, @"known but undeclared type");
         expect([controller typeFromFileExtension:@"darling-unregistered-extension-123"] == nil,
@@ -71,7 +71,7 @@ int main(void) {
         [controller setTypes:@[plain, rich, explicit]];
         NSError *reported = nil;
         resourceSuccess = YES; resourceType = @"public.rtf";
-        expect([[controller typeForContentsOfURL:(NSURL *)url error:&reported] isEqual:@"Rich document"], @"resource UTI wins over extension");
+        expect([[controller typeForContentsOfURL:(NSURL *)url error:&reported] isEqual:@"public.rtf"], @"resource UTI wins over extension");
         resourceType = @"public.unknown";
         expect([[controller typeForContentsOfURL:(NSURL *)url error:NULL] isEqual:@"Explicit document"], @"unmatched resource UTI fallback");
         resourceType = nil;
@@ -86,12 +86,24 @@ int main(void) {
         fileURL = NO;
         expect([controller typeForContentsOfURL:(NSURL *)url error:NULL] == nil, @"non-file URLs stay unsupported");
         fileURL = YES;
+        // An entry declaring several UTIs is named by the one that matched, not by its first.
+        NSDictionary *image = @{@"CFBundleTypeName": @"Image document", @"LSItemContentTypes": @[@"public.jpeg", @"public.png"]};
+        [controller setTypes:@[image]];
+#ifndef PROBE_WITHOUT_PROVIDER
+        expect([[controller typeFromFileExtension:@"png"] isEqual:@"public.png"], @"registry match names the entry's second UTI");
+#endif
+        BOOL savedSuccess = resourceSuccess; NSString *savedType = resourceType;
+        resourceSuccess = YES; resourceType = @"public.png";
+        expect([[controller typeForContentsOfURL:(NSURL *)url error:NULL] isEqual:@"public.png"], @"resource UTI names the entry's second UTI");
+        resourceType = @"public.jpeg";
+        expect([[controller typeForContentsOfURL:(NSURL *)url error:NULL] isEqual:@"public.jpeg"], @"resource UTI that is the first UTI still matches");
+        resourceSuccess = savedSuccess; resourceType = savedType;
         [controller setTypes:@[plain]];
         NSString *fallback = [controller typeForContentsOfURL:(NSURL *)url error:&reported];
 #ifdef PROBE_WITHOUT_PROVIDER
         expect(fallback == nil, @"no UTI fallback without provider");
 #else
-        expect([fallback isEqual:@"Plain document"], @"URL lookup reaches UTI-only extension declaration");
+        expect([fallback isEqual:@"public.plain-text"], @"URL lookup reaches UTI-only extension declaration");
 #endif
         expect(reported == nil, @"no stale error after metadata fallback");
         [url release];

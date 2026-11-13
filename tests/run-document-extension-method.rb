@@ -4,15 +4,19 @@
 require 'tmpdir'
 require 'open3'
 sdk = File.expand_path(ARGV.fetch(0))
-source = File.read(ARGV[1] || File.expand_path('../AppKit/NSDocumentController.m', __dir__))
+controller_path = ARGV[1] || File.expand_path('../AppKit/NSDocumentController.m', __dir__)
+source = File.read(controller_path)
 method = source[/^- \(NSString \*\) typeFromFileExtension:.*?^\}/m]
 abort 'method not found' unless method
 url_method = source[/^- \(NSString \*\) typeForContentsOfURL:.*?^\}/m]
 abort 'URL method not found' unless url_method
+helpers = File.read(File.join(File.dirname(controller_path), 'NSDocumentTypeName.h')).lines.reject { |line| line.start_with?('#import') }.join
 fixture = File.read(File.join(__dir__, 'appkit-document-uti-extensions.m'))
 fixture = fixture.lines.reject { |line| line.start_with?('#import') }.join
 prelude = <<~'OBJC'
   #import <Foundation/Foundation.h>
+  OBJC
+prelude += helpers + <<~'OBJC'
   @interface UTType : NSObject
   + (instancetype)typeWithFilenameExtension:(NSString *)extension;
   - (NSString *)identifier;
