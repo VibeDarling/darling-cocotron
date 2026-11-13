@@ -256,13 +256,7 @@ static NSTextView *s_targetTextView = nil;
     }
     _textStorage = storage;
 
-    NSMutableDictionary *typingAttributes = nil;
-    if ([_textStorage length] > 0) {
-        typingAttributes = [[_textStorage attributesAtIndex: 0
-                                             effectiveRange: NULL] mutableCopy];
-    } else {
-        typingAttributes = [[NSMutableDictionary alloc] init];
-    }
+    NSMutableDictionary *typingAttributes = [self _copyInitialTypingAttributes];
     if (_font && ![typingAttributes objectForKey: NSFontAttributeName]) {
         [typingAttributes setObject: _font forKey: NSFontAttributeName];
     }
@@ -290,6 +284,14 @@ static NSTextView *s_targetTextView = nil;
         [layoutManager replaceTextStorage: textStorage];
     else
         [self _setTextStorage: textStorage];
+}
+
+// The typing attributes a view starts with: those of the first character, none for an empty storage (a storage rejects an
+// index past its end). Returns an owned dictionary.
+- (NSMutableDictionary *) _copyInitialTypingAttributes {
+    if ([_textStorage length] > 0)
+        return [[_textStorage attributesAtIndex: 0 effectiveRange: NULL] mutableCopy];
+    return [[NSMutableDictionary alloc] init];
 }
 
 - initWithCoder: (NSCoder *) coder {
@@ -363,9 +365,7 @@ static NSTextView *s_targetTextView = nil;
                        value: _textColor
                        range: NSMakeRange(0, [[self textStorage] length])];
 
-        NSMutableDictionary *typingAttributes =
-                [[_textStorage attributesAtIndex: 0
-                                  effectiveRange: NULL] mutableCopy];
+        NSMutableDictionary *typingAttributes = [self _copyInitialTypingAttributes];
         if (![typingAttributes objectForKey: NSFontAttributeName]) {
             [typingAttributes setObject: _font forKey: NSFontAttributeName];
         }
