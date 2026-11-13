@@ -195,6 +195,7 @@ APPKIT_EXPORT NSString *const NSAllRomanInputSourcesLocaleIdentifier;
 - (void) invalidateTextContainerOrigin;
 + (BOOL) stronglyReferencesTextStorage;
 - (NSSelectionAffinity) selectionAffinity;
+- (NSSelectionGranularity) selectionGranularity;
 
 - (void) setUsesRuler: (BOOL) flag;
 - (void) setRulerVisible: (BOOL) flag;

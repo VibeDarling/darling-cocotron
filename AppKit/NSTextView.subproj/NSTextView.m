@@ -576,6 +576,10 @@ static NSTextView *s_targetTextView = nil;
     return _selectionAffinity;
 }
 
+- (NSSelectionGranularity) selectionGranularity {
+    return _selectionGranularity;
+}
+
 - (NSLayoutManager *) layoutManager {
     return [_textContainer layoutManager];
 }
