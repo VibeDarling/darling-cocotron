@@ -304,6 +304,7 @@ set(AppKit_sources
 	NSHelpManager.m
 	NSStringDrawingContext.m
 	NSUserInterfaceCompression.m
+	UIFont.m
 	NSProgressIndicator.m
 	NSFontCollection.m
 	NSFontDescriptor.m

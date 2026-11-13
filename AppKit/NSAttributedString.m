@@ -26,6 +26,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSRichTextReader.h>
 #import <AppKit/NSRichTextWriter.h>
 #import <AppKit/NSStringDrawer.h>
+#import <AppKit/UIFont.h>
 #import <AppKit/NSTextAttachment.h>
 
 // Font, paragraph style and superscript use the key strings archived attributed strings carry, as CoreText's
@@ -738,6 +739,10 @@ NSUInteger NSUnderlineByWordMask = 0x8000;
 
 NSFont *NSFontAttributeInDictionary(NSDictionary *dictionary) {
     NSFont *font = [dictionary objectForKey: NSFontAttributeName];
+
+    // Text layout hands this font to CoreText as a CTFontRef, which a UIFont (a wrapper, not an NSFont) is not.
+    if ([font isKindOfClass: [UIFont class]])
+        font = [(UIFont *) font _wrappedFont];
 
     if (font == nil)
         font = [NSFont fontWithName: @"Arial" size: 12.0];

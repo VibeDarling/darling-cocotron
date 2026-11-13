@@ -99,6 +99,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSKeyBindingManager.h>
 #import <AppKit/NSKeyValueBinding.h>
 #import <AppKit/NSUserInterfaceCompression.h>
+#import <AppKit/UIFont.h>
 #import <AppKit/NSLayoutConstraint.h>
 #import <AppKit/NSLayoutManager.h>
 #import <AppKit/NSLevelIndicator.h>
