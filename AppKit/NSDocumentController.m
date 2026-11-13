@@ -105,6 +105,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 static NSDocumentController *s_sharedDocumentController = nil;
 
+// Private AppKit class method that Print Center calls. Apple documents nothing
+// about it. The public side of "modern documents" is the 10.7 document model
+// (autosaving in place, Versions), which an app opts into per NSDocument
+// subclass, not through the controller. The controller has no mode of its own
+// to switch here, so the call is accepted and changes nothing: no document is
+// saved, moved or autosaved by it.
++ (void) _setUsingModernDocuments: (BOOL) flag {
+}
+
 + (id) sharedDocumentController {
     @synchronized([NSDocumentController class]) {
         if (s_sharedDocumentController == nil) {
