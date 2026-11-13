@@ -13,6 +13,7 @@
     NSMutableArray *_childViewControllers;
     NSViewController *_parentViewController;
     NSStoryboard *_storyboard;
+    NSDictionary *_externalObjectsTableForViewLoading;
     NSSize _preferredContentSize;
 }
 
