@@ -256,13 +256,7 @@ static NSTextView *s_targetTextView = nil;
     }
     _textStorage = storage;
 
-    NSMutableDictionary *typingAttributes = nil;
-    if ([_textStorage length] > 0) {
-        typingAttributes = [[_textStorage attributesAtIndex: 0
-                                             effectiveRange: NULL] mutableCopy];
-    } else {
-        typingAttributes = [[NSMutableDictionary alloc] init];
-    }
+    NSMutableDictionary *typingAttributes = [self _copyInitialTypingAttributes];
     if (_font && ![typingAttributes objectForKey: NSFontAttributeName]) {
         [typingAttributes setObject: _font forKey: NSFontAttributeName];
     }
@@ -290,6 +284,14 @@ static NSTextView *s_targetTextView = nil;
         [layoutManager replaceTextStorage: textStorage];
     else
         [self _setTextStorage: textStorage];
+}
+
+// The typing attributes a view starts with: those of the first character, none for an empty storage (a storage rejects an
+// index past its end). Returns an owned dictionary.
+- (NSMutableDictionary *) _copyInitialTypingAttributes {
+    if ([_textStorage length] > 0)
+        return [[_textStorage attributesAtIndex: 0 effectiveRange: NULL] mutableCopy];
+    return [[NSMutableDictionary alloc] init];
 }
 
 - initWithCoder: (NSCoder *) coder {
@@ -340,9 +342,11 @@ static NSTextView *s_targetTextView = nil;
         _isHorizontallyResizable = ((flags & 0x01) != 0);
         _isVerticallyResizable = ((flags & 0x02) != 0);
 
-        _selectedRanges = [[NSMutableArray alloc] init];
-        [_selectedRanges
-                addObject: [NSValue valueWithRange: NSMakeRange(0, 0)]];
+        if (_selectedRanges == nil) {   // -selectedRanges may have made the default already
+            _selectedRanges = [[NSMutableArray alloc] init];
+            [_selectedRanges
+                    addObject: [NSValue valueWithRange: NSMakeRange(0, 0)]];
+        }
 
         _rangeForUserCompletion = NSMakeRange(NSNotFound, 0);
         _selectedTextAttributes = [[NSDictionary
@@ -361,9 +365,7 @@ static NSTextView *s_targetTextView = nil;
                        value: _textColor
                        range: NSMakeRange(0, [[self textStorage] length])];
 
-        NSMutableDictionary *typingAttributes =
-                [[_textStorage attributesAtIndex: 0
-                                  effectiveRange: NULL] mutableCopy];
+        NSMutableDictionary *typingAttributes = [self _copyInitialTypingAttributes];
         if (![typingAttributes objectForKey: NSFontAttributeName]) {
             [typingAttributes setObject: _font forKey: NSFontAttributeName];
         }
@@ -432,8 +434,10 @@ static NSTextView *s_targetTextView = nil;
     _maxSize = [self bounds].size;
     _isHorizontallyResizable = NO;
     _isVerticallyResizable = YES;
-    _selectedRanges = [[NSMutableArray alloc] init];
-    [_selectedRanges addObject: [NSValue valueWithRange: NSMakeRange(0, 0)]];
+    if (_selectedRanges == nil) {   // -selectedRanges may have made the default already
+        _selectedRanges = [[NSMutableArray alloc] init];
+        [_selectedRanges addObject: [NSValue valueWithRange: NSMakeRange(0, 0)]];
+    }
 
     _rangeForUserCompletion = NSMakeRange(NSNotFound, 0);
     _selectedTextAttributes = [[NSDictionary
@@ -547,6 +551,39 @@ static NSTextView *s_targetTextView = nil;
     return NSMakePoint(_textContainerInset.width, _textContainerInset.height);
 }
 
+// The origin is computed from the text container inset on every use, so nothing is cached to drop: the view only has to
+// draw again for the change that prompted the call to show.
+- (void) invalidateTextContainerOrigin {
+    [self setNeedsDisplay: YES];
+}
+
+// Whether a text view holds a strong reference to its text storage. Here the default initializers do: -initWithFrame: and
+// -initWithCoder: own and retain the storage and release it in -dealloc. A view given a container with
+// -initWithFrame:textContainer: does not own it unless it was made by one of those.
++ (BOOL) stronglyReferencesTextStorage {
+    return YES;
+}
+
+// Private: the shared cache's text code sends it when the find bar or text finder client may have changed. There is no
+// text finder client here, so there is no state to update and nothing is returned: deliberately a no-op, like the other
+// private AppKit selectors Darling answers for guest apps. Signature and purpose are a GUESS from the name (rung 6).
+- (void) _updateTextFinder {
+}
+
+// Private: the shared cache's text code sends it before the string changes, so a find client could prepare. There is
+// no text finder client here, so there is no state the method could act on and nothing is returned: deliberately a
+// no-op, as _updateTextFinder. Signature and purpose are a GUESS from the name (rung 6).
+- (void) _informTextFinderStringWillChange {
+}
+
+- (NSSelectionAffinity) selectionAffinity {
+    return _selectionAffinity;
+}
+
+- (NSSelectionGranularity) selectionGranularity {
+    return _selectionGranularity;
+}
+
 - (NSLayoutManager *) layoutManager {
     return [_textContainer layoutManager];
 }
@@ -598,7 +635,13 @@ static NSTextView *s_targetTextView = nil;
     return _markedTextAttributes;
 }
 
+// There is always at least one selected range, the insertion point at 0 when nothing is selected, and never nil: the
+// shared cache's text code asks a text view for it before the designated initializer has run.
 - (NSArray *) selectedRanges {
+    if (_selectedRanges == nil) {
+        _selectedRanges = [[NSMutableArray alloc] init];
+        [_selectedRanges addObject: [NSValue valueWithRange: NSMakeRange(0, 0)]];
+    }
     return _selectedRanges;
 }
 
@@ -2573,7 +2616,9 @@ static NSTextView *s_targetTextView = nil;
 
 // Add attributes with undo support
 - (void) _addAttributes: (NSDictionary *) attributes range: (NSRange) range {
-    if (_allowsUndo && self.undoManager) {
+    // An empty range changes nothing, so there is nothing to record for undo (recording asks the storage for attributes
+    // at the start of the range, which an empty storage does not have).
+    if (_allowsUndo && self.undoManager && range.length > 0) {
         [self breakUndoCoalescing];
 
         NSUndoSetAttributes *undoSetAttributes = [[[NSUndoSetAttributes alloc]
@@ -2597,7 +2642,7 @@ static NSTextView *s_targetTextView = nil;
 
 // Remove attributes with undo support
 - (void) _removeAttribute: (NSString *) key range: (NSRange) range {
-    if (_allowsUndo && self.undoManager) {
+    if (_allowsUndo && self.undoManager && range.length > 0) {
         [self breakUndoCoalescing];
 
         NSUndoSetAttributes *undoSetAttributes = [[[NSUndoSetAttributes alloc]
@@ -2989,6 +3034,20 @@ static NSTextView *s_targetTextView = nil;
     }
     if ([self isHorizontallyResizable] || [self isVerticallyResizable])
         [self setFrameSize: size];
+}
+
+// Sets the frame size to desiredSize, constrained by the view's minimum and maximum size on each axis that can resize;
+// an axis that cannot resize keeps its current length.
+- (void) setConstrainedFrameSize: (NSSize) desiredSize {
+    NSSize size = [self frame].size;
+
+    if ([self isHorizontallyResizable]) {
+        size.width = MIN(MAX(desiredSize.width, _minSize.width), _maxSize.width);
+    }
+    if ([self isVerticallyResizable]) {
+        size.height = MIN(MAX(desiredSize.height, _minSize.height), _maxSize.height);
+    }
+    [self setFrameSize: size];
 }
 
 - (void) scrollRangeToVisible: (NSRange) range {
