@@ -547,6 +547,12 @@ static NSTextView *s_targetTextView = nil;
     return NSMakePoint(_textContainerInset.width, _textContainerInset.height);
 }
 
+// The origin is computed from the text container inset on every use, so nothing is cached to drop: the view only has to
+// draw again for the change that prompted the call to show.
+- (void) invalidateTextContainerOrigin {
+    [self setNeedsDisplay: YES];
+}
+
 - (NSLayoutManager *) layoutManager {
     return [_textContainer layoutManager];
 }
