@@ -340,9 +340,11 @@ static NSTextView *s_targetTextView = nil;
         _isHorizontallyResizable = ((flags & 0x01) != 0);
         _isVerticallyResizable = ((flags & 0x02) != 0);
 
-        _selectedRanges = [[NSMutableArray alloc] init];
-        [_selectedRanges
-                addObject: [NSValue valueWithRange: NSMakeRange(0, 0)]];
+        if (_selectedRanges == nil) {   // -selectedRanges may have made the default already
+            _selectedRanges = [[NSMutableArray alloc] init];
+            [_selectedRanges
+                    addObject: [NSValue valueWithRange: NSMakeRange(0, 0)]];
+        }
 
         _rangeForUserCompletion = NSMakeRange(NSNotFound, 0);
         _selectedTextAttributes = [[NSDictionary
@@ -432,8 +434,10 @@ static NSTextView *s_targetTextView = nil;
     _maxSize = [self bounds].size;
     _isHorizontallyResizable = NO;
     _isVerticallyResizable = YES;
-    _selectedRanges = [[NSMutableArray alloc] init];
-    [_selectedRanges addObject: [NSValue valueWithRange: NSMakeRange(0, 0)]];
+    if (_selectedRanges == nil) {   // -selectedRanges may have made the default already
+        _selectedRanges = [[NSMutableArray alloc] init];
+        [_selectedRanges addObject: [NSValue valueWithRange: NSMakeRange(0, 0)]];
+    }
 
     _rangeForUserCompletion = NSMakeRange(NSNotFound, 0);
     _selectedTextAttributes = [[NSDictionary
@@ -631,7 +635,13 @@ static NSTextView *s_targetTextView = nil;
     return _markedTextAttributes;
 }
 
+// There is always at least one selected range, the insertion point at 0 when nothing is selected, and never nil: the
+// shared cache's text code asks a text view for it before the designated initializer has run.
 - (NSArray *) selectedRanges {
+    if (_selectedRanges == nil) {
+        _selectedRanges = [[NSMutableArray alloc] init];
+        [_selectedRanges addObject: [NSValue valueWithRange: NSMakeRange(0, 0)]];
+    }
     return _selectedRanges;
 }
 
