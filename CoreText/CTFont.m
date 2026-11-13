@@ -100,12 +100,17 @@ struct __CTFont {
     CGFontRef cgFont;
     CGFloat size;
     CFArrayRef cascade;
-    const void *client;
+    CFTypeRef client;
 };
 
 static void finalizeFont(CFTypeRef value) {
     struct __CTFont *font = (struct __CTFont *)value;
     CGFontRelease(font->cgFont);
+    // The pointer is cleared before the release: the object's own dealloc may reach this font again.
+    CFTypeRef client = font->client;
+    font->client = NULL;
+    if (client != NULL)
+        CFRelease(client);
     if (font->cascade != NULL)
         CFRelease(font->cascade);
 }
@@ -945,9 +950,17 @@ uint32_t CTGetCoreTextVersion(void)
     return 0x000C0000;
 }
 
-// A pointer that the font's class keeps in the font: the bridge class stores its own object here. The signatures are a
-// GUESS from the names (a font and one pointer); the pointer is kept as given, neither retained nor released.
-// Only fonts that keep their state themselves have room for it, and any other font stops here by name.
+// An object that the font's class keeps in the font: the bridge class stores its own object here. The font retains it,
+// as its owner may release its own reference at once (a stored object that is not retained dangles, and the cache's
+// code then crashes in the runtime on a stale pointer). The signatures (a font and one object) and the retain are a
+// GUESS from the names, found by observation of that crash, no Apple code read. Only fonts that hold their state
+// themselves (the bridged class) have room for it; any other font stops here by name.
+//
+// Threading: one lock guards every font's client slot. Get answers the object retained and autoreleased into the
+// caller's pool, so a Set from another thread that releases it cannot free it under the reader; the pointer is valid
+// until the caller's pool drains, not only until the next Set.
+static pthread_mutex_t clientLock = PTHREAD_MUTEX_INITIALIZER;
+
 static struct __CTFont *clientFont(CTFontRef font, const char *name) {
     if (font == NULL || !isStateFont(font)) {
         fprintf(stderr, "CoreText: %s needs a font made by this CoreText as a bridged class\n", name);
@@ -958,12 +971,26 @@ static struct __CTFont *clientFont(CTFontRef font, const char *name) {
 
 void *CTFontGetClientObject(CTFontRef font)
 {
-    return (void *)clientFont(font, "CTFontGetClientObject")->client;
+    struct __CTFont *state = clientFont(font, "CTFontGetClientObject");
+    pthread_mutex_lock(&clientLock);
+    CFTypeRef client = state->client;
+    if (client != NULL)
+        CFRetain(client);
+    pthread_mutex_unlock(&clientLock);
+    return client != NULL ? (void *)CFAutorelease(client) : NULL;
 }
 
 void CTFontSetClientObject(CTFontRef font, void *object)
 {
-    clientFont(font, "CTFontSetClientObject")->client = object;
+    struct __CTFont *state = clientFont(font, "CTFontSetClientObject");
+    if (object != NULL)
+        CFRetain(object);     // before the old one is released: setting the same object must not free it
+    pthread_mutex_lock(&clientLock);
+    CFTypeRef old = state->client;
+    state->client = object;
+    pthread_mutex_unlock(&clientLock);
+    if (old != NULL)
+        CFRelease(old);
 }
 
 // Questions that the cache's NSCTFont asks of every font. None of this CoreText's fonts is marked as a system UI

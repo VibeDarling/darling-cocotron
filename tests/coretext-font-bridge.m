@@ -7,6 +7,7 @@
 #import <CoreText/KTFont.h>
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
+#include <dispatch/dispatch.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -27,6 +28,14 @@ extern uint32_t CTFontGetPhysicalSymbolicTraits(CTFontRef font);
 
 extern bool CTFontIsVertical(CTFontRef font);
 extern bool CTFontHasTable(CTFontRef font, CTFontTableTag tag);
+
+// Get answers the object autoreleased; the pool is drained before any retain count is read.
+static BOOL clientIs(CTFontRef font, id object)
+{
+    @autoreleasepool {
+        return CTFontGetClientObject(font) == (void *)object;
+    }
+}
 
 static void expect(BOOL condition, NSString *message)
 {
@@ -150,11 +159,60 @@ int main(int argc, char **argv)
         CFRelease(attributes);
         CFRelease(cascade);
 
-        int marker;
-        expect(CTFontGetClientObject(font) == NULL, @"no client object at first");
-        CTFontSetClientObject(font, &marker);
-        expect(CTFontGetClientObject(font) == &marker, @"the client object is kept in the font");
+        NSObject *client = [[NSObject alloc] init];
+        CFIndex before = CFGetRetainCount((CFTypeRef)client);
+        expect(clientIs(font, nil), @"no client object at first");
+        CTFontSetClientObject(font, client);
+        expect(clientIs(font, client), @"the client object is kept in the font");
+        expect(CFGetRetainCount((CFTypeRef)client) == before + 1, @"and retained by it");
+        // The same object again must not be freed in between; a different one replaces and releases the first.
+        CTFontSetClientObject(font, client);
+        expect(clientIs(font, client) && CFGetRetainCount((CFTypeRef)client) == before + 1, @"setting the same object keeps one reference");
+        NSObject *other = [[NSObject alloc] init];
+        CFIndex otherBefore = CFGetRetainCount((CFTypeRef)other);
+        CTFontSetClientObject(font, other);
+        expect(clientIs(font, other) && CFGetRetainCount((CFTypeRef)other) == otherBefore + 1, @"a different object is kept");
+        expect(CFGetRetainCount((CFTypeRef)client) == before, @"and the first is released");
         CTFontSetClientObject(font, NULL);
+        expect(CFGetRetainCount((CFTypeRef)other) == otherBefore && clientIs(font, nil), @"cleared and released");
+        [other release];
+
+        // The font as the only owner: setting the same object again must retain before it releases.
+        NSObject *solo = [[NSObject alloc] init];
+        CTFontSetClientObject(font, solo);
+        [solo release];
+        CTFontSetClientObject(font, solo);
+        expect(clientIs(font, solo) && CFGetRetainCount((CFTypeRef)solo) == 1, @"the font alone holds it through a repeated set");
+        CTFontSetClientObject(font, NULL);
+        CTFontRef holder = CTFontCreateWithName(CFSTR("DejaVu Sans"), 12, NULL);
+        CTFontSetClientObject(holder, client);
+        CFRelease(holder);
+        expect(CFGetRetainCount((CFTypeRef)client) == before, @"and when the font goes");
+        [client release];
+
+        // Concurrent Set and Get on one font do not free an object under the reader.
+        {
+            __block int failures = 0;
+            dispatch_group_t group = dispatch_group_create();
+            for (int worker = 0; worker < 4; worker++)
+                dispatch_group_async(group, dispatch_get_global_queue(0, 0), ^{
+                    for (int i = 0; i < 3000; i++)
+                        @autoreleasepool {
+                            if (worker % 2 == 0) {
+                                NSObject *candidate = [[NSObject alloc] init];
+                                CTFontSetClientObject(font, candidate);
+                                [candidate release];
+                            } else {
+                                NSObject *seen = (NSObject *)CTFontGetClientObject(font);
+                                if (seen != nil && ![seen isKindOfClass:[NSObject class]])
+                                    failures++;
+                            }
+                        }
+                });
+            dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
+            expect(failures == 0, @"concurrent Set and Get");
+            CTFontSetClientObject(font, NULL);
+        }
 
         // Held through both retain families.
         NSArray *held = [NSArray arrayWithObject:(id)font];
