@@ -420,7 +420,41 @@ NSImageName const NSImageNameTouchBarVolumeUpTemplate =
         }
     }
 
+    if (image == nil)
+        image = [self _drawnTemplateNamed: name];
+
     // Cocoa AppKit always returns the same shared cached image
+    return image;
+}
+
+// The Add and Remove template artwork is not installed with AppKit, so the named images are drawn
+// instead: a plus and a minus in a 12 point square, as template images.
++ (NSImage *) _drawnTemplateNamed: (NSString *) name {
+    BOOL add = [name isEqualToString: NSImageNameAddTemplate];
+
+    if (!add && ![name isEqualToString: NSImageNameRemoveTemplate])
+        return nil;
+
+    NSSize size = NSMakeSize(12, 12);
+    NSImage *image = [self imageWithSize: size
+                                 flipped: NO
+                          drawingHandler: ^BOOL(NSRect rect) {
+        NSBezierPath *path = [NSBezierPath bezierPath];
+
+        [path setLineWidth: 2.0];
+        [path moveToPoint: NSMakePoint(1.0, 6.0)];
+        [path lineToPoint: NSMakePoint(11.0, 6.0)];
+        if (add) {
+            [path moveToPoint: NSMakePoint(6.0, 1.0)];
+            [path lineToPoint: NSMakePoint(6.0, 11.0)];
+        }
+        [[NSColor blackColor] setStroke];
+        [path stroke];
+        return YES;
+    }];
+
+    [image setTemplate: YES];
+    [image setName: name];
     return image;
 }
 
@@ -1772,6 +1806,21 @@ static NSUInteger scaledRepCacheBytes(NSArray *cache) {
 {
     if ([name length] == 0)
         return nil;
+
+    // Plus and minus are the two symbols that have real artwork here, shared with the template images.
+    NSImage *drawn = nil;
+    if ([name isEqualToString: @"plus"])
+        drawn = [self imageNamed: NSImageNameAddTemplate];
+    else if ([name isEqualToString: @"minus"])
+        drawn = [self imageNamed: NSImageNameRemoveTemplate];
+    if (drawn != nil) {
+        drawn = [[drawn copy] autorelease];
+        [drawn->_name release];
+        drawn->_name = [name copy];
+        [drawn setAccessibilityDescription: description];
+        return drawn;
+    }
+
     return [self _symbolPlaceholderWithDescription: description
                                      configuration: nil];
 }

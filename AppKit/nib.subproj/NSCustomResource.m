@@ -23,6 +23,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSKeyedArchiver.h>
 #import <Foundation/NSString.h>
 
+// SF Symbol names are lowercase words joined by periods, such as "gearshape.fill". Anything else
+// in an image resource, say "AMSMIDIWindowIcon", is an app image and must stay a missing image.
+static BOOL isSystemSymbolName(NSString *name) {
+    if ([name length] == 0)
+        return NO;
+    for (NSUInteger i = 0; i < [name length]; i++) {
+        unichar c = [name characterAtIndex: i];
+        if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.'))
+            return NO;
+    }
+    return YES;
+}
+
 @implementation NSCustomResource
 
 - initWithCoder: (NSCoder *) coder {
@@ -47,6 +60,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - awakeAfterUsingCoder: (NSCoder *) coder {
     if ([_className isEqualToString: @"NSImage"]) {
         NSImage *image = [NSImage imageNamed: _resourceName];
+
+        // A nib names an SF Symbol the same way it names an image.
+        if (image == nil && isSystemSymbolName(_resourceName))
+            image = [NSImage imageWithSystemSymbolName: _resourceName
+                              accessibilityDescription: nil];
 
         if ([_resourceName hasSuffix: @"Template"])
             [image setTemplate: YES];
