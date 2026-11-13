@@ -78,6 +78,14 @@ const CFStringRef kCTFontFeatureSelectorSettingKey = CFSTR("CTFeatureSelectorSet
 const CFStringRef kCTFontFeatureSampleTextKey = CFSTR("CTFeatureSampleText");
 const CFStringRef kCTFontFeatureTooltipTextKey = CFSTR("CTFeatureTooltipText");
 
+// A function this CoreText does not implement stops by name instead of answering with a placeholder that looks like
+// an answer: the next crash names its cause.
+static void notImplemented(const char *function) __attribute__((noreturn));
+static void notImplemented(const char *function) {
+    fprintf(stderr, "CoreText: %s is not implemented by Cocotron CoreText\n", function);
+    abort();
+}
+
 static Class fontClass;
 static BOOL fontCreated;
 static pthread_mutex_t fontClassLock = PTHREAD_MUTEX_INITIALIZER;
@@ -314,15 +322,15 @@ CTFontRef CTFontCreateCopyWithSymbolicTraits(CTFontRef font, CGFloat size,
                                              CTFontSymbolicTraits symTraitValue, 
                                              CTFontSymbolicTraits symTraitMask)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    // NULL is the documented answer when there is no font with the traits; this CoreText looks no variant up.
+    return NULL;
 }
 
 CTFontRef CTFontCreateCopyWithFamily(CTFontRef font, CGFloat size,
                                      const CGAffineTransform *matrix, CFStringRef family)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    // NULL is the documented answer when there is no such font in the family; this CoreText looks no family up.
+    return NULL;
 }
 
 CTFontRef CTFontCreateForString(CTFontRef currentFont, CFStringRef string, CFRange range)
@@ -497,8 +505,7 @@ CFDictionaryRef CTFontCopyTraits(CTFontRef font)
 
 CFArrayRef CTFontCopyDefaultCascadeListForLanguages(CTFontRef font, CFArrayRef languagePrefList)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    notImplemented(__func__);
 }
 
 CFStringRef CTFontCopyPostScriptName(CTFontRef self)
@@ -574,14 +581,12 @@ CFCharacterSetRef CTFontCopyCharacterSet(CTFontRef font)
 
 CFStringEncoding CTFontGetStringEncoding(CTFontRef font)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return CFStringGetSystemEncoding();
+    notImplemented(__func__);
 }
 
 CFArrayRef CTFontCopySupportedLanguages(CTFontRef font)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    notImplemented(__func__);
 }
 
 CGFloat CTFontGetAscent(CTFontRef self) {
@@ -776,26 +781,30 @@ void CTFontGetVerticalTranslationsForGlyphs(CTFontRef font, const CGGlyph *glyph
 
 CFArrayRef CTFontCopyVariationAxes(CTFontRef font)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    // NULL is the documented answer for a font without variation axes; a variable face stops here by name.
+    FT_Face face = faceForFont(font);
+    if (face != NULL && FT_HAS_MULTIPLE_MASTERS(face))
+        notImplemented(__func__);
+    return NULL;
 }
 
 CFDictionaryRef CTFontCopyVariation(CTFontRef font)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    // NULL is the documented answer for a font without variation axes; a variable face stops here by name.
+    FT_Face face = faceForFont(font);
+    if (face != NULL && FT_HAS_MULTIPLE_MASTERS(face))
+        notImplemented(__func__);
+    return NULL;
 }
 
 CFArrayRef CTFontCopyFeatures(CTFontRef font)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    notImplemented(__func__);
 }
 
 CFArrayRef CTFontCopyFeatureSettings(CTFontRef font)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    notImplemented(__func__);
 }
 
 bool CTFontGetGlyphsForCharacters(CTFontRef font, const UniChar *characters,
@@ -869,8 +878,8 @@ bool CTFontShouldAntiAlias(CTFontRef font)
 CFIndex CTFontGetLigatureCaretPositions(CTFontRef font, CGGlyph glyph, CGFloat *positions,
                                         CFIndex maxPositions)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return -1;
+    // 0 is the documented answer for a glyph without ligature carets; the face's caret data is not read.
+    return 0;
 }
 
 CGFontRef CTFontCopyGraphicsFont(CTFontRef font, CTFontDescriptorRef _Nullable *attributes)
@@ -893,23 +902,20 @@ CTFontCreateWithGraphicsFont(CGFontRef cgFont, CGFloat size,
 
 ATSFontRef CTFontGetPlatformFont(CTFontRef font, CTFontDescriptorRef  _Nullable *attributes)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return 0;
+    notImplemented(__func__);
 }
 
 CTFontRef CTFontCreateWithPlatformFont(ATSFontRef platformFont, CGFloat size,
                                        const CGAffineTransform *matrix,
                                        CTFontDescriptorRef attributes)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    notImplemented(__func__);
 }
 
 CTFontRef CTFontCreateWithQuickdrawInstance(ConstStr255Param name, int16_t identifier,
                                             uint8_t style, CGFloat size)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    notImplemented(__func__);
 }
 
 CFArrayRef CTFontCopyAvailableTables(CTFontRef font, CTFontTableOptions options)
