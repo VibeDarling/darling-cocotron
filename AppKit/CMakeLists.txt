@@ -435,6 +435,8 @@ set(AppKit_sources
 	NSTreeNode.m
 	NSVisualEffectView.m
 	NSGlassEffectView.m
+	NSSharingServicePickerToolbarItem.m
+	NSSharingServiceItemProvider.m
 	NSATSTypesetter.m
 	NSOpenGLLayer.m
 	NSCollectionViewLayout.m
