@@ -583,6 +583,47 @@ static CTLineRef createPiece(CFAttributedStringRef string, CFIndex from, CFIndex
     return from < to ? KTCoreTextCreateLineWithRange(string, CFRangeMake(from, to - from)) : NULL;
 }
 
+CFAttributedStringRef KTCoreTextCreateAttributedStringWithProvider(CTUniCharProviderCallback provider,
+                                                                  CTUniCharDisposeCallback dispose, void *refCon)
+{
+    if (provider == NULL)
+        return NULL;
+    CFMutableAttributedStringRef result = CFAttributedStringCreateMutable(kCFAllocatorDefault, 0);
+    CFIndex index = 0;
+    while (result != NULL) {
+        CFIndex count = 0;
+        CFDictionaryRef attributes = NULL;
+        const UniChar *chars = provider(index, &count, &attributes, refCon);
+        if (chars == NULL)
+            break;
+        if (count > 0) {
+            CFStringRef chunk = CFStringCreateWithCharacters(kCFAllocatorDefault, chars, count);
+            if (chunk != NULL) {
+                CFAttributedStringReplaceString(result, CFRangeMake(index, 0), chunk);
+                if (attributes != NULL)
+                    CFAttributedStringSetAttributes(result, CFRangeMake(index, count), attributes, true);
+                CFRelease(chunk);
+            }
+        }
+        if (dispose != NULL)
+            dispose(chars, refCon);
+        if (count <= 0)
+            break;
+        index += count;
+    }
+    return result;
+}
+
+CTLineRef CTLineCreateWithUniCharProvider(CTUniCharProviderCallback provider, CTUniCharDisposeCallback dispose,
+                                          void *refCon)
+{
+    CFAttributedStringRef string = KTCoreTextCreateAttributedStringWithProvider(provider, dispose, refCon);
+    CTLineRef line = CTLineCreateWithAttributedString(string);
+    if (string != NULL)
+        CFRelease(string);
+    return line;
+}
+
 CTLineRef CTLineCreateTruncatedLine(CTLineRef line, double width,
                                     CTLineTruncationType truncationType,
                                     CTLineRef truncationToken)
