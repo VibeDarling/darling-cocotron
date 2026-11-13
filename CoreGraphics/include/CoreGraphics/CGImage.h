@@ -84,6 +84,8 @@ COREGRAPHICS_EXPORT CGImageRef CGImageMaskCreate(
         const CGFloat *decode, bool interpolate);
 
 COREGRAPHICS_EXPORT CGImageRef CGImageCreateCopy(CGImageRef self);
+// macOS 15.0: a copy of the image tagged with a content headroom. Cocotron has no HDR, so the headroom is ignored.
+COREGRAPHICS_EXPORT CGImageRef CGImageCreateCopyWithContentHeadroom(float headroom, CGImageRef image);
 COREGRAPHICS_EXPORT CGImageRef
 CGImageCreateCopyWithColorSpace(CGImageRef self, CGColorSpaceRef colorSpace);
 
