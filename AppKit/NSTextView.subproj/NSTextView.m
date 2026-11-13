@@ -560,6 +560,12 @@ static NSTextView *s_targetTextView = nil;
     return YES;
 }
 
+// Private: the shared cache's text code sends it when the find bar or text finder client may have changed. There is no
+// text finder client here, so there is no state to update and nothing is returned: deliberately a no-op, like the other
+// private AppKit selectors Darling answers for guest apps. Signature and purpose are a GUESS from the name (rung 6).
+- (void) _updateTextFinder {
+}
+
 - (NSLayoutManager *) layoutManager {
     return [_textContainer layoutManager];
 }
