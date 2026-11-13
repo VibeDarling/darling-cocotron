@@ -1709,6 +1709,55 @@ static NSUInteger scaledRepCacheBytes(NSArray *cache) {
     return [self imageWithSymbolConfiguration: configuration];
 }
 
+// Private AppKit method that Disk Utility calls. Apple documents no such
+// method, so this follows the documented way to tint a mask image: fill the
+// rectangle with the color, then draw the image over it with
+// NSCompositeDestinationIn, which keeps the color where the image has alpha and
+// scales the color's own alpha by the image's. (Source-atop would paint the
+// image's own alpha opaque for a translucent tint.) The drawing goes into a
+// bitmap, so it needs no window. With no color there is nothing to tint with:
+// the result is a copy.
+- (NSImage *) _imageByApplyingTintColor: (NSColor *) color {
+    if (color == nil)
+        return [[self copy] autorelease];
+
+    NSSize size = [self size];
+    NSRect rect = NSMakeRect(0, 0, size.width, size.height);
+    NSImage *tinted = [[[NSImage alloc] initWithSize: size] autorelease];
+    NSInteger pixelsWide = ceil(size.width), pixelsHigh = ceil(size.height);
+
+    if (pixelsWide < 1 || pixelsHigh < 1)
+        return tinted;
+
+    NSBitmapImageRep *bitmap = [[[NSBitmapImageRep alloc]
+            initWithBitmapDataPlanes: NULL
+                          pixelsWide: pixelsWide
+                          pixelsHigh: pixelsHigh
+                       bitsPerSample: 8
+                     samplesPerPixel: 4
+                            hasAlpha: YES
+                            isPlanar: NO
+                      colorSpaceName: NSDeviceRGBColorSpace
+                         bytesPerRow: 0
+                        bitsPerPixel: 32] autorelease];
+    if (bitmap == nil)
+        return nil;
+
+    [tinted addRepresentation: bitmap];
+    [tinted lockFocusOnRepresentation: bitmap];
+    @try {
+        [color set];
+        NSRectFillUsingOperation(rect, NSCompositeSourceOver);
+        [self drawInRect: rect
+                fromRect: NSZeroRect
+               operation: NSCompositeDestinationIn
+                fraction: 1.0];
+    } @finally {
+        [tinted unlockFocus];
+    }
+    return tinted;
+}
+
 - (NSString *) description {
     NSSize size = [self size];
 
