@@ -49,6 +49,7 @@ APPKIT_EXPORT NSBindingName NSSelectedObjectsBinding;
 APPKIT_EXPORT NSBindingName NSSelectedTagBinding;
 APPKIT_EXPORT NSBindingName NSSelectedValueBinding;
 APPKIT_EXPORT NSBindingName NSSelectionIndexesBinding;
+APPKIT_EXPORT NSBindingName NSTextColorBinding;
 APPKIT_EXPORT NSBindingName NSTitleBinding;
 APPKIT_EXPORT NSBindingName NSToolTipBinding;
 APPKIT_EXPORT NSBindingName NSValueBinding;

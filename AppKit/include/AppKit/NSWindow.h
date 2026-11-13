@@ -199,6 +199,7 @@ APPKIT_EXPORT const NSNotificationName NSWindowDidExitFullScreenNotification
         NS_SWIFT_NAME(NSWindow.didExitFullScreenNotification);
 APPKIT_EXPORT const NSNotificationName NSWindowDidOrderOffScreenNotification;
 APPKIT_EXPORT const NSNotificationName NSWindowDidOrderOnScreenNotification;
+APPKIT_EXPORT const NSNotificationName NSWindowWillOrderOnScreenNotification;
 APPKIT_EXPORT const NSNotificationName NSWindowWillEnterFullScreenNotification
         NS_SWIFT_NAME(NSWindow.willEnterFullScreenNotification);
 APPKIT_EXPORT const NSNotificationName NSWindowWillExitFullScreenNotification

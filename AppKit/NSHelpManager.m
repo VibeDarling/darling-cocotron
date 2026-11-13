@@ -21,6 +21,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSRaise.h>
 #import <Foundation/NSMapTable.h>
 
+// GUESS: no public source gives this constant's value; the name is the usual convention.
+NSString *const NSHelpManagerSystemBook = @"NSHelpManagerSystemBook";
+
 @implementation NSHelpManager
 
 static BOOL _isContextHelpModeActive = NO;

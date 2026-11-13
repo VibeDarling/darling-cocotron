@@ -27,6 +27,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 APPKIT_EXPORT NSString *const NSContextHelpModeDidActivateNotification;
 APPKIT_EXPORT NSString *const NSContextHelpModeDidDeactivateNotification;
 
+APPKIT_EXPORT NSString *const NSHelpManagerSystemBook;
+
 @interface NSHelpManager : NSObject {
     NSMapTable *_objectToText;
 }

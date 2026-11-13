@@ -43,6 +43,7 @@ NSBindingName NSSelectedObjectsBinding = @"selectedObjects";
 NSBindingName NSSelectedTagBinding = @"selectedTag";
 NSBindingName NSSelectedValueBinding = @"selectedValue";
 NSBindingName NSSelectionIndexesBinding = @"selectionIndexes";
+NSBindingName NSTextColorBinding = @"textColor";
 NSBindingName NSTitleBinding = @"title";
 NSBindingName NSToolTipBinding = @"toolTip";
 NSBindingName NSValueBinding = @"value";
