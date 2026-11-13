@@ -161,3 +161,20 @@ CTFontDescriptorRef CTFontDescriptorCreateCopyWithVariation(CTFontDescriptorRef 
     [variations release];
     return result;
 }
+
+// The descriptor of the UI font of a type: the font CTFontCreateUIFontForLanguage makes for it, described
+// by its PostScript name and size. NULL, like that function, for a type it has no font for.
+CTFontDescriptorRef CTFontDescriptorCreateForUIType(CTFontUIFontType uiType, CGFloat size, CFStringRef language)
+{
+    CTFontRef font = CTFontCreateUIFontForLanguage(uiType, size, language);
+    if (font == NULL) {
+        return NULL;
+    }
+    CFStringRef name = CTFontCopyPostScriptName(font);
+    CTFontDescriptorRef descriptor = CTFontDescriptorCreateWithNameAndSize(name, CTFontGetSize(font));
+    if (name != NULL) {
+        CFRelease(name);
+    }
+    CFRelease(font);
+    return descriptor;
+}
