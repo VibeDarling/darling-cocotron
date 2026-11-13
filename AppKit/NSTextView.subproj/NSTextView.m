@@ -2991,6 +2991,20 @@ static NSTextView *s_targetTextView = nil;
         [self setFrameSize: size];
 }
 
+// Sets the frame size to desiredSize, constrained by the view's minimum and maximum size on each axis that can resize;
+// an axis that cannot resize keeps its current length.
+- (void) setConstrainedFrameSize: (NSSize) desiredSize {
+    NSSize size = [self frame].size;
+
+    if ([self isHorizontallyResizable]) {
+        size.width = MIN(MAX(desiredSize.width, _minSize.width), _maxSize.width);
+    }
+    if ([self isVerticallyResizable]) {
+        size.height = MIN(MAX(desiredSize.height, _minSize.height), _maxSize.height);
+    }
+    [self setFrameSize: size];
+}
+
 - (void) scrollRangeToVisible: (NSRange) range {
     NSRect rect = [self _viewRectForCharacterRange: range];
 
