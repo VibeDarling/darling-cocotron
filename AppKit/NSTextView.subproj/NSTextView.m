@@ -566,6 +566,12 @@ static NSTextView *s_targetTextView = nil;
 - (void) _updateTextFinder {
 }
 
+// Private: the shared cache's text code sends it before the string changes, so a find client could prepare. There is
+// no text finder client here, so there is no state the method could act on and nothing is returned: deliberately a
+// no-op, as _updateTextFinder. Signature and purpose are a GUESS from the name (rung 6).
+- (void) _informTextFinderStringWillChange {
+}
+
 - (NSLayoutManager *) layoutManager {
     return [_textContainer layoutManager];
 }
