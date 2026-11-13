@@ -1,4 +1,4 @@
-// Links AppKit. The private -[NSArray indexOfFirstRangeContainingOrFollowing:] is answered by AppKit, whichever Foundation serves
+// Links AppKit. The private -[NSArray indexOfFirstRangeContainingOrFollowing:] and -[NSArray rangeAtIndex:] are answered by AppKit, whichever Foundation serves
 // NSArray: the index of the first range value that contains the character index or lies at or after it, NSNotFound when every
 // range ends before it (a GUESS from the name, rung 6).
 #import <AppKit/AppKit.h>
@@ -35,6 +35,12 @@ int main(void)
         expect(find(ranges, 12) == 1, @"the second range contains 12");
         expect(find(ranges, 14) == NSNotFound, @"every range ends before 14");
         expect(find(@[], 0) == NSNotFound, @"an empty array has no range");
+
+        NSRange (*rangeAt)(id, SEL, NSUInteger) = (NSRange (*)(id, SEL, NSUInteger))objc_msgSend;
+        SEL rangeAtIndex = NSSelectorFromString(@"rangeAtIndex:");
+        expect([ranges respondsToSelector:rangeAtIndex], @"rangeAtIndex: is answered");
+        expect(NSEqualRanges(rangeAt(ranges, rangeAtIndex, 0), NSMakeRange(2, 3)), @"rangeAtIndex: 0 is the first range");
+        expect(NSEqualRanges(rangeAt(ranges, rangeAtIndex, 1), NSMakeRange(10, 4)), @"rangeAtIndex: 1 is the second range");
 
         NSLog(@"appkit-array-range-search: ok");
     }

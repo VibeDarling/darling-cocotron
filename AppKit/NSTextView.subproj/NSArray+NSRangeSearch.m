@@ -17,10 +17,10 @@
  along with Darling.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// The private -[NSArray indexOfFirstRangeContainingOrFollowing:] that the cache's text code sends to an array of
-// NSValue ranges (a text view's selectedRanges). No public declaration exists; the receiver (an array of range
-// values) and the argument (one character index, observed as 0 for a lone insertion point) come from a Darling-side
-// log of the call.
+// The private -[NSArray indexOfFirstRangeContainingOrFollowing:] and -[NSArray rangeAtIndex:] that the cache's text
+// code sends to an array of NSValue ranges (a text view's selectedRanges). No public declaration exists; the
+// receiver (an array of range values) and the argument (one character index, observed as 0 for a lone insertion
+// point) come from a Darling-side log of the call.
 //
 // GUESS (rung 6, from the name; NEEDS-REAL-MAC for the edge cases). Precondition: the receiver is sorted and its
 // ranges do not overlap, as NSTextView's public documentation describes selected ranges; Cocotron's
@@ -28,7 +28,8 @@
 // lowest range. For a sorted array the answer is the index of the first range that contains the character index or
 // lies at or after it, NSNotFound when every range ends before it. An empty range at the character index (an
 // insertion point) counts as containing it. NSMaxRange wraps for a range {location, NSUIntegerMax}; that cannot
-// happen for a text selection.
+// happen for a text selection. -rangeAtIndex: is the range value of the element at the index (GUESS from the name,
+// observed only as a demand).
 
 #import <Foundation/NSArray.h>
 #import <Foundation/NSValue.h>
@@ -36,6 +37,7 @@
 
 @interface NSArray (NSRangeSearch)
 - (NSUInteger) indexOfFirstRangeContainingOrFollowing: (NSUInteger) characterIndex;
+- (NSRange) rangeAtIndex: (NSUInteger) index;
 @end
 
 @implementation NSArray (NSRangeSearch)
@@ -50,6 +52,10 @@
             return i;
     }
     return NSNotFound;
+}
+
+- (NSRange) rangeAtIndex: (NSUInteger) index {
+    return [[self objectAtIndex: index] rangeValue];
 }
 
 @end
