@@ -302,6 +302,7 @@ set(AppKit_sources
 	NSCIImageRep.m
 	NSPrintProgressPanelController.m
 	NSHelpManager.m
+	NSStringDrawingContext.m
 	NSProgressIndicator.m
 	NSFontCollection.m
 	NSFontDescriptor.m

@@ -50,3 +50,25 @@ typedef NSInteger NSStringDrawingOptions;
 - (NSSize) size;
 
 @end
+
+// Scaling and tracking limits for -[NSAttributedString drawWithRect:options:context:], and the values the
+// drawing reports back. This implementation draws without shrinking, so the actual* values stay at their
+// no-adjustment defaults; totalBounds is set by -[NSAttributedString drawWithRect:options:context:].
+@interface NSStringDrawingContext : NSObject {
+    CGFloat _minimumScaleFactor;
+    CGFloat _minimumTrackingAdjustment;
+    CGFloat _actualScaleFactor;
+    CGFloat _actualTrackingAdjustment;
+    NSRect _totalBounds;
+}
+
+@property CGFloat minimumScaleFactor;
+@property CGFloat minimumTrackingAdjustment;
+@property(readonly) CGFloat actualScaleFactor;
+@property(readonly) CGFloat actualTrackingAdjustment;
+@property(readonly) NSRect totalBounds;
+
+- (void) _setTotalBounds: (NSRect) bounds;
+
+@end
+
