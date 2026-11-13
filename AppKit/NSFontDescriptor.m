@@ -46,15 +46,20 @@ NSFontDescriptorTraitKey NSFontWeightTrait = @"NSCTFontWeightTrait";
 NSFontDescriptorTraitKey NSFontWidthTrait = @"NSCTFontProportionTrait";
 NSFontDescriptorTraitKey NSFontSlantTrait = @"NSCTFontSlantTrait";
 
-const NSFontWeight NSFontWeightThin = 0xbfe3333340000000;
-const NSFontWeight NSFontWeightLight = 0xbfd99999a0000000;
-const NSFontWeight NSFontWeightUltraLight = 0xbfe99999a0000000;
-const NSFontWeight NSFontWeightBlack = 0x3fe3d70a40000000;
-const NSFontWeight NSFontWeightHeavy = 0x3fe1eb8520000000;
-const NSFontWeight NSFontWeightSemibold = 0x3fd3333340000000;
-const NSFontWeight NSFontWeightBold = 0x3fd99999a0000000;
-const NSFontWeight NSFontWeightMedium = 0x3fcd70a3e0000000;
-const NSFontWeight NSFontWeightRegular = 0x0000000000000000;
+// Valid range -1.0 to 1.0, 0.0 is regular (rung 3, NSFontDescriptor.TraitKey.weight).
+// The numbers are the decimal values of the IEEE patterns in tree since
+// cdc08795, origin unrecorded; kept as GUESS, NEEDS-REAL-MAC. The earlier
+// initialisers were those bit patterns, which a CGFloat initialiser reads as
+// the integer value (4.6e18 to 1.4e19).
+const NSFontWeight NSFontWeightThin = -0.6;
+const NSFontWeight NSFontWeightLight = -0.4;
+const NSFontWeight NSFontWeightUltraLight = -0.8;
+const NSFontWeight NSFontWeightBlack = 0.62;
+const NSFontWeight NSFontWeightHeavy = 0.56;
+const NSFontWeight NSFontWeightSemibold = 0.3;
+const NSFontWeight NSFontWeightBold = 0.4;
+const NSFontWeight NSFontWeightMedium = 0.23;
+const NSFontWeight NSFontWeightRegular = 0.0;
 
 NSFontDescriptorSystemDesign const NSFontDescriptorSystemDesignDefault = @"NSCTFontUIFontDesignDefault";
 NSFontDescriptorSystemDesign const NSFontDescriptorSystemDesignSerif = @"NSCTFontUIFontDesignSerif";
