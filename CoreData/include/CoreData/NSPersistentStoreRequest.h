@@ -21,8 +21,8 @@
 
 @class NSArray;
 
-// The case names are from the public documentation (not re-read for this
-// change). Every raw value is a GUESS (rung 6; NEEDS-REAL-MAC): the
+// The case names are from the public documentation (rung 3,
+// developer.apple.com coredata/nspersistentstorerequesttype). Every raw value is a GUESS (rung 6; NEEDS-REAL-MAC): the
 // documented order, numbered from 1.
 typedef NS_ENUM(NSUInteger, NSPersistentStoreRequestType) {
     NSFetchRequestType = 1,
@@ -36,7 +36,7 @@ typedef NS_ENUM(NSUInteger, NSPersistentStoreRequestType) {
     NSArray *_affectedStores;
 }
 
-@property(retain) NSArray *affectedStores;
+@property(nonatomic, retain) NSArray *affectedStores;
 @property(readonly) NSPersistentStoreRequestType requestType;
 
 @end
