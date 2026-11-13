@@ -434,6 +434,7 @@ set(AppKit_sources
 	NSTouchBar.m
 	NSTreeNode.m
 	NSVisualEffectView.m
+	NSGlassEffectView.m
 	NSATSTypesetter.m
 	NSOpenGLLayer.m
 	NSCollectionViewLayout.m
