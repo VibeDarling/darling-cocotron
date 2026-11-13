@@ -23,7 +23,7 @@
 // none of their API yet. Put NS_STUB_FORWARDING inside the @implementation:
 // the first unimplemented message a class receives is logged, the rest are
 // ignored, and every implemented method keeps its real signature.
-void NSStubLogUnimplementedOnce(Class cls, SEL selector);
+__attribute__((visibility("hidden"))) void NSStubLogUnimplementedOnce(Class cls, SEL selector);
 
 #define NS_STUB_FORWARDING                                                      \
     -(NSMethodSignature *) methodSignatureForSelector : (SEL) selector {        \
