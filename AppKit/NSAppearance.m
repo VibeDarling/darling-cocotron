@@ -49,6 +49,13 @@ BOOL NSSolariumEnabled(void) {
 
 @implementation NSAppearance
 
+// Private: the shared cache's text code asks every appearance whether it is the Touch Bar function row's. Darling has no
+// Touch Bar and no function row, so no appearance is: the answer is NO. The name is demand from the guest apps; the
+// signature (no argument, a BOOL) is a GUESS from the name (rung 6: nothing public declares it).
+- (BOOL) _isFunctionRowAppearance {
+    return NO;
+}
+
 + (NSAppearance *) appearanceNamed: (NSAppearanceName) name {
     NSAppearance *appearance = [[NSAppearance alloc] init];
     appearance->_name = [name copy];
