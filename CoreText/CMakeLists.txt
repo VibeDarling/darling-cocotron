@@ -33,6 +33,7 @@ set(CoreText_sources
 	KTFont.m
 	constants.c
 	stubs.c
+	CTUnimplemented.c
 )
 
 set_source_files_properties(${CoreText_sources} LANGUAGE C)
