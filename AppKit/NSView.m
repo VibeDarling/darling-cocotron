@@ -3310,6 +3310,14 @@ static CGFloat backingScaleFactor(NSView *view) {
     return nil;
 }
 
+// Native constraint activation asks every constraint item whether it may take
+// part in a constraint. A view always may; without this answer the native code
+// rejects the constraint with "Constraint items must each be a view or layout
+// guide" (Automator's AMWorkflowView raises it from -awakeFromNib).
+- (BOOL) nsli_isLegalConstraintItem {
+    return YES;
+}
+
 
 
 
