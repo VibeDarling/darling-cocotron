@@ -96,6 +96,7 @@ APPKIT_EXPORT NSFontDescriptorSystemDesign const NSFontDescriptorSystemDesignSer
 APPKIT_EXPORT NSFontDescriptorSystemDesign const NSFontDescriptorSystemDesignMonospaced;
 APPKIT_EXPORT NSFontDescriptorSystemDesign const NSFontDescriptorSystemDesignRounded;
 
+// rung 3: developer.apple.com appkit/nsfont/textstyle (macOS 11)
 typedef NSString *NSFontTextStyle NS_TYPED_ENUM;
 
 APPKIT_EXPORT NSFontTextStyle const NSFontTextStyleLargeTitle;

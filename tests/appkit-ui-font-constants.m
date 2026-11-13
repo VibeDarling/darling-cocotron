@@ -7,10 +7,11 @@
 APPKIT_EXPORT const CGFloat UIFontWeightUltraLight, UIFontWeightThin, UIFontWeightLight,
     UIFontWeightRegular, UIFontWeightMedium, UIFontWeightSemibold, UIFontWeightBold,
     UIFontWeightHeavy, UIFontWeightBlack;
-APPKIT_EXPORT NSString *UIFontDescriptorTraitsAttribute, *UIFontDescriptorFeatureSettingsAttribute,
-    *UIFontDescriptorTextStyleAttribute, *UIFontFeatureTypeIdentifierKey,
-    *UIFontFeatureSelectorIdentifierKey, *UIFontWeightTrait,
-    *UIFontDescriptorSystemDesignSerif, *UIFontDescriptorSystemDesignRounded;
+APPKIT_EXPORT NSString *const UIFontDescriptorTraitsAttribute,
+    *const UIFontDescriptorFeatureSettingsAttribute, *const UIFontDescriptorTextStyleAttribute,
+    *const UIFontFeatureTypeIdentifierKey, *const UIFontFeatureSelectorIdentifierKey,
+    *const UIFontWeightTrait, *const UIFontDescriptorSystemDesignSerif,
+    *const UIFontDescriptorSystemDesignRounded;
 
 static void expect(BOOL condition, NSString *message)
 {

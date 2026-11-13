@@ -21,9 +21,10 @@
 
 // Names UIKit declares for the same font machinery. Applications built against
 // UIKit-for-Mac bind them to AppKit, so AppKit has to export them. The weight
-// numbers are the decimal values of the IEEE patterns in tree since cdc08795,
-// origin unrecorded; kept as GUESS, NEEDS-REAL-MAC (valid range -1.0 to 1.0,
-// 0.0 is regular: rung 3, NSFontDescriptor.TraitKey.weight). The string
+// numbers are the old float32-rounded values in tree since cdc08795, origin
+// unrecorded (VibeDarling/darling#1498); the decimals here round them. Kept as
+// GUESS, NEEDS-REAL-MAC (valid range -1.0 to 1.0, 0.0 is regular: rung 3,
+// NSFontDescriptor.TraitKey.weight). The string
 // constants carry the same literals as their NS counterparts so that a
 // descriptor built with either name is read the same way.
 APPKIT_EXPORT const CGFloat UIFontWeightUltraLight;
@@ -46,20 +47,20 @@ const CGFloat UIFontWeightBold = 0.4;
 const CGFloat UIFontWeightHeavy = 0.56;
 const CGFloat UIFontWeightBlack = 0.62;
 
-APPKIT_EXPORT NSFontDescriptorAttributeName UIFontDescriptorTraitsAttribute;
-APPKIT_EXPORT NSFontDescriptorAttributeName UIFontDescriptorFeatureSettingsAttribute;
-APPKIT_EXPORT NSFontDescriptorAttributeName UIFontDescriptorTextStyleAttribute;
-APPKIT_EXPORT NSFontDescriptorFeatureKey UIFontFeatureTypeIdentifierKey;
-APPKIT_EXPORT NSFontDescriptorFeatureKey UIFontFeatureSelectorIdentifierKey;
-APPKIT_EXPORT NSFontDescriptorTraitKey UIFontWeightTrait;
+APPKIT_EXPORT NSFontDescriptorAttributeName const UIFontDescriptorTraitsAttribute;
+APPKIT_EXPORT NSFontDescriptorAttributeName const UIFontDescriptorFeatureSettingsAttribute;
+APPKIT_EXPORT NSFontDescriptorAttributeName const UIFontDescriptorTextStyleAttribute;
+APPKIT_EXPORT NSFontDescriptorFeatureKey const UIFontFeatureTypeIdentifierKey;
+APPKIT_EXPORT NSFontDescriptorFeatureKey const UIFontFeatureSelectorIdentifierKey;
+APPKIT_EXPORT NSFontDescriptorTraitKey const UIFontWeightTrait;
 APPKIT_EXPORT NSFontDescriptorSystemDesign const UIFontDescriptorSystemDesignSerif;
 APPKIT_EXPORT NSFontDescriptorSystemDesign const UIFontDescriptorSystemDesignRounded;
 
-NSFontDescriptorAttributeName UIFontDescriptorTraitsAttribute = @"NSCTFontTraitsAttribute";
-NSFontDescriptorAttributeName UIFontDescriptorFeatureSettingsAttribute = @"NSCTFontFeatureSettingsAttribute";
-NSFontDescriptorAttributeName UIFontDescriptorTextStyleAttribute = @"UIFontDescriptorTextStyleAttribute";
-NSFontDescriptorFeatureKey UIFontFeatureTypeIdentifierKey = @"CTFeatureTypeIdentifier";
-NSFontDescriptorFeatureKey UIFontFeatureSelectorIdentifierKey = @"CTFeatureSelectorIdentifier";
-NSFontDescriptorTraitKey UIFontWeightTrait = @"NSCTFontWeightTrait";
+NSFontDescriptorAttributeName const UIFontDescriptorTraitsAttribute = @"NSCTFontTraitsAttribute";
+NSFontDescriptorAttributeName const UIFontDescriptorFeatureSettingsAttribute = @"NSCTFontFeatureSettingsAttribute";
+NSFontDescriptorAttributeName const UIFontDescriptorTextStyleAttribute = @"UIFontDescriptorTextStyleAttribute";
+NSFontDescriptorFeatureKey const UIFontFeatureTypeIdentifierKey = @"CTFeatureTypeIdentifier";
+NSFontDescriptorFeatureKey const UIFontFeatureSelectorIdentifierKey = @"CTFeatureSelectorIdentifier";
+NSFontDescriptorTraitKey const UIFontWeightTrait = @"NSCTFontWeightTrait";
 NSFontDescriptorSystemDesign const UIFontDescriptorSystemDesignSerif = @"NSCTFontUIFontDesignSerif";
 NSFontDescriptorSystemDesign const UIFontDescriptorSystemDesignRounded = @"NSCTFontUIFontDesignRounded";

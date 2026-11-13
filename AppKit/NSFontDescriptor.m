@@ -47,8 +47,8 @@ NSFontDescriptorTraitKey NSFontWidthTrait = @"NSCTFontProportionTrait";
 NSFontDescriptorTraitKey NSFontSlantTrait = @"NSCTFontSlantTrait";
 
 // Valid range -1.0 to 1.0, 0.0 is regular (rung 3, NSFontDescriptor.TraitKey.weight).
-// The numbers are the decimal values of the IEEE patterns in tree since
-// cdc08795, origin unrecorded; kept as GUESS, NEEDS-REAL-MAC. The earlier
+// The numbers round the float32 values in tree since cdc08795, origin
+// unrecorded (VibeDarling/darling#1498); kept as GUESS, NEEDS-REAL-MAC. The earlier
 // initialisers were those bit patterns, which a CGFloat initialiser reads as
 // the integer value (4.6e18 to 1.4e19).
 const NSFontWeight NSFontWeightThin = -0.6;
