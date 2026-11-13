@@ -78,6 +78,13 @@ NSString *const _NSWindowsMenuName = @"Window";
     return NSDefaultMallocZone();
 }
 
+// Private AppKit class method that Print Center calls. Apple documents nothing
+// about it, so this cannot honour it: it accepts the call and does nothing.
+// Cocotron has no window tabbing (-[NSWindow tabbedWindows] returns nil), so a
+// menu has no window-tab items to install.
++ (void) _setAlwaysInstallWindowTabItems: (BOOL) flag {
+}
+
 - (void) encodeWithCoder: (NSCoder *) coder {
     [coder encodeObject: _title forKey: @"NSTitle"];
     [coder encodeObject: _name forKey: @"NSName"];
