@@ -1016,3 +1016,14 @@ bool CTFontHasTable(CTFontRef font, CTFontTableTag tag)
 
 // No font of this CoreText is vertical: its layout is horizontal only. Signature a GUESS from the name.
 bool CTFontIsVertical(CTFontRef font) { return false; }
+
+// The widest advance of any glyph of the face, in points, from the face's metrics; horizontal layout only, so no
+// vertical advance. The signature (a font in, a size out) is a GUESS from the name and from the AppKit counterpart
+// -[NSFont maximumAdvancement] (rung 6: nothing public declares it).
+CGSize CTFontGetMaximumAdvance(CTFontRef font)
+{
+    FT_Face face = faceForFont(font);
+    if (face == NULL)
+        return CGSizeZero;
+    return CGSizeMake(scaled(font, face->max_advance_width), 0);
+}

@@ -26,6 +26,7 @@ extern bool CTFontIsLastResort(CTFontRef font);
 extern uint32_t CTFontGetUIFontType(CTFontRef font);
 extern uint32_t CTFontGetPhysicalSymbolicTraits(CTFontRef font);
 
+extern CGSize CTFontGetMaximumAdvance(CTFontRef font);
 extern bool CTFontIsVertical(CTFontRef font);
 extern bool CTFontHasTable(CTFontRef font, CTFontTableTag tag);
 
@@ -88,6 +89,10 @@ static void checkFont(CTFontRef font)
     CFRelease(describedFamily);
     CFRelease(described);
     expect(!CTFontIsSystemUIFont(font) && !CTFontIsTextStyleFont(font) && !CTFontIsAppleColorEmoji(font) && !CTFontIsLastResort(font), @"an ordinary font is none of the special kinds");
+    CGSize widest = CTFontGetMaximumAdvance(font);
+    CGSize advanceOfA;
+    CTFontGetAdvancesForGlyphs(font, kCTFontOrientationDefault, &letter, &advanceOfA, 1);
+    expect(widest.width >= advanceOfA.width && widest.width < 100 && widest.height == 0, @"the maximum advance is at least a letter's");
     expect(!CTFontIsVertical(font), @"fonts are horizontal");
     expect(CTFontHasTable(font, 0x68656164) && !CTFontHasTable(font, 0x7a7a7a7a), @"a font has its head table and no zzzz table");
     expect(CTFontGetUIFontType(font) == (uint32_t)kCTFontUIFontNone, @"no UI font type");
