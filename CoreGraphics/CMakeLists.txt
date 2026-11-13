@@ -110,6 +110,7 @@ set(CoreGraphics_sources
 	CGSDisplaySPI.c
 	CGSSessionSPI.c
 	CGImageContentHeadroom.c
+	CGUnimplemented.c
 	CGSRegion.m
 	CGSScreen.m
 	CGSServerSPI.m
