@@ -4,6 +4,16 @@
 #import <AppKit/AppKit.h>
 #include <stdlib.h>
 
+// Archives no keys; the unarchiver maps it to the accessory, as a nib load does.
+@interface ArchivedAccessory : NSObject <NSCoding>
+@end
+
+@implementation ArchivedAccessory
+- (void)encodeWithCoder:(NSCoder *)coder {
+}
+- (id)initWithCoder:(NSCoder *)coder { return nil; }
+@end
+
 static void expect(BOOL condition, NSString *message)
 {
     if (!condition)
@@ -48,6 +58,20 @@ int main(void)
         accessory.hidden = YES;
         accessory.automaticallyAppliesContentInsets = NO;
         expect(accessory.hidden && !accessory.automaticallyAppliesContentInsets, @"flags are settable");
+        NSMutableData *data = [NSMutableData data];
+        NSKeyedArchiver *archiver = [[NSKeyedArchiver alloc] initForWritingWithMutableData:data];
+        [archiver encodeObject:[[[ArchivedAccessory alloc] init] autorelease] forKey:@"root"];
+        [archiver finishEncoding];
+        [archiver release];
+        NSKeyedUnarchiver *unarchiver = [[NSKeyedUnarchiver alloc] initForReadingWithData:data];
+        [unarchiver setClass:[NSSplitViewItemAccessoryViewController class]
+                forClassName:@"ArchivedAccessory"];
+        NSSplitViewItemAccessoryViewController *decoded = [unarchiver decodeObjectForKey:@"root"];
+        [unarchiver release];
+        expect([decoded isKindOfClass:[NSSplitViewItemAccessoryViewController class]],
+               @"the archive decodes to an accessory");
+        expect(decoded.automaticallyAppliesContentInsets, @"a decoded accessory defaults to YES");
+        expect(!decoded.hidden, @"a decoded accessory is not hidden");
         NSLog(@"PASS: toolbar and split view classes");
     }
     return 0;

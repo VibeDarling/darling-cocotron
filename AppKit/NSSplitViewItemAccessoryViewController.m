@@ -31,4 +31,11 @@
     return self;
 }
 
+// An accessory loaded from a nib takes this path, not the one above.
+- (instancetype) initWithCoder: (NSCoder *) coder {
+    if ((self = [super initWithCoder: coder]) != nil)
+        _automaticallyAppliesContentInsets = YES;
+    return self;
+}
+
 @end
