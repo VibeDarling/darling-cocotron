@@ -359,6 +359,8 @@ set(AppKit_sources
 	NSPredicateEditorRowTemplate.m
 	NSFilePromiseProvider.m
 	NSFileWrapperExtensions.m
+	NSStubForwarding.m
+	NSPrivateStubClasses.m
 
 	NSToolbar.subproj/NSToolbarItemGroup.m
 	NSToolbar.subproj/NSToolbarCustomizationView.m
@@ -367,6 +369,7 @@ set(AppKit_sources
 	NSToolbar.subproj/NSToolbarItem.m
 	NSToolbar.subproj/NSSearchToolbarItem.m
 	NSToolbar.subproj/NSToolbarCustomizationPalette.m
+	NSToolbar.subproj/NSSeparatorToolbarItem.m
 	NSToolbar.subproj/NSToolbarItemView.m
 
 	NSBitmapImageRep.m
