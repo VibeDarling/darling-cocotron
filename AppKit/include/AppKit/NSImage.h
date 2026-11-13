@@ -197,6 +197,8 @@ typedef NS_ENUM(NSInteger, NSImageResizingMode) {
                drawHandler: (void (^)(NSRect dstRect))drawHandler;
 // Private: the receiver adjusted by image hints (NSImageHintSymbolScale for symbol images).
 - (NSImage *) _imageWithConfiguration: (NSDictionary<NSString *, id> *) hints;
+// Private: a new image of the receiver's size whose drawn pixels take the color, alpha kept.
+- (NSImage *) _imageByApplyingTintColor: (NSColor *) color;
 
 @end
 
