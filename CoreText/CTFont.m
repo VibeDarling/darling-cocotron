@@ -20,12 +20,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <CoreText/CTFont.h>
 #import <CoreText/CoreText.h>
 #import <CoreText/KTFont.h>
+#import "KTCoreTextInternal.h"
 #import <Foundation/NSException.h>
 #import <Foundation/NSArray.h>
 #import <Foundation/NSDictionary.h>
 #import <objc/runtime.h>
+#include <CoreFoundation/CFRuntime.h>
 #import <Onyx2D/O2Font_freetype.h>
 #include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #ifdef DARLING
 #define __linux__
@@ -74,19 +78,115 @@ const CFStringRef kCTFontFeatureSelectorSettingKey = CFSTR("CTFeatureSelectorSet
 const CFStringRef kCTFontFeatureSampleTextKey = CFSTR("CTFeatureSampleText");
 const CFStringRef kCTFontFeatureTooltipTextKey = CFSTR("CTFeatureTooltipText");
 
+// A function this CoreText does not implement stops by name instead of answering with a placeholder that looks like
+// an answer: the next crash names its cause.
+static void notImplemented(const char *function) __attribute__((noreturn));
+static void notImplemented(const char *function) {
+    fprintf(stderr, "CoreText: %s is not implemented by Cocotron CoreText\n", function);
+    abort();
+}
+
 static Class fontClass;
 static BOOL fontCreated;
 static pthread_mutex_t fontClassLock = PTHREAD_MUTEX_INITIALIZER;
 static char fontCascadeKey;
 
+// A font that CoreText makes where a class named NSCTFont describes CTFont (the shared cache's UIFoundation has one,
+// toll-free bridged) is a CF object holding its state itself, so that class's methods, which call the CTFont
+// functions with self, find it. Any other font is an object of the registered class (AppKit's NSFont) or of KTFont,
+// and is asked for its state with -cgFont and -pointSize.
+struct __CTFont {
+    CFRuntimeBase base;
+    CGFontRef cgFont;
+    CGFloat size;
+    CFArrayRef cascade;
+    const void *client;
+};
+
+static void finalizeFont(CFTypeRef value) {
+    struct __CTFont *font = (struct __CTFont *)value;
+    CGFontRelease(font->cgFont);
+    if (font->cascade != NULL)
+        CFRelease(font->cascade);
+}
+
+// Two fonts are equal when they are the same face at the same size; Cocotron makes a new CGFont for every request,
+// so the faces are compared by PostScript name.
+static Boolean equalFonts(CFTypeRef a, CFTypeRef b) {
+    const struct __CTFont *x = a, *y = b;
+    if (x->size != y->size)
+        return false;
+    CFStringRef nameX = CGFontCopyPostScriptName(x->cgFont), nameY = CGFontCopyPostScriptName(y->cgFont);
+    Boolean equal = nameX != NULL && nameY != NULL && CFEqual(nameX, nameY);
+    if (nameX != NULL) CFRelease(nameX);
+    if (nameY != NULL) CFRelease(nameY);
+    return equal;
+}
+
+static CFHashCode hashFont(CFTypeRef value) {
+    const struct __CTFont *font = value;
+    CFStringRef name = CGFontCopyPostScriptName(font->cgFont);
+    CFHashCode hash = (name != NULL ? CFHash(name) : 0) ^ (CFHashCode)font->size;
+    if (name != NULL) CFRelease(name);
+    return hash;
+}
+
+static const CFRuntimeClass fontCFClass = {
+    0, "CTFont", NULL, NULL, finalizeFont, equalFonts, hashFont, NULL, NULL,
+};
+static CFTypeID fontType;
+static Class bridgeClass;
+static pthread_once_t fontTypeOnce = PTHREAD_ONCE_INIT;
+
+// Decided once, at the first font or CTFontGetTypeID. The class is defined by UIFoundation, which every AppKit process
+// has loaded before any font is made, and a process that dlopens UIFoundation later would get fonts of two classes
+// if the choice were repeated: the fonts made before keep KTFont (or the registered class), which is the safe side.
+static void registerFontType(void) {
+    fontType = _CFRuntimeRegisterClass(&fontCFClass);
+    // A registered concrete class (plain Darling: NSFont, from the UIFoundation stand-in or AppKit) decides the class
+    // of every font, so there is nothing to bridge; the cache's UIFoundation registers none.
+    pthread_mutex_lock(&fontClassLock);
+    BOOL registered = fontClass != Nil;
+    pthread_mutex_unlock(&fontClassLock);
+    if (!registered && KTCoreTextBridgeType(fontType, "NSCTFont"))
+        bridgeClass = objc_getClass("NSCTFont");
+}
+
+static BOOL isStateFont(CTFontRef font) {
+    pthread_once(&fontTypeOnce, registerFontType);
+    return bridgeClass != Nil && object_getClass((id)font) == bridgeClass;
+}
+
+// An instance of the bridge class that this CoreText did not make was made by another CoreText and keeps its state
+// in its own layout. Reading it as ours would read garbage.
+static const struct __CTFont *stateOf(CTFontRef font) {
+    if (CFGetTypeID(font) != fontType) {
+        NSLog(@"CoreText: a font of class %s was not created by this CoreText", object_getClassName((id)font));
+        abort();
+    }
+    return (const struct __CTFont *)font;
+}
+
 static NSArray *fontCascade(CTFontRef font) {
+    if (isStateFont(font)) {
+        const struct __CTFont *state = stateOf(font);
+        return state->cascade != NULL ? (NSArray *)state->cascade : nil;
+    }
     return objc_getAssociatedObject((id)font, &fontCascadeKey);
 }
 
 static void setFontCascade(CTFontRef font, NSArray *cascade) {
-    if (font != NULL && [cascade isKindOfClass:[NSArray class]])
-        objc_setAssociatedObject((id)font, &fontCascadeKey, cascade,
-                                 OBJC_ASSOCIATION_COPY);
+    if (font == NULL || ![cascade isKindOfClass:[NSArray class]])
+        return;
+    if (isStateFont(font)) {
+        struct __CTFont *state = (struct __CTFont *)stateOf(font);
+        CFArrayRef copy = (CFArrayRef)[cascade copy];
+        if (state->cascade != NULL)
+            CFRelease(state->cascade);
+        state->cascade = copy;
+        return;
+    }
+    objc_setAssociatedObject((id)font, &fontCascadeKey, cascade, OBJC_ASSOCIATION_COPY);
 }
 
 void _CTFontSetConcreteClass(Class newClass) {
@@ -101,23 +201,34 @@ void _CTFontSetConcreteClass(Class newClass) {
                             newClass, fontClass ?: [KTFont class]];
 }
 
-// Every CTFontCreate* function ends here, so all fonts share one class.
+// Every CTFontCreate* function ends here, so all fonts share one class: the registered one, else the bridge class
+// where there is one, else KTFont.
 static CTFontRef createFont(CGFontRef cgFont, CGFloat size) {
     if (cgFont == NULL)
         return NULL;
     pthread_mutex_lock(&fontClassLock);
     fontCreated = YES;
-    Class cls = fontClass ?: [KTFont class];
+    Class cls = fontClass;
     pthread_mutex_unlock(&fontClassLock);
-    return (CTFontRef)[[cls alloc] initWithFont: cgFont size: size];
+    pthread_once(&fontTypeOnce, registerFontType);
+    if (cls == Nil && bridgeClass != Nil) {
+        struct __CTFont *font = (struct __CTFont *)_CFRuntimeCreateInstance(
+                kCFAllocatorDefault, fontType, sizeof(*font) - sizeof(CFRuntimeBase), NULL);
+        if (font == NULL)
+            return NULL;
+        font->cgFont = CGFontRetain(cgFont);
+        font->size = size;
+        return (CTFontRef)font;
+    }
+    return (CTFontRef)[[(cls ?: [KTFont class]) alloc] initWithFont: cgFont size: size];
 }
 
 static CGFontRef graphicsFont(CTFontRef font) {
-    return [(id) font cgFont];
+    return isStateFont(font) ? stateOf(font)->cgFont : [(id) font cgFont];
 }
 
 static CGFloat fontSize(CTFontRef font) {
-    return [(id) font pointSize];
+    return isStateFont(font) ? stateOf(font)->size : [(id) font pointSize];
 }
 
 // Converts a length in font units to points at the font's size.
@@ -155,20 +266,21 @@ CTFontRef CTFontCreateWithFontDescriptor(CTFontDescriptorRef descriptor, CGFloat
                                          const CGAffineTransform *matrix)
 {
     CFStringRef name = NULL;
+    NSDictionary *attributes = (NSDictionary *)KTCoreTextDescriptorAttributes(descriptor);
     if (descriptor) {
-        name = (CFStringRef)[(NSDictionary *)descriptor objectForKey:(id)kCTFontNameAttribute];
+        name = (CFStringRef)[attributes objectForKey:(id)kCTFontNameAttribute];
         if (!name) {
-            name = (CFStringRef)[(NSDictionary *)descriptor objectForKey:(id)kCTFontFamilyNameAttribute];
+            name = (CFStringRef)[attributes objectForKey:(id)kCTFontFamilyNameAttribute];
         }
         if (size <= 0.0) {
-            NSNumber *sizeNum = [(NSDictionary *)descriptor objectForKey:(id)kCTFontSizeAttribute];
+            NSNumber *sizeNum = [attributes objectForKey:(id)kCTFontSizeAttribute];
             if (sizeNum) {
                 size = [sizeNum doubleValue];
             }
         }
     }
     CTFontRef result = CTFontCreateWithName(name ?: CFSTR("Helvetica"), size, matrix);
-    setFontCascade(result, [(NSDictionary *)descriptor objectForKey:(id)kCTFontCascadeListAttribute]);
+    setFontCascade(result, [attributes objectForKey:(id)kCTFontCascadeListAttribute]);
     return result;
 }
 
@@ -200,7 +312,7 @@ CTFontRef CTFontCreateCopyWithAttributes(CTFontRef font, CGFloat size,
         size = CTFontGetSize(font);
     }
     CTFontRef result = createFont(graphicsFont(font), size);
-    NSArray *cascade = [(NSDictionary *)attributes objectForKey:(id)kCTFontCascadeListAttribute];
+    NSArray *cascade = [(NSDictionary *)KTCoreTextDescriptorAttributes(attributes) objectForKey:(id)kCTFontCascadeListAttribute];
     setFontCascade(result, cascade ?: fontCascade(font));
     return result;
 }
@@ -210,15 +322,15 @@ CTFontRef CTFontCreateCopyWithSymbolicTraits(CTFontRef font, CGFloat size,
                                              CTFontSymbolicTraits symTraitValue, 
                                              CTFontSymbolicTraits symTraitMask)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    // NULL is the documented answer when there is no font with the traits; this CoreText looks no variant up.
+    return NULL;
 }
 
 CTFontRef CTFontCreateCopyWithFamily(CTFontRef font, CGFloat size,
                                      const CGAffineTransform *matrix, CFStringRef family)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    // NULL is the documented answer when there is no such font in the family; this CoreText looks no family up.
+    return NULL;
 }
 
 CTFontRef CTFontCreateForString(CTFontRef currentFont, CFStringRef string, CFRange range)
@@ -274,7 +386,7 @@ CTFontRef CTFontCreateForStringWithLanguage(CTFontRef currentFont, CFStringRef s
     // Explicit descriptors are tried in caller-supplied order. Do not recurse
     // through their own cascade lists: each candidate must itself cover input.
     for (id descriptor in fontCascade(currentFont)) {
-        if (![descriptor isKindOfClass:[NSDictionary class]])
+        if (!KTCoreTextIsDescriptor((CFTypeRef)descriptor))
             continue;
         CTFontRef candidate = CTFontCreateWithFontDescriptor(
                 (CTFontDescriptorRef)descriptor, CTFontGetSize(currentFont), NULL);
@@ -306,8 +418,26 @@ CTFontRef CTFontCreateForStringWithLanguage(CTFontRef currentFont, CFStringRef s
 
 CTFontDescriptorRef CTFontCopyFontDescriptor(CTFontRef font)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    CFMutableDictionaryRef attributes = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks,
+                                                                  &kCFTypeDictionaryValueCallBacks);
+    CFStringRef names[] = {CTFontCopyPostScriptName(font), CTFontCopyFamilyName(font), CTFontCopyDisplayName(font)};
+    CFStringRef keys[] = {kCTFontNameAttribute, kCTFontFamilyNameAttribute, kCTFontDisplayNameAttribute};
+    for (int i = 0; i < 3; i++) {
+        if (names[i] != NULL) {
+            CFDictionarySetValue(attributes, keys[i], names[i]);
+            CFRelease(names[i]);
+        }
+    }
+    double size = fontSize(font);
+    CFNumberRef sizeNumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberDoubleType, &size);
+    CFDictionarySetValue(attributes, kCTFontSizeAttribute, sizeNumber);
+    CFRelease(sizeNumber);
+    NSArray *cascade = fontCascade(font);
+    if (cascade != nil)
+        CFDictionarySetValue(attributes, kCTFontCascadeListAttribute, cascade);
+    CTFontDescriptorRef descriptor = CTFontDescriptorCreateWithAttributes(attributes);
+    CFRelease(attributes);
+    return descriptor;
 }
 
 CFTypeRef CTFontCopyAttribute(CTFontRef font, CFStringRef attribute)
@@ -340,22 +470,42 @@ CGAffineTransform CTFontGetMatrix(CTFontRef font)
     return CGAffineTransformIdentity;
 }
 
+// From the face's style flags and its fixed pitch flag; the other traits (condensed, vertical and the like) are not
+// derived here.
 CTFontSymbolicTraits CTFontGetSymbolicTraits(CTFontRef font)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return kCTFontTraitItalic;
+    FT_Face face = faceForFont(font);
+    CTFontSymbolicTraits traits = 0;
+    if (face == NULL)
+        return traits;
+    if (face->style_flags & FT_STYLE_FLAG_ITALIC)
+        traits |= kCTFontTraitItalic;
+    if (face->style_flags & FT_STYLE_FLAG_BOLD)
+        traits |= kCTFontTraitBold;
+    if (FT_IS_FIXED_WIDTH(face))
+        traits |= kCTFontTraitMonoSpace;
+    return traits;
 }
 
+// The symbolic traits and neutral normalized weight, width and slant (0): this CoreText derives no more.
 CFDictionaryRef CTFontCopyTraits(CTFontRef font)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    uint32_t symbolic = CTFontGetSymbolicTraits(font);
+    double zero = 0;
+    CFNumberRef symbolicNumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &symbolic);
+    CFNumberRef zeroNumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberDoubleType, &zero);
+    const void *keys[] = {kCTFontSymbolicTrait, kCTFontWeightTrait, kCTFontWidthTrait, kCTFontSlantTrait};
+    const void *values[] = {symbolicNumber, zeroNumber, zeroNumber, zeroNumber};
+    CFDictionaryRef traits = CFDictionaryCreate(kCFAllocatorDefault, keys, values, 4, &kCFTypeDictionaryKeyCallBacks,
+                                                &kCFTypeDictionaryValueCallBacks);
+    CFRelease(symbolicNumber);
+    CFRelease(zeroNumber);
+    return traits;
 }
 
 CFArrayRef CTFontCopyDefaultCascadeListForLanguages(CTFontRef font, CFArrayRef languagePrefList)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    notImplemented(__func__);
 }
 
 CFStringRef CTFontCopyPostScriptName(CTFontRef self)
@@ -431,14 +581,12 @@ CFCharacterSetRef CTFontCopyCharacterSet(CTFontRef font)
 
 CFStringEncoding CTFontGetStringEncoding(CTFontRef font)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return CFStringGetSystemEncoding();
+    notImplemented(__func__);
 }
 
 CFArrayRef CTFontCopySupportedLanguages(CTFontRef font)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    notImplemented(__func__);
 }
 
 CGFloat CTFontGetAscent(CTFontRef self) {
@@ -456,8 +604,8 @@ CGFloat CTFontGetLeading(CTFontRef self) {
 
 unsigned int CTFontGetUnitsPerEm(CTFontRef font)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return 0;
+    int units = CGFontGetUnitsPerEm(graphicsFont(font));
+    return units > 0 ? (unsigned int)units : 0;
 }
 
 CFIndex CTFontGetGlyphCount(CTFontRef font) {
@@ -576,12 +724,25 @@ CGGlyph CTFontGetGlyphWithName(CTFontRef font, CFStringRef glyphName)
     return cgFont ? CGFontGetGlyphWithGlyphName(cgFont, glyphName) : CGNullGlyph;
 }
 
+// The glyph boxes in points, from the face's unscaled metrics; the vertical orientation is not distinguished.
 CGRect CTFontGetBoundingRectsForGlyphs(CTFontRef font, CTFontOrientation orientation,
                                        const CGGlyph *glyphs, CGRect *boundingRects,
                                        CFIndex count)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return CGRectMake(0, 0, 0, 0);
+    FT_Face face = faceForFont(font);
+    CGRect all = CGRectNull;
+    for (CFIndex i = 0; i < count; i++) {
+        CGRect box = CGRectZero;
+        if (face != NULL && FT_Load_Glyph(face, glyphs[i], FT_LOAD_NO_SCALE) == 0) {
+            const FT_Glyph_Metrics *m = &face->glyph->metrics;
+            box = CGRectMake(scaled(font, m->horiBearingX), scaled(font, m->horiBearingY - m->height),
+                             scaled(font, m->width), scaled(font, m->height));
+        }
+        if (boundingRects != NULL)
+            boundingRects[i] = box;
+        all = CGRectUnion(all, box);
+    }
+    return CGRectIsNull(all) ? CGRectZero : all;
 }
 
 double CTFontGetAdvancesForGlyphs(CTFontRef font, CTFontOrientation orientation,
@@ -602,42 +763,48 @@ double CTFontGetAdvancesForGlyphs(CTFontRef font, CTFontOrientation orientation,
     return sum;
 }
 
+// Optical bounds are the glyph bounding boxes here: no optical adjustment is applied.
 CGRect CTFontGetOpticalBoundsForGlyphs(CTFontRef font, const CGGlyph *glyphs,
                                        CGRect *boundingRects, CFIndex count,
                                        CFOptionFlags options)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return CGRectMake(0, 0, 0, 0);
+    return CTFontGetBoundingRectsForGlyphs(font, kCTFontOrientationDefault, glyphs, boundingRects, count);
 }
 
+// Horizontal layout only: no glyph is translated for vertical use.
 void CTFontGetVerticalTranslationsForGlyphs(CTFontRef font, const CGGlyph *glyphs,
                                             CGSize *translations, CFIndex count)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+    for (CFIndex i = 0; i < count; i++)
+        translations[i] = CGSizeZero;
 }
 
 CFArrayRef CTFontCopyVariationAxes(CTFontRef font)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    // NULL is the documented answer for a font without variation axes; a variable face stops here by name.
+    FT_Face face = faceForFont(font);
+    if (face != NULL && FT_HAS_MULTIPLE_MASTERS(face))
+        notImplemented(__func__);
+    return NULL;
 }
 
 CFDictionaryRef CTFontCopyVariation(CTFontRef font)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    // NULL is the documented answer for a font without variation axes; a variable face stops here by name.
+    FT_Face face = faceForFont(font);
+    if (face != NULL && FT_HAS_MULTIPLE_MASTERS(face))
+        notImplemented(__func__);
+    return NULL;
 }
 
 CFArrayRef CTFontCopyFeatures(CTFontRef font)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    notImplemented(__func__);
 }
 
 CFArrayRef CTFontCopyFeatureSettings(CTFontRef font)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    notImplemented(__func__);
 }
 
 bool CTFontGetGlyphsForCharacters(CTFontRef font, const UniChar *characters,
@@ -711,8 +878,8 @@ bool CTFontShouldAntiAlias(CTFontRef font)
 CFIndex CTFontGetLigatureCaretPositions(CTFontRef font, CGGlyph glyph, CGFloat *positions,
                                         CFIndex maxPositions)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return -1;
+    // 0 is the documented answer for a glyph without ligature carets; the face's caret data is not read.
+    return 0;
 }
 
 CGFontRef CTFontCopyGraphicsFont(CTFontRef font, CTFontDescriptorRef _Nullable *attributes)
@@ -729,29 +896,26 @@ CTFontCreateWithGraphicsFont(CGFontRef cgFont, CGFloat size,
                              CTFontDescriptorRef attributes)
 {
     CTFontRef result = createFont(cgFont, size);
-    setFontCascade(result, [(NSDictionary *)attributes objectForKey:(id)kCTFontCascadeListAttribute]);
+    setFontCascade(result, [(NSDictionary *)KTCoreTextDescriptorAttributes(attributes) objectForKey:(id)kCTFontCascadeListAttribute]);
     return result;
 }
 
 ATSFontRef CTFontGetPlatformFont(CTFontRef font, CTFontDescriptorRef  _Nullable *attributes)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return 0;
+    notImplemented(__func__);
 }
 
 CTFontRef CTFontCreateWithPlatformFont(ATSFontRef platformFont, CGFloat size,
                                        const CGAffineTransform *matrix,
                                        CTFontDescriptorRef attributes)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    notImplemented(__func__);
 }
 
 CTFontRef CTFontCreateWithQuickdrawInstance(ConstStr255Param name, int16_t identifier,
                                             uint8_t style, CGFloat size)
 {
-    printf("STUB %s\n", __PRETTY_FUNCTION__);
-    return nil;
+    notImplemented(__func__);
 }
 
 CFArrayRef CTFontCopyAvailableTables(CTFontRef font, CTFontTableOptions options)
@@ -772,10 +936,56 @@ CFDataRef CTFontCopyTable(CTFontRef font, CTFontTableTag table, CTFontTableOptio
 
 CFTypeID CTFontGetTypeID(void)
 {
-    return (CFTypeID)[KTFont self];
+    pthread_once(&fontTypeOnce, registerFontType);
+    return bridgeClass != Nil ? fontType : (CFTypeID)[KTFont self];
 }
 
 uint32_t CTGetCoreTextVersion(void)
 {
     return 0x000C0000;
 }
+
+// A pointer that the font's class keeps in the font: the bridge class stores its own object here. The signatures are a
+// GUESS from the names (a font and one pointer); the pointer is kept as given, neither retained nor released.
+// Only fonts that keep their state themselves have room for it, and any other font stops here by name.
+static struct __CTFont *clientFont(CTFontRef font, const char *name) {
+    if (font == NULL || !isStateFont(font)) {
+        fprintf(stderr, "CoreText: %s needs a font made by this CoreText as a bridged class\n", name);
+        abort();
+    }
+    return (struct __CTFont *)stateOf(font);
+}
+
+void *CTFontGetClientObject(CTFontRef font)
+{
+    return (void *)clientFont(font, "CTFontGetClientObject")->client;
+}
+
+void CTFontSetClientObject(CTFontRef font, void *object)
+{
+    clientFont(font, "CTFontSetClientObject")->client = object;
+}
+
+// Questions that the cache's NSCTFont asks of every font. None of this CoreText's fonts is marked as a system UI
+// font, a text-style font, the emoji font or the last-resort font, so the answer is no until the UI font model
+// records which fonts it made for those. Signatures are a GUESS from the names (a font in, a boolean or a 32-bit
+// value out); the physical traits are the font's traits, as there is no synthesized style here.
+bool CTFontIsSystemUIFont(CTFontRef font) { return false; }
+bool CTFontIsTextStyleFont(CTFontRef font) { return false; }
+bool CTFontIsAppleColorEmoji(CTFontRef font) { return false; }
+bool CTFontIsLastResort(CTFontRef font) { return false; }
+uint32_t CTFontGetUIFontType(CTFontRef font) { return (uint32_t)kCTFontUIFontNone; }
+uint32_t CTFontGetPhysicalSymbolicTraits(CTFontRef font) { return CTFontGetSymbolicTraits(font); }
+
+// Whether the font has a table of the tag: the same lookup CTFontCopyTable makes. Signature a GUESS from the name.
+bool CTFontHasTable(CTFontRef font, CTFontTableTag tag)
+{
+    CFDataRef table = CTFontCopyTable(font, tag, kCTFontTableOptionNoOptions);
+    if (table == NULL)
+        return false;
+    CFRelease(table);
+    return true;
+}
+
+// No font of this CoreText is vertical: its layout is horizontal only. Signature a GUESS from the name.
+bool CTFontIsVertical(CTFontRef font) { return false; }
