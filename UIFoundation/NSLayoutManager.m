@@ -42,7 +42,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSRangeEntries.h>
 
 #import "NSBidiHelper.h"
-#import "NSRulerMarker+NSTextExtensions.h"
 
 typedef struct {
     NSRect rect;
@@ -208,31 +207,6 @@ static inline NSGlyphFragment *fragmentAtGlyphIndex(NSLayoutManager *self,
 
 - (void) setHyphenationFactor: (float) factor {
     _hyphenationFactor = factor;
-}
-
-- (NSTextView *) firstTextView {
-    for (NSTextContainer *container in _textContainers) {
-        NSTextView *textView = [container textView];
-        if (textView) {
-            return textView;
-        }
-    }
-    return nil;
-}
-
-- (NSTextView *) textViewForBeginningOfSelection {
-    return [self firstTextView];
-}
-
-- (BOOL) layoutManagerOwnsFirstResponderInWindow: (NSWindow *) window {
-    NSResponder *first = [window firstResponder];
-    NSInteger i, count = [_textContainers count];
-
-    for (i = 0; i < count; i++)
-        if ([[_textContainers objectAtIndex: i] textView] == first)
-            return YES;
-
-    return NO;
 }
 
 - (void) setTextStorage: (NSTextStorage *) textStorage {
@@ -3005,77 +2979,6 @@ static inline void _appendRectToCache(NSLayoutManager *self, NSRect rect) {
     [self addTemporaryAttributes: [NSDictionary dictionaryWithObject: value
                                                               forKey: attrName]
                forCharacterRange: charRange];
-}
-
-- (NSArray *) rulerMarkersForTextView: (NSTextView *) view
-                       paragraphStyle: (NSParagraphStyle *) style
-                                ruler: (NSRulerView *) ruler
-{
-    NSMutableArray *markers = [NSMutableArray array];
-
-    CGFloat delta =
-            view.textContainer.lineFragmentPadding + view.textContainerOrigin.x;
-
-    // Add the margins markers
-#if 0
-    // Don't add these markers for now - their values are ignored by the layout manager
-    NSRulerMarker *marker = nil;
-    
-    marker = [UIFAppKitClass(NSRulerMarker) leftMarginMarkerWithRulerView:ruler location:style.headIndent + delta];
-    [marker setRepresentedObject:@"NSHeadIndentRulerMarkerTag"];
-    [markers addObject:marker];
-    
-    // Looks like tailIndent value is a bit more complex - see Cocoa specs
-    marker = [UIFAppKitClass(NSRulerMarker) rightMarginMarkerWithRulerView:ruler location:view.textContainer.containerSize.width - style.tailIndent - delta];
-    [marker setRepresentedObject:@"NSTailIndentRulerMarkerTag"];
-    [markers addObject:marker];
-    
-    marker = [UIFAppKitClass(NSRulerMarker) firstIndentMarkerWithRulerView:ruler location:style.firstLineHeadIndent + delta];
-    [marker setRepresentedObject:@"NSFirstLineHeadIndentRulerMarkerTag"];
-    [markers addObject:marker];
-#endif
-    // Add the tab stops markers
-    for (NSTextTab *textTab in style.tabStops) {
-        NSRulerMarker *marker = nil;
-        switch (textTab.tabStopType) {
-        case NSLeftTabStopType:
-            marker = [UIFAppKitClass(NSRulerMarker)
-                    leftTabMarkerWithRulerView: ruler
-                                      location: textTab.location + delta];
-            break;
-        case NSRightTabStopType:
-            marker = [UIFAppKitClass(NSRulerMarker)
-                    rightTabMarkerWithRulerView: ruler
-                                       location: textTab.location + delta];
-            break;
-        case NSCenterTabStopType:
-            marker = [UIFAppKitClass(NSRulerMarker)
-                    centerTabMarkerWithRulerView: ruler
-                                        location: textTab.location + delta];
-            break;
-        case NSDecimalTabStopType:
-            marker = [UIFAppKitClass(NSRulerMarker)
-                    decimalTabMarkerWithRulerView: ruler
-                                         location: textTab.location + delta];
-            break;
-        default:
-            break;
-        }
-        if (marker) {
-            [marker setRepresentedObject: textTab];
-            [marker setRemovable: YES];
-            [markers addObject: marker];
-        }
-    }
-    return markers;
-}
-
-- (NSView *) rulerAccessoryViewForTextView: (NSTextView *) view
-                            paragraphStyle: (NSParagraphStyle *) style
-                                     ruler: (NSRulerView *) ruler
-                                   enabled: (BOOL) isEnabled
-{
-    return nil;
 }
 
 // Stored only: layout is always contiguous.
