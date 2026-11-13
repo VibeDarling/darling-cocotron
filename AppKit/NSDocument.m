@@ -1606,6 +1606,57 @@ static int untitled_document_number = 0;
         completionHandler(nil);
 }
 
+- (BOOL) checkAutosavingSafetyAndReturnError: (NSError **) outError {
+    return YES;
+}
+
+// Block_private.h: the block's type encoding, or NULL when it has none.
+extern const char *_Block_signature(void *block);
+
+// The type encoding of a block returning void and taking one BOOL (B on arm64,
+// c where BOOL is a char), with the frame offsets removed.
+static BOOL blockTakesOneBOOL(const char *signature) {
+    char stripped[32];
+    size_t length = 0;
+
+    for (; signature != NULL && *signature != '\0'; signature++) {
+        if (*signature >= '0' && *signature <= '9')
+            continue;
+        if (length + 1 >= sizeof(stripped))
+            return NO;
+        stripped[length++] = *signature;
+    }
+    stripped[length] = '\0';
+    return strcmp(stripped, "v@?B") == 0 || strcmp(stripped, "v@?c") == 0;
+}
+
+// Private AppKit entry point that apps call on their document subclasses (seen
+// from Automator's AMDocument). Its signature is not documented. It is taken to
+// mean "check that autosaving is safe, then continue": the argument is a block
+// taking a BOOL, called with the answer of the documented
+// -checkAutosavingSafetyAndReturnError:. Nothing is saved here. A block of
+// another shape raises instead of being called with the wrong arguments.
+- (void) _checkAutosavingThenContinue: (void (^)(BOOL proceed)) continuation {
+    if (continuation != nil) {
+        const char *signature = _Block_signature((void *) continuation);
+
+        if (!blockTakesOneBOOL(signature)) {
+            NSLog(@"-[NSDocument _checkAutosavingThenContinue:] got a block with signature \"%s\"; expected v@?B",
+                  signature != NULL ? signature : "(none)");
+            [NSException raise: NSInvalidArgumentException
+                        format: @"-[%@ _checkAutosavingThenContinue:] expects a block taking one BOOL", [self class]];
+        }
+    }
+
+    NSError *error = nil;
+    BOOL safe = [self checkAutosavingSafetyAndReturnError: &error];
+
+    if (!safe && error != nil)
+        NSLog(@"Autosaving %@ is not safe: %@", [self displayName], error);
+    if (continuation != nil)
+        continuation(safe);
+}
+
 - (void) continueActivityUsingBlock: (void (^)(void)) block {
     if (block)
         block();

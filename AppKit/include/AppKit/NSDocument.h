@@ -276,6 +276,12 @@ completionHandler: (void (^)(NSError *errorOrNil)) completionHandler;
 - (void)autosaveWithImplicitCancellability: (BOOL) autosavingIsImplicitlyCancellable 
                          completionHandler: (void (^)(NSError *errorOrNil)) completionHandler;
 
+// Documented: YES when it is safe to autosave. Apple's default can answer NO,
+// for example when the file was changed by another application or is not
+// writable. Cocotron simplifies this: the default answers YES, and a subclass
+// returns NO, with an error, while its state cannot be written.
+- (BOOL) checkAutosavingSafetyAndReturnError: (NSError **) outError;
+
 // Cocotron has no document activity queue: each block runs at once on the
 // calling thread, and completion handlers passed to it do nothing.
 - (void) continueActivityUsingBlock: (void (^)(void)) block;
