@@ -114,13 +114,23 @@ static inline BOOL isItemExpanded(NSOutlineView *self, id item) {
     return (BOOL)((unsigned) NSMapGet(self->_itemToExpansionState, item));
 }
 
+// The root item is nil, and a nil key in a map table is not portable: Apple's
+// Foundation crashes on it. Key the root's child count by a placeholder object.
+static id rootItemKey(void) {
+    static id key;
+    if (key == nil)
+        key = [[NSObject alloc] init];
+    return key;
+}
+
 static inline NSInteger numberOfChildrenOfItemAndReload(NSOutlineView *self,
                                                         id item, BOOL reload)
 {
     NSInteger result;
+    id key = item != nil ? item : rootItemKey();
 
     if (!reload)
-        result = (NSInteger) NSMapGet(self->_itemToNumberOfChildren, item);
+        result = (NSInteger) NSMapGet(self->_itemToNumberOfChildren, key);
     else {
         id node = boundNode(self, item);
         result = usesDataSourceContent(self)
@@ -128,7 +138,7 @@ static inline NSInteger numberOfChildrenOfItemAndReload(NSOutlineView *self,
                                    numberOfChildrenOfItem: item]
                          : ([node respondsToSelector: @selector(childNodes)] ? [[node childNodes] count] : 0);
 
-        NSMapInsert(self->_itemToNumberOfChildren, item, (void *) result);
+        NSMapInsert(self->_itemToNumberOfChildren, key, (void *) result);
     }
 
     return result;
@@ -319,6 +329,8 @@ static inline id childOfItemAtIndex(NSOutlineView *self, id item,
     if (!_rowCacheValid) {
         [self loadRootItem];
     }
+    if (item == nil)
+        return nil;
     return NSMapGet(_itemToParent, item);
 }
 
@@ -336,6 +348,8 @@ static inline id childOfItemAtIndex(NSOutlineView *self, id item,
     if (!_rowCacheValid) {
         [self loadRootItem];
     }
+    if (item == nil)
+        return -1;
     NSInteger level = (NSInteger) NSMapGet(_itemToLevel, item);
     return level;
 }
