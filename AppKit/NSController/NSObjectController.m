@@ -116,8 +116,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 }
 
 - (NSArray *) selectedObjects {
-    NSArray *result = [NSArray arrayWithObject: _content];
-    return result;
+    // No content means no selected objects; arrayWithObject:nil is not portable.
+    if (_content == nil)
+        return [NSArray array];
+    return [NSArray arrayWithObject: _content];
 }
 
 - (id) selection {
