@@ -37,6 +37,21 @@ NSAttributedStringKey NSCursorAttributeName = @"NSCursorAttributeName";
 NSFontDescriptorSystemDesign const NSFontDescriptorSystemDesignRounded = @"NSCTFontUIFontDesignRounded";
 NSFontDescriptorAttributeName NSFontFamilyAttribute = @"NSFontFamilyAttribute";
 NSFontDescriptorAttributeName NSFontNameAttribute = @"NSFontNameAttribute";
+// GUESS (no permitted source): Apple's documentation names these constants but lists no string value. Each carries its
+// own name. Only code that compares them against these same objects works. On the cache stage the cache's UIFoundation
+// presumably can only match a text style against its own literals, so a guessed value probably does not match there and a
+// lookup by text style would miss silently (nil). The real values need a real Mac.
+NSFontTextStyle const NSFontTextStyleBody = @"NSFontTextStyleBody";
+NSFontTextStyle const NSFontTextStyleCallout = @"NSFontTextStyleCallout";
+NSFontTextStyle const NSFontTextStyleCaption1 = @"NSFontTextStyleCaption1";
+NSFontTextStyle const NSFontTextStyleCaption2 = @"NSFontTextStyleCaption2";
+NSFontTextStyle const NSFontTextStyleFootnote = @"NSFontTextStyleFootnote";
+NSFontTextStyle const NSFontTextStyleHeadline = @"NSFontTextStyleHeadline";
+NSFontTextStyle const NSFontTextStyleLargeTitle = @"NSFontTextStyleLargeTitle";
+NSFontTextStyle const NSFontTextStyleSubheadline = @"NSFontTextStyleSubheadline";
+NSFontTextStyle const NSFontTextStyleTitle1 = @"NSFontTextStyleTitle1";
+NSFontTextStyle const NSFontTextStyleTitle2 = @"NSFontTextStyleTitle2";
+NSFontTextStyle const NSFontTextStyleTitle3 = @"NSFontTextStyleTitle3";
 NSFontDescriptorAttributeName NSFontTraitsAttribute = @"NSCTFontTraitsAttribute";
 const NSFontWeight NSFontWeightBlack = 0x3fe3d70a40000000;
 const NSFontWeight NSFontWeightBold = 0x3fd99999a0000000;
