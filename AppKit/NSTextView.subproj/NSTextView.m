@@ -553,6 +553,13 @@ static NSTextView *s_targetTextView = nil;
     [self setNeedsDisplay: YES];
 }
 
+// Whether a text view holds a strong reference to its text storage. Here the default initializers do: -initWithFrame: and
+// -initWithCoder: own and retain the storage and release it in -dealloc. A view given a container with
+// -initWithFrame:textContainer: does not own it unless it was made by one of those.
++ (BOOL) stronglyReferencesTextStorage {
+    return YES;
+}
+
 - (NSLayoutManager *) layoutManager {
     return [_textContainer layoutManager];
 }

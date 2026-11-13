@@ -193,6 +193,7 @@ APPKIT_EXPORT NSString *const NSAllRomanInputSourcesLocaleIdentifier;
 - (void) setTextContainerInset: (NSSize) size;
 - (void) setConstrainedFrameSize: (NSSize) desiredSize;
 - (void) invalidateTextContainerOrigin;
++ (BOOL) stronglyReferencesTextStorage;
 
 - (void) setUsesRuler: (BOOL) flag;
 - (void) setRulerVisible: (BOOL) flag;
