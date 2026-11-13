@@ -37,6 +37,24 @@
 
 @implementation CADisplayLink
 
+// Private class method that Mac Catalyst frameworks send, not documented: a
+// handler for "a display link will fire". Its block signature is not known, so
+// the block is kept (replacing any previous one, nil clears it) but never called:
+// calling a block with the wrong arguments would be worse than not calling it.
+static id willFireHandler;
+
++ (void)setWillFireHandler:(id)handler {
+    if (handler != nil)
+        NSLog(@"CADisplayLink setWillFireHandler: handler stored, never called");
+
+    @synchronized([CADisplayLink class]) {
+        id previous = willFireHandler;
+        willFireHandler = [handler copy];
+        [previous release];
+    }
+}
+
+
 + (instancetype)displayLinkWithTarget:(id)target selector:(SEL)selector {
     return [[[self alloc] _initWithDisplay:nil target:target selector:selector] autorelease];
 }
