@@ -2616,7 +2616,9 @@ static NSTextView *s_targetTextView = nil;
 
 // Add attributes with undo support
 - (void) _addAttributes: (NSDictionary *) attributes range: (NSRange) range {
-    if (_allowsUndo && self.undoManager) {
+    // An empty range changes nothing, so there is nothing to record for undo (recording asks the storage for attributes
+    // at the start of the range, which an empty storage does not have).
+    if (_allowsUndo && self.undoManager && range.length > 0) {
         [self breakUndoCoalescing];
 
         NSUndoSetAttributes *undoSetAttributes = [[[NSUndoSetAttributes alloc]
@@ -2640,7 +2642,7 @@ static NSTextView *s_targetTextView = nil;
 
 // Remove attributes with undo support
 - (void) _removeAttribute: (NSString *) key range: (NSRange) range {
-    if (_allowsUndo && self.undoManager) {
+    if (_allowsUndo && self.undoManager && range.length > 0) {
         [self breakUndoCoalescing];
 
         NSUndoSetAttributes *undoSetAttributes = [[[NSUndoSetAttributes alloc]
