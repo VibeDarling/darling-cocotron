@@ -360,6 +360,7 @@ set(AppKit_sources
 	NSFilePromiseProvider.m
 	NSFileWrapperExtensions.m
 	NSStubForwarding.m
+	NSPrivateStubClasses.m
 
 	NSToolbar.subproj/NSToolbarItemGroup.m
 	NSToolbar.subproj/NSToolbarCustomizationView.m

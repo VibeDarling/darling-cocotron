@@ -71,6 +71,12 @@ int main(void)
     @autoreleasepool
     {
         checkStub(@"NSSeparatorToolbarItem", [NSToolbarItem class]);
+        checkStub(@"NSGlassView", [NSView class]);
+        checkStub(@"NSPreferences", [NSObject class]);
+        checkStub(@"NSTextEncapsulation", [NSObject class]);
+        checkStub(@"NSEmojiImageAsset", [NSObject class]);
+        checkStub(@"NSEmojiImageStrike", [NSObject class]);
+        checkStub(@"_NSCloudSharingParticipantDetails", [NSObject class]);
         NSLog(@"PASS: stub classes");
     }
     return 0;
