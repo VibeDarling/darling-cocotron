@@ -110,6 +110,8 @@ struct WaylandBuffer {
 // events of the batch (including a configure for the new size) are in.
 - (void) outputsChanged;
 - (BOOL) isPopup;
+// A tool tip window: placed as an ungrabbed popup next to the pointer.
+- (BOOL) isTooltip;
 - (WaylandWindow *) popupParent;
 - (uint32_t) popupGrabSerial;
 - (struct wl_proxy *) xdgSurface;
