@@ -332,6 +332,15 @@ NSApplication *NSApp = nil;
     return _isRunning;
 }
 
+// Private AppKit query that apps send to their NSApplication subclass (seen
+// from Screen Sharing's SSApplication). Apple documents it nowhere. It is
+// taken to be the event mask of gesture events the application can receive,
+// so it answers the documented masks of the gesture event types Cocotron's
+// backends produce, magnify and rotate.
+- (NSEventMask) gestureEventMask {
+    return NSEventMaskMagnify | NSEventMaskRotate;
+}
+
 - (void) set_running: (BOOL) running {
     _isRunning = running;
 }
