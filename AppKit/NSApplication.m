@@ -250,6 +250,16 @@ NSApplication *NSApp = nil;
     return window;
 }
 
+// Private. AppKit-hosting frameworks (Mac Catalyst) ask the application which
+// window owns a rendering context id. Cocotron has no per-window context ids:
+// -contextID is the process's one CGS connection id, a counter apart from window
+// numbers, so no id can be mapped to a window honestly. Answering with the window
+// of the same number would return a wrong window for a caller's context id, so
+// no window is ever found.
+- (NSWindow *) _findWindowUsingContextID: (uint32_t) contextID {
+    return nil;
+}
+
 - (NSMenu *) mainMenu {
     return _mainMenu;
 }
@@ -320,6 +330,12 @@ NSApplication *NSApp = nil;
     return [self isActiveExcludingWindow: nil];
 }
 
+// Private, required by Mac Catalyst frameworks and not documented. The name
+// asks the same question as the public -isActive.
+- (BOOL) _isActiveApp {
+    return [self isActive];
+}
+
 - (BOOL) isHidden {
     return _isHidden;
 }
@@ -348,6 +364,20 @@ NSApplication *NSApp = nil;
         [[_windows objectAtIndex: count] miniaturize: sender];
 }
 
+// Private, required by Mac Catalyst frameworks and not documented. It restores
+// one minimized window, as a click on the application's Dock tile does: the
+// frontmost miniaturized window in -orderedWindows order. Returns whether a
+// window was restored, so a caller that ignores the result is unaffected.
+- (BOOL) _restoreMiniaturizedWindow {
+    for (NSWindow *window in [self orderedWindows]) {
+        if ([window isMiniaturized]) {
+            [window deminiaturize: nil];
+            return YES;
+        }
+    }
+    return NO;
+}
+
 - (NSArray *) orderedDocuments {
     NSMutableArray *result = [NSMutableArray array];
     NSArray *orderedWindows = [self orderedWindows];
@@ -374,6 +404,51 @@ NSApplication *NSApp = nil;
     }
 
     return result;
+}
+
+// Private, required by Mac Catalyst frameworks and not documented. The
+// window-cycling command (Cmd-` and Shift-Cmd-`). -orderedWindows is front to
+// back and activating a window moves it to the front, so cycling by position
+// next to the key window would only alternate between two windows. Forward
+// makes the backmost window key and frontmost, which visits every window in
+// turn; reversed sends the key window to the back and makes the window that is
+// then frontmost key. Only visible, not miniaturized windows that can become
+// key take part; panels are left out because -orderedWindows leaves them out.
+// With no candidate nothing happens. Limit: -orderBack: does nothing on Wayland
+// (WaylandWindow only ensures the window is mapped), so there reversed cycling
+// alternates between the top two windows; the X11 backend stacks as modelled.
+- (void) _cycleWindowsReversed: (BOOL) reversed {
+    NSMutableArray *candidates = [NSMutableArray array];
+
+    for (NSWindow *window in [self orderedWindows]) {
+        if ([window isVisible] && ![window isMiniaturized] &&
+            [window canBecomeKeyWindow])
+            [candidates addObject: window];
+    }
+
+    NSWindow *key = [self keyWindow];
+    NSWindow *target = nil;
+
+    if (!reversed) {
+        target = [candidates lastObject];
+    } else {
+        for (NSWindow *window in candidates) {
+            if (window != key) {
+                target = window;
+                break;
+            }
+        }
+        if (target != nil && [candidates indexOfObjectIdenticalTo: key] != NSNotFound)
+            [key orderBack: nil];
+    }
+
+    if (target != nil && target != key)
+        [target makeKeyAndOrderFront: nil];
+}
+
+// Private, required by Mac Catalyst frameworks and not documented. Cocotron has
+// no debug menu to add, so this does nothing; the main menu is never modified.
+- (void) _addDebugMenuIfNeeded {
 }
 
 - (void) preventWindowOrdering {
