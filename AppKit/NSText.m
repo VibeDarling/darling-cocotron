@@ -349,6 +349,26 @@ NSString *const NSTextDidChangeNotification = @"NSTextDidChangeNotification";
             return NO;
     }
 
+    // A wrapper writes itself, onto a destination that is not created first (creating it made the write fail on
+    // Apple's Foundation): -[NSFileWrapper writeToURL:options:originalContentsURL:error:], always atomically on
+    // Apple's Foundation. A non-atomic write over an existing directory fails (mkdir finds it) and then removes it,
+    // so a failed save left no note at all (Stickies), where an atomic write keeps the old item until the new one
+    // is in place. The price is that atomically:NO no longer rewrites in place: the destination becomes a new item
+    // (new inode, hard links to the old one are not updated).
+    // Darling's own Foundation has only the deprecated writeToFile:atomically:updateFilenames:, called as asked.
+    if (rtfd != nil) {
+        [[NSFileManager defaultManager] createDirectoryAtPath: [path stringByDeletingLastPathComponent]
+                                  withIntermediateDirectories: YES
+                                                   attributes: nil
+                                                        error: NULL];
+        if ([rtfd respondsToSelector: @selector(writeToURL:options:originalContentsURL:error:)])
+            return [rtfd writeToURL: [NSURL fileURLWithPath: path]
+                            options: NSFileWrapperWritingAtomic
+                originalContentsURL: nil
+                              error: NULL];
+        return [rtfd writeToFile: path atomically: atomically updateFilenames: NO];
+    }
+
     NSFileManager *fileManager = [NSFileManager defaultManager];
     BOOL isDirectory = NO;
     if ([fileManager fileExistsAtPath: path isDirectory: &isDirectory] && !isDirectory &&
@@ -356,9 +376,7 @@ NSString *const NSTextDidChangeNotification = @"NSTextDidChangeNotification";
         return NO;
     if (![fileManager createDirectoryAtPath: path withIntermediateDirectories: YES attributes: nil error: NULL])
         return NO;
-    if (rtfd == nil)
-        return [data writeToFile: [path stringByAppendingPathComponent: @"TXT.rtf"] atomically: atomically];
-    return [rtfd writeToFile: path atomically: atomically updateFilenames: NO];
+    return [data writeToFile: [path stringByAppendingPathComponent: @"TXT.rtf"] atomically: atomically];
 }
 
 @end
