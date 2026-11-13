@@ -20,6 +20,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <CoreText/CTFont.h>
 #import <CoreText/CoreText.h>
 #import <CoreText/KTFont.h>
+#import "KTCoreTextInternal.h"
 #import <Foundation/NSException.h>
 #import <Foundation/NSArray.h>
 #import <Foundation/NSDictionary.h>
@@ -155,20 +156,21 @@ CTFontRef CTFontCreateWithFontDescriptor(CTFontDescriptorRef descriptor, CGFloat
                                          const CGAffineTransform *matrix)
 {
     CFStringRef name = NULL;
+    NSDictionary *attributes = (NSDictionary *)KTCoreTextDescriptorAttributes(descriptor);
     if (descriptor) {
-        name = (CFStringRef)[(NSDictionary *)descriptor objectForKey:(id)kCTFontNameAttribute];
+        name = (CFStringRef)[attributes objectForKey:(id)kCTFontNameAttribute];
         if (!name) {
-            name = (CFStringRef)[(NSDictionary *)descriptor objectForKey:(id)kCTFontFamilyNameAttribute];
+            name = (CFStringRef)[attributes objectForKey:(id)kCTFontFamilyNameAttribute];
         }
         if (size <= 0.0) {
-            NSNumber *sizeNum = [(NSDictionary *)descriptor objectForKey:(id)kCTFontSizeAttribute];
+            NSNumber *sizeNum = [attributes objectForKey:(id)kCTFontSizeAttribute];
             if (sizeNum) {
                 size = [sizeNum doubleValue];
             }
         }
     }
     CTFontRef result = CTFontCreateWithName(name ?: CFSTR("Helvetica"), size, matrix);
-    setFontCascade(result, [(NSDictionary *)descriptor objectForKey:(id)kCTFontCascadeListAttribute]);
+    setFontCascade(result, [attributes objectForKey:(id)kCTFontCascadeListAttribute]);
     return result;
 }
 
@@ -200,7 +202,7 @@ CTFontRef CTFontCreateCopyWithAttributes(CTFontRef font, CGFloat size,
         size = CTFontGetSize(font);
     }
     CTFontRef result = createFont(graphicsFont(font), size);
-    NSArray *cascade = [(NSDictionary *)attributes objectForKey:(id)kCTFontCascadeListAttribute];
+    NSArray *cascade = [(NSDictionary *)KTCoreTextDescriptorAttributes(attributes) objectForKey:(id)kCTFontCascadeListAttribute];
     setFontCascade(result, cascade ?: fontCascade(font));
     return result;
 }
@@ -729,7 +731,7 @@ CTFontCreateWithGraphicsFont(CGFontRef cgFont, CGFloat size,
                              CTFontDescriptorRef attributes)
 {
     CTFontRef result = createFont(cgFont, size);
-    setFontCascade(result, [(NSDictionary *)attributes objectForKey:(id)kCTFontCascadeListAttribute]);
+    setFontCascade(result, [(NSDictionary *)KTCoreTextDescriptorAttributes(attributes) objectForKey:(id)kCTFontCascadeListAttribute]);
     return result;
 }
 

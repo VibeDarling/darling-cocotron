@@ -10,10 +10,14 @@ abort 'helpers missing' unless helpers
 names = %w[CTFontCreateWithFontDescriptor CTFontCreateCopyWithAttributes CTFontCreateWithGraphicsFont]
 methods = names.map { |name| source[/CTFontRef\s+#{name}\(.*?^\}/m] or abort "missing #{name}" }.join("\n")
 accessor = source[/CFTypeRef CTFontCopyAttribute\(.*?^\}/m] or abort 'accessor missing'
+descriptor_source = File.read(File.expand_path('../CoreText/CTFontDescriptor.m', __dir__))
+attributes = descriptor_source[/CFDictionaryRef KTCoreTextDescriptorAttributes\(.*?^\}/m] or abort 'descriptor attributes helper missing'
 program = <<~'OBJC'
   #import <Foundation/Foundation.h>
   #include <assert.h>
+  #include <pthread.h>
   typedef id CTFontRef, CTFontDescriptorRef, CGFontRef, CFTypeRef;
+  typedef NSDictionary *CFDictionaryRef;
   typedef NSString *CFStringRef;
   typedef struct { double a,b,c,d,tx,ty; } CGAffineTransform;
   #define CFSTR(x) @x
@@ -49,6 +53,7 @@ program = <<~'OBJC'
   static CFStringRef CTFontCopyFamilyName(CTFontRef f) { return nil; }
   static CFStringRef CTFontCopyPostScriptName(CTFontRef f) { return nil; }
   ACTUAL_HELPERS
+  ACTUAL_ATTRIBUTES
   ACTUAL_METHODS
   ACTUAL_ACCESSOR
   int main(void) {
@@ -81,7 +86,7 @@ program = <<~'OBJC'
       }
   }
 OBJC
-program = program.sub('ACTUAL_HELPERS') { helpers }.sub('ACTUAL_METHODS') { methods }.sub('ACTUAL_ACCESSOR') { accessor }
+program = program.sub('ACTUAL_HELPERS') { helpers }.sub('ACTUAL_ATTRIBUTES') { attributes }.sub('ACTUAL_METHODS') { methods }.sub('ACTUAL_ACCESSOR') { accessor }
 gcc, status = Open3.capture2('gcc','-print-file-name=include')
 abort 'GCC headers unavailable' unless status.success?
 Dir.mktmpdir('font-cascade-roundtrip') do |dir|
