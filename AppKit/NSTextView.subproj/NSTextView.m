@@ -572,6 +572,10 @@ static NSTextView *s_targetTextView = nil;
 - (void) _informTextFinderStringWillChange {
 }
 
+- (NSSelectionAffinity) selectionAffinity {
+    return _selectionAffinity;
+}
+
 - (NSLayoutManager *) layoutManager {
     return [_textContainer layoutManager];
 }
