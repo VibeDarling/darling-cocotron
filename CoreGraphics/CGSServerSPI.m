@@ -75,3 +75,62 @@ CGError CGSSetWindowAlpha(CGSConnectionID connection, CGSWindowID windowID,
     [window setAlphaValue: fmin(fmax(alpha, 0.0), 1.0)];
     return kCGErrorSuccess;
 }
+
+// Connection properties: a process-wide table of values set under (owner connection, key). The window
+// server keeps these per connection; here the table is local to the process, which is the only client.
+// GUESS: setting a NULL value removes the property, and copying an unset property succeeds with *value
+// NULL; the SPI is not documented.
+static pthread_mutex_t connectionPropertyLock = PTHREAD_MUTEX_INITIALIZER;
+static CFMutableDictionaryRef connectionProperties; // owner connection id (CFNumber) -> CFMutableDictionary key -> value
+
+CGError CGSSetConnectionProperty(CGSConnectionID cid, CGSConnectionID ownerCid, CFStringRef key, CFTypeRef value)
+{
+    (void) cid;
+    if (key == NULL) {
+        return kCGErrorIllegalArgument;
+    }
+    CFNumberRef owner = CFNumberCreate(NULL, kCFNumberSInt32Type, &ownerCid);
+
+    pthread_mutex_lock(&connectionPropertyLock);
+    if (connectionProperties == NULL) {
+        connectionProperties = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    }
+    CFMutableDictionaryRef table = (CFMutableDictionaryRef) CFDictionaryGetValue(connectionProperties, owner);
+    if (table == NULL && value != NULL) {
+        table = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        CFDictionarySetValue(connectionProperties, owner, table);
+        CFRelease(table);
+    }
+    if (table != NULL) {
+        if (value != NULL) {
+            CFDictionarySetValue(table, key, value);
+        } else {
+            CFDictionaryRemoveValue(table, key);
+        }
+    }
+    pthread_mutex_unlock(&connectionPropertyLock);
+
+    CFRelease(owner);
+    return kCGErrorSuccess;
+}
+
+CGError CGSCopyConnectionProperty(CGSConnectionID cid, CGSConnectionID ownerCid, CFStringRef key, CFTypeRef *value)
+{
+    (void) cid;
+    if (key == NULL || value == NULL) {
+        return kCGErrorIllegalArgument;
+    }
+    CFNumberRef owner = CFNumberCreate(NULL, kCFNumberSInt32Type, &ownerCid);
+
+    *value = NULL;
+    pthread_mutex_lock(&connectionPropertyLock);
+    if (connectionProperties != NULL) {
+        CFDictionaryRef table = (CFDictionaryRef) CFDictionaryGetValue(connectionProperties, owner);
+        CFTypeRef found = table != NULL ? CFDictionaryGetValue(table, key) : NULL;
+        *value = found != NULL ? CFRetain(found) : NULL;
+    }
+    pthread_mutex_unlock(&connectionPropertyLock);
+
+    CFRelease(owner);
+    return kCGErrorSuccess;
+}

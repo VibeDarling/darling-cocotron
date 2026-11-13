@@ -22,6 +22,7 @@
 #define CGSSERVERSPI_H
 
 #include <stdint.h>
+#include <CoreFoundation/CoreFoundation.h>
 #include <CoreGraphics/CGError.h>
 #include <CoreGraphics/CoreGraphicsExport.h>
 
@@ -30,5 +31,7 @@ typedef uint32_t CGSWindowID;
 
 COREGRAPHICS_EXPORT CGSConnectionID CGSMainConnectionID(void);
 COREGRAPHICS_EXPORT CGError CGSSetWindowAlpha(CGSConnectionID, CGSWindowID, float alpha);
+COREGRAPHICS_EXPORT CGError CGSSetConnectionProperty(CGSConnectionID, CGSConnectionID ownerCid, CFStringRef key, CFTypeRef value);
+COREGRAPHICS_EXPORT CGError CGSCopyConnectionProperty(CGSConnectionID, CGSConnectionID ownerCid, CFStringRef key, CFTypeRef *value);
 
 #endif
