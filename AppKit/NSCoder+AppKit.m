@@ -113,3 +113,9 @@ enum {
 }
 
 @end
+
+uint8_t NSAppKitDecodeByte(NSCoder *coder) {
+    uint8_t value = 0;
+    [coder decodeValueOfObjCType: "c" at: &value];
+    return value;
+}
