@@ -7,6 +7,8 @@ void KTCoreTextFinalizeObject(CFTypeRef object);
 CFTypeRef KTCoreTextCreateObject(CFTypeID type, CFDictionaryRef storage);
 CFTypeID KTCoreTextRunGetTypeID(void);
 CFDictionaryRef KTCoreTextObjectDictionary(CFTypeRef object);
+// The attributes of a font descriptor, borrowed: itself, or an empty dictionary if another CoreText made it.
+CFDictionaryRef KTCoreTextDescriptorAttributes(CTFontDescriptorRef descriptor);
 
 extern const CFStringRef kCTFontAttributeName;
 
