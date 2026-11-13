@@ -78,6 +78,13 @@ NSString *const _NSWindowsMenuName = @"Window";
     return NSDefaultMallocZone();
 }
 
+// Private AppKit class method that Print Center calls. Apple documents nothing
+// about it, so this cannot honour it: it accepts the call and does nothing,
+// which keeps the app running. Cocotron has no sideband menu updaters whose
+// order against -menuNeedsUpdate: could change.
++ (void) _setAlwaysCallDelegateBeforeSidebandUpdaters: (BOOL) flag {
+}
+
 - (void) encodeWithCoder: (NSCoder *) coder {
     [coder encodeObject: _title forKey: @"NSTitle"];
     [coder encodeObject: _name forKey: @"NSName"];
