@@ -106,6 +106,11 @@ const NSNotificationName NSWindowDidOrderOffScreenNotification =
         @"NSWindowDidOrderOffScreenNotification";
 const NSNotificationName NSWindowDidOrderOnScreenNotification =
         @"_NSWindowDidBecomeVisible";
+// A private AppKit notification (NSWindowSPI.h in the vendored WebKit sources names it), posted when a window
+// that is not visible is ordered on, shown with -setIsVisible:, or presented as a sheet. GUESS: no public
+// source gives the value; AppKit's own notification names use their symbol name as value.
+const NSNotificationName NSWindowWillOrderOnScreenNotification =
+        @"NSWindowWillOrderOnScreenNotification";
 const NSNotificationName NSWindowWillEnterFullScreenNotification =
         @"NSWindowWillEnterFullScreenNotification";
 const NSNotificationName NSWindowWillExitFullScreenNotification =
@@ -2446,6 +2451,10 @@ static BOOL _allowsAutomaticWindowTabbing;
 
     [self postNotificationName: NSWindowWillMoveNotification];
 
+    if (place != NSWindowOut && !_isVisible) {
+        [self postNotificationName: NSWindowWillOrderOnScreenNotification];
+    }
+
     switch (place) {
     case NSWindowAbove:
         _isClosed = NO;
@@ -2933,6 +2942,9 @@ static BOOL _allowsAutomaticWindowTabbing;
     if (_isVisible == visible) {
         return;
     }
+    if (visible) {
+        [self postNotificationName: NSWindowWillOrderOnScreenNotification];
+    }
     _isVisible = visible;
     if (visible) {
         [[self platformWindow] showWindowWithoutActivation];
@@ -3328,6 +3340,7 @@ static BOOL _allowsAutomaticWindowTabbing;
     [self _setSheetOrigin];
     NSRect sheetFrame = [sheet frame];
 
+    [sheet postNotificationName: NSWindowWillOrderOnScreenNotification];
     sheet->_isVisible = YES;
     [sheet display];
     [[sheet platformWindow] sheetOrderFrontFromFrame: sheetFrame
