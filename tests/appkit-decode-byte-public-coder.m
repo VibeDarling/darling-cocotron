@@ -1,5 +1,6 @@
 // Link with candidate AppKit; no windows are needed.
 #import <AppKit/AppKit.h>
+#include <dlfcn.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -68,6 +69,10 @@ int main(void) {
         [image release];
         [coder->_objects release];
         [coder release];
+        // The helper is inline: no image exports it, so the UIFoundation objects that decode NSFont
+        // need not import it from AppKit (UIFoundation sits below AppKit and must link on its own).
+        expect(dlsym(RTLD_DEFAULT, "NSAppKitDecodeByte") == NULL,
+               @"NSAppKitDecodeByte is not a symbol of any image");
         NSLog(@"PASS: legacy decoders read bytes through the public NSCoder API");
     }
     return 0;
