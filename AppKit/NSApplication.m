@@ -332,6 +332,14 @@ NSApplication *NSApp = nil;
     return _isRunning;
 }
 
+// Private AppKit method that Apple frameworks look up on NSApplication and
+// require to exist (Mac Catalyst apps such as Stocks and Clock raise
+// NSInternalInconsistencyException without it). It posts the application
+// launch signpost, a diagnostics-only event, and Darling has no signpost
+// backend, so this deliberately does nothing.
+- (void) _emitApplicationLaunchSignpost {
+}
+
 - (void) set_running: (BOOL) running {
     _isRunning = running;
 }
