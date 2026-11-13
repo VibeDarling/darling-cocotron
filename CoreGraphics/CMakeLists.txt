@@ -107,6 +107,10 @@ set(CoreGraphics_sources
 	CGSWindow.m
 	CGSSurface.m
 	CGSKeyboardLayout.m
+	CGSDisplaySPI.c
+	CGSSessionSPI.c
+	CGImageContentHeadroom.c
+	CGUnimplemented.c
 	CGSRegion.m
 	CGSScreen.m
 	CGSServerSPI.m

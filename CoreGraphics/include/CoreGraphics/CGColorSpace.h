@@ -66,6 +66,8 @@ typedef enum {
 COREGRAPHICS_EXPORT CGColorSpaceRef CGColorSpaceRetain(CGColorSpaceRef colorSpace);
 COREGRAPHICS_EXPORT void CGColorSpaceRelease(CGColorSpaceRef colorSpace);
 
+// macOS 12.0: the profile is a ColorSyncProfileRef (a CFType; Cocotron has no ColorSync headers, so CFTypeRef).
+COREGRAPHICS_EXPORT CGColorSpaceRef CGColorSpaceCreateWithColorSyncProfile(CFTypeRef profile, CFDictionaryRef options);
 COREGRAPHICS_EXPORT CGColorSpaceRef CGColorSpaceCreateDeviceRGB();
 COREGRAPHICS_EXPORT CGColorSpaceRef CGColorSpaceCreateDeviceGray();
 COREGRAPHICS_EXPORT CGColorSpaceRef CGColorSpaceCreateDeviceCMYK();
