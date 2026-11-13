@@ -35,6 +35,15 @@ CTTypesetterRef CTTypesetterCreateWithAttributedStringAndOptions(CFAttributedStr
     return (CTTypesetterRef)ts;
 }
 
+CTTypesetterRef CTTypesetterCreateWithUniCharProviderAndOptions(CTUniCharProviderCallback provider,
+        CTUniCharDisposeCallback dispose, void *refCon, CFDictionaryRef options) {
+    CFAttributedStringRef string = KTCoreTextCreateAttributedStringWithProvider(provider, dispose, refCon);
+    if (string == NULL) return NULL;
+    CTTypesetterRef typesetter = CTTypesetterCreateWithAttributedStringAndOptions(string, options);
+    CFRelease(string);
+    return typesetter;
+}
+
 CTLineRef CTTypesetterCreateLine(CTTypesetterRef typesetter, CFRange stringRange) {
     _CTTypesetter *ts = (_CTTypesetter *)typesetter;
     if (!ts || !ts->_string) {
@@ -103,6 +112,17 @@ CFIndex CTTypesetterSuggestClusterBreak(CTTypesetterRef typesetter, CFIndex star
 
 CFIndex CTTypesetterSuggestClusterBreakWithOffset(CTTypesetterRef typesetter, CFIndex startIndex, double width, double offset) {
     return CTTypesetterSuggestClusterBreak(typesetter, startIndex, width);
+}
+
+// GUESS (rung 6): signature and semantics inferred from the name only; no public declaration found; a wrong guess can
+// only affect line-break tolerance. Sets the per-process line-break epsilon and returns the previous value. The line
+// breaker above compares widths strictly and has no tolerance of its own, so the value is stored and not read here.
+static CGFloat lineBreakEpsilon;
+
+CGFloat CTSwapLineBreakEpsilon(CGFloat newEpsilon) {
+    CGFloat previous;
+    __atomic_exchange(&lineBreakEpsilon, &newEpsilon, &previous, __ATOMIC_SEQ_CST);
+    return previous;
 }
 
 // In Cocotron/Darling, CFTypeID for bridged/pseudo-CF classes
