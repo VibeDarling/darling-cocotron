@@ -31,6 +31,10 @@ CTLineRef CTLineCreateWithUniCharProvider(CTUniCharProviderCallback provider, CT
 CFAttributedStringRef KTCoreTextCreateAttributedStringWithProvider(CTUniCharProviderCallback provider, CTUniCharDisposeCallback dispose, void *refCon);
 CGSize CTRunGetInitialAdvance(CTRunRef run);
 
+// Private CoreText interface, not installed with the SDK headers. GUESS (rung 6): signature and semantics inferred from
+// the name only; no public declaration found. Sets the per-process line-break epsilon and returns the previous value.
+CGFloat CTSwapLineBreakEpsilon(CGFloat newEpsilon);
+
 // Which language's line composition rules apply (Japanese kinsoku and the like). Public values are the WebKit SPI's.
 typedef CF_ENUM(uint8_t, CTCompositionLanguage) {
     kCTCompositionLanguageUnset,

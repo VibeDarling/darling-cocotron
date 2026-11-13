@@ -114,6 +114,17 @@ CFIndex CTTypesetterSuggestClusterBreakWithOffset(CTTypesetterRef typesetter, CF
     return CTTypesetterSuggestClusterBreak(typesetter, startIndex, width);
 }
 
+// GUESS (rung 6): signature and semantics inferred from the name only; no public declaration found; a wrong guess can
+// only affect line-break tolerance. Sets the per-process line-break epsilon and returns the previous value. The line
+// breaker above compares widths strictly and has no tolerance of its own, so the value is stored and not read here.
+static CGFloat lineBreakEpsilon;
+
+CGFloat CTSwapLineBreakEpsilon(CGFloat newEpsilon) {
+    CGFloat previous;
+    __atomic_exchange(&lineBreakEpsilon, &newEpsilon, &previous, __ATOMIC_SEQ_CST);
+    return previous;
+}
+
 // In Cocotron/Darling, CFTypeID for bridged/pseudo-CF classes
 // is identified by the Objective-C Class pointer convention.
 CFTypeID CTTypesetterGetTypeID(void) {
