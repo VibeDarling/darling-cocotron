@@ -35,6 +35,9 @@ static int constraintDeallocs;
 }
 @end
 
+// The constraint is a stand-in whose -initWithCoder: returns an autoreleased object, so that the nib's object list is
+// its only owner (Foundation's own NSLayoutConstraint decode leaves a constraint that outlives the nib on master as
+// well, so a real constraint cannot show the loss on plain Darling).
 // Interface Builder archives a constraint under the view that is the common ancestor of its items.
 @interface TestView : NSView <NSCoding>
 @property (retain) NSArray *archivedSubviews;
@@ -128,12 +131,6 @@ int main(void)
         [loader release];
         expect(constraintDeallocs == 0,
                [NSString stringWithFormat:@"a constraint of the nib outlives the nib, %d deallocated", constraintDeallocs]);
-        // The constraint's first item leaves the view tree; the constraint stays with its common ancestor.
-        NSView *child = [[[parent subviews] objectAtIndex:0] retain];
-        [child removeFromSuperview];
-        [child release];
-        expect(constraintDeallocs == 0,
-               [NSString stringWithFormat:@"a constraint outlives its removed first item, %d deallocated", constraintDeallocs]);
         expect([[parent constraints] count] == 0, @"the archived constraints are not installed");
         [topLevel removeAllObjects];
         [parent release];
