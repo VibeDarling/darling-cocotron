@@ -31,3 +31,58 @@
 CG_FAIL_LOUD(CGBitmapGetAlignedBytesPerRow)        // Maps
 CG_FAIL_LOUD(CGBitmapContextCreateWithDictionary)  // ColorSync Utility
 CG_FAIL_LOUD(CGSCopySpaces)                        // QuickTime Player
+
+// The window server (CGS) calls QuickTime Player, TV and ColorSync Utility import.
+CG_FAIL_LOUD(CGSRegisterConnectionNotifyProc)
+CG_FAIL_LOUD(CGSRemoveConnectionNotifyProc)
+CG_FAIL_LOUD(CGSSpaceCreate)
+CG_FAIL_LOUD(CGSSpaceDestroy)
+CG_FAIL_LOUD(CGSSpaceSetAbsoluteLevel)
+CG_FAIL_LOUD(CGSShowSpaces)
+CG_FAIL_LOUD(CGSHideSpaces)
+CG_FAIL_LOUD(CGSRemoveWindowsFromSpaces)
+CG_FAIL_LOUD(CGSSetHotKey)
+CG_FAIL_LOUD(CGSSetHotKeyEnabled)
+CG_FAIL_LOUD(CGSRemoveHotKey)
+CG_FAIL_LOUD(CGSIsZoomed)
+CG_FAIL_LOUD(CGSUnionRegion)
+CG_FAIL_LOUD(CGSOffsetRegion)
+CG_FAIL_LOUD(CGSReleaseRegion)
+CG_FAIL_LOUD(CGSGetRegionBounds)
+CG_FAIL_LOUD(CGSCopySpecifiedWindowShape)
+CG_FAIL_LOUD(CGSSetWindowCaptureExcludeShape)
+CG_FAIL_LOUD(CGSInputModifierKeyState)
+CG_FAIL_LOUD(CGSSetCursorFromData)
+CG_FAIL_LOUD(CGSSetSystemDefinedCursor)
+CG_FAIL_LOUD(CGSSetEventCapture)
+CG_FAIL_LOUD(CGSCaptureWindowsContentsToRectWithOptions)
+
+// Other private or SPI functions ColorSync Utility, TV, Freeform, Photos and iPhone Mirroring import.
+CG_FAIL_LOUD(CGImageGetData)
+CG_FAIL_LOUD(CGImageHasAlpha)
+CG_FAIL_LOUD(CGContextGetType)
+CG_FAIL_LOUD(CGContextGetAlpha)
+CG_FAIL_LOUD(CGContextGetInterpolationQualityRange)
+CG_FAIL_LOUD(CGContextSetInterpolationQualityRange)
+CG_FAIL_LOUD(CGContextDrawPDFPageInRect2)
+CG_FAIL_LOUD(CGColorTransformCreate)
+CG_FAIL_LOUD(CGColorTransformRelease)
+CG_FAIL_LOUD(CGColorTransformGetColorSpace)
+CG_FAIL_LOUD(CGColorTransformConvertImage)
+CG_FAIL_LOUD(CGColorTransformCreateCodeFragment)
+CG_FAIL_LOUD(CGColorCodeFragmentRelease)
+CG_FAIL_LOUD(CGColorCodeFragmentGetTextureData)
+CG_FAIL_LOUD(CGColorSpaceCopyColorSyncProfile)
+CG_FAIL_LOUD(CGColorSpaceGetType)
+CG_FAIL_LOUD(CGColorSpaceGetProcessColorModel)
+CG_FAIL_LOUD(CGColorSpaceEqualToColorSpace)
+CG_FAIL_LOUD(CGColorSpaceConcatenate)
+CG_FAIL_LOUD(CGColorSpaceCopyICCProfileDescription)
+CG_FAIL_LOUD(CGImageCreateCopyWithRenderingIntent)
+CG_FAIL_LOUD(CGEventSetWindowLocation)
+CG_FAIL_LOUD(CGPDFDocumentCopyOutputIntents)
+
+// Public, but the documentation does not say which color spaces they answer true for (Freeform, ColorSync
+// Utility); NEEDS-REAL-MAC, see the pull request.
+CG_FAIL_LOUD(CGColorSpaceSupportsOutput)
+CG_FAIL_LOUD(CGColorSpaceIsHDR)
