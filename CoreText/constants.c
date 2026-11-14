@@ -35,3 +35,10 @@ const CFStringRef kCTFontWidthTrait = CFSTR("NSCTFontWidthTrait");
 const CFStringRef kCTFontSlantTrait = CFSTR("NSCTFontSlantTrait");
 const CFStringRef kCTFontOpenTypeFeatureTag = CFSTR("CTFeatureOpenTypeTag");
 const CFStringRef kCTFontOpenTypeFeatureValue = CFSTR("CTFeatureOpenTypeValue");
+
+// Documented attribute and key names; GUESS (NEEDS-REAL-MAC): the documentation gives the names and the CFString type,
+// not the values, so each carries its own name.
+const CFStringRef kCTFontDescriptorMatchingPercentage = CFSTR("kCTFontDescriptorMatchingPercentage");
+const CFStringRef kCTFontDownloadableAttribute = CFSTR("kCTFontDownloadableAttribute");
+const CFStringRef kCTFontDownloadedAttribute = CFSTR("kCTFontDownloadedAttribute");
+const CFStringRef kCTFontOpticalSizeAttribute = CFSTR("kCTFontOpticalSizeAttribute");
