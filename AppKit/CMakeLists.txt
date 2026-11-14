@@ -359,6 +359,7 @@ set(AppKit_sources
 
 	NSPredicateEditorRowTemplate.m
 	NSFilePromiseProvider.m
+	NSFilePromiseReceiver.m
 	NSFileWrapperExtensions.m
 
 	NSToolbar.subproj/NSToolbarItemGroup.m
