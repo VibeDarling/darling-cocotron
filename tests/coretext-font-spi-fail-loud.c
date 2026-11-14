@@ -8,17 +8,16 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-// Eleven CoreText functions that Font Book imports. Seven are private and no permitted source documents their
-// arguments or results; four are documented but Cocotron has no font registry to answer from. Each is exported so
-// that the import binds, and a call prints its name and aborts. Each call runs in a child process so that the
-// abort can be observed.
+// Nine CoreText functions that Font Book imports. Seven are private and no permitted source documents their
+// arguments or results; two are documented but need a font registry that Cocotron lacks (or were not probed). Each
+// is exported so that the import binds, and a call prints its name and aborts. Each call runs in a child process so
+// that the abort can be observed.
 static const char *names[] = {
     "CTFontCopyStringForGlyph", "CTFontDescriptorCopyDownloadableFontAttributesForRequests",
     "CTFontDescriptorCopyName", "CTFontDescriptorIsVisible", "CTFontGetDefaultAscent",
     "CTFontManagerCompareFontDescriptors2", "CTFontManagerValidateFonts",
-    // documented functions with no registry behind them yet
-    "CTFontManagerIsSupportedFont", "CTFontManagerGetScopeForURL", "CTFontManagerEnableFontDescriptors",
-    "CTFontManagerUnregisterFontURLs",
+    // documented functions that need a font registry (or were not probed)
+    "CTFontManagerGetScopeForURL", "CTFontManagerEnableFontDescriptors",
 };
 
 static int check(const char *name) {
