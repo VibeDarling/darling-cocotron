@@ -38,8 +38,13 @@ CA_EXPORT NSString *const kCAFilterMultiplyColor;
 CA_EXPORT NSString *const kCAFilterVariableBlur;
 CA_EXPORT NSString *const kCAFilterVibrantColorMatrix;
 
-// Private names QuartzCore exports that clients such as WebKit declare themselves. WebKit's declarations give
-// the names and the type (NSString); the string values are a GUESS, see CAFilter.m.
+// Private names QuartzCore exports. WebKit's QuartzCoreSPI.h declares 17 of the names below (PlusD, PlusL and the
+// blend mode names Normal, Screen, Overlay, Darken, Lighten, ColorDodge, ColorBurn, SoftLight, HardLight,
+// Difference, Exclusion, Hue, Saturation, Color and Luminosity), which gives those names and the type (NSString).
+// The other 14 (DarkenSourceOver, DestOut, DivideBlendMode, LightenSourceOver, LinearBurnBlendMode,
+// LinearDodgeBlendMode, LinearLightBlendMode, Maximum, Minimum, Multiply, PinLightBlendMode, SubtractBlendMode,
+// SubtractD, SubtractS) have no open-source declaration: their names come from the sweep and the type is a GUESS
+// too. Every string value is a GUESS, see CAFilter.m.
 CA_EXPORT NSString *const kCAFilterPlusD;
 CA_EXPORT NSString *const kCAFilterPlusL;
 CA_EXPORT NSString *const kCAFilterColorBlendMode;
