@@ -115,6 +115,25 @@ NSApplication *NSApp = nil;
 - initWithOwner: owner;
 @end
 
+/* The documents named in a process argument list (arguments[0] is the executable): every argument that is not
+ * a switch. A switch other than -NSOpen takes the next argument as its value ("-NSBindingDebugLogLevel 2"), and
+ * "--" ends the list. */
+static NSArray *NSApplicationDocumentsInArguments(NSArray *arguments) {
+    NSMutableArray *documents = [NSMutableArray array];
+    for (NSUInteger i = 1; i < [arguments count]; i++) {
+        NSString *argument = [arguments objectAtIndex: i];
+        if (![argument hasPrefix: @"-"]) {
+            if ([argument length] > 0)
+                [documents addObject: argument];
+        } else if ([argument isEqualToString: @"--"]) {
+            break;
+        } else if (![argument isEqualToString: @"-NSOpen"]) {
+            i++;
+        }
+    }
+    return documents;
+}
+
 @implementation NSApplication
 
 - (NSUserInterfaceLayoutDirection) userInterfaceLayoutDirection {
@@ -2187,24 +2206,14 @@ int NSApplicationMain(int argc, const char *argv[]) {
     Class class = [bundle principalClass];
     NSString *nibFile = [bundle infoDictionary][@"NSMainNibFile"];
 
-if (argc > 1) {
-        NSMutableArray *arguments =
-                [NSMutableArray arrayWithCapacity: argc - 1];
-        for (int i = 1; i < argc; i++)
-            if (argv[i][0] != '-')
-                [arguments addObject: [NSString stringWithUTF8String: argv[i]]];
-            else if (argv[i][1] == '-' && argv[i][2] == '\0')
-                break;
-            else // (argv[i][0] == '-' && argv[i] != "--")
-                    if (strcmp(argv[i], "-NSOpen") != 0)
-                i++;
-
-        if ((argc = [arguments count]))
-            [[NSUserDefaults standardUserDefaults]
-                    setObject: ((argc == 1) ? [arguments lastObject]
-                                            : arguments)
-                       forKey: @"NSOpen"];
-    }
+    /* argc and argv are not read: Chess calls this with argv advanced to its last argument and the original argc,
+     * so argv[1] is NULL and reading it crashes (observed on Darling; why Chess does that is a GUESS). The
+     * process-wide arguments are what NSUserDefaults parses as well. */
+    NSArray *documents = NSApplicationDocumentsInArguments([[NSProcessInfo processInfo] arguments]);
+    if ([documents count] > 0)
+        [[NSUserDefaults standardUserDefaults]
+                setObject: ([documents count] == 1 ? [documents lastObject] : documents)
+                   forKey: @"NSOpen"];
 
 #ifndef DARLING
     [NSClassFromString(@"Win32RunningCopyPipe")
