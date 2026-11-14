@@ -31,6 +31,7 @@ typedef struct CF_BRIDGED_TYPE(id) O2Color *CGColorRef;
 CF_IMPLICIT_BRIDGING_ENABLED
 
 COREGRAPHICS_EXPORT CGColorRef CGColorRetain(CGColorRef self);
+COREGRAPHICS_EXPORT CFTypeID CGColorGetTypeID(void);
 COREGRAPHICS_EXPORT void CGColorRelease(CGColorRef self);
 
 COREGRAPHICS_EXPORT CGColorRef CGColorCreate(CGColorSpaceRef colorSpace,

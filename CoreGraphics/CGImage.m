@@ -22,6 +22,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSString.h>
 #import <Onyx2D/O2Image.h>
 
+// Public. As for CGFont, the type ID is the Onyx2D class. CoreFoundation asks an Objective-C object for its type
+// through -_cfTypeID (as CGEventObjC.m and CTGlyphInfo.m do), so the instances answer with the same ID.
+CFTypeID CGImageGetTypeID(void) {
+    return (CFTypeID)[O2Image self];
+}
+
+@implementation O2Image (CFTypeID)
+- (CFTypeID) _cfTypeID {
+    return CGImageGetTypeID();
+}
+@end
+
 CGImageRef CGImageRetain(CGImageRef image) {
     return (CGImageRef)O2ImageRetain((O2ImageRef)image);
 }
