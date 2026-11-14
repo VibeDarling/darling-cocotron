@@ -127,6 +127,7 @@ int main(int argc, char **argv)
         nested.partner = model;
         nested.partnerEnabled = YES;
         [nested bind:@"value" toObject:model withKeyPath:@"level" options:nil];
+        model.writes = 0; // binding the slider already wrote its initial value through the partner
         model.level = 0.5;
         expect([nested doubleValue] == 0.5, @"the nested write reaches the slider");
         expect(model.writes == 2,
