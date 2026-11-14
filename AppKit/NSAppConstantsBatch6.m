@@ -21,11 +21,11 @@
 #import <Foundation/Foundation.h>
 
 // String constants that stock apps bind to AppKit (dyld collect-missing sweep, 69 apps: Mail, Notes, TV, Freeform, Photos,
-// Reminders, VoiceOver Utility), one batch of plain data names with no behaviour behind them. Each carries its own name.
-// Provenance by name: the two HDR notifications are a real-Mac observation (mac-probe darling_probe3.txt, value equals the
-// symbol name); NSPopUpButtonCellWillPopUpNotification and NSFontCollectionUser follow the open-source GNUstep libs-gui
-// (Source/externs.m). Every other value, and the type of the ones not in the public documentation, is GUESS (rung 6),
-// NEEDS-REAL-MAC (mac-probe/darling_probe_a1.c). Declared here, in no AppKit header.
+// Reminders, VoiceOver Utility, Journal), plain data names with no behaviour behind them. Every string is the value a real Mac
+// holds (macOS 26.1, mac-probe/darling_probe_a1.txt, rung 4); the type of the names not in the public documentation is a GUESS.
+// Many carry their own name; the others (AXChildrenInNavigationOrder, AXPopover, AXEnhancedUserInterface, Credits, {hyphen},
+// com.apple.UserFonts, NSToolbarWritingToolsItem, NSToolbarBookmarks, NSTextMovement, item) do not. Declared here, in no
+// AppKit header.
 
 APPKIT_EXPORT const NSNotificationName NSApplicationShouldBeginSuppressingHighDynamicRangeContentNotification;
 APPKIT_EXPORT const NSNotificationName NSApplicationShouldEndSuppressingHighDynamicRangeContentNotification;
@@ -56,6 +56,10 @@ APPKIT_EXPORT NSString *const NSAboutPanelOptionCredits;
 APPKIT_EXPORT NSString *const NSTextListMarkerHyphen;
 APPKIT_EXPORT NSString *const NSFontCollectionUser;
 APPKIT_EXPORT NSString *const NSFullScreenModeAllScreens;
+APPKIT_EXPORT NSString *const NSImageNameToolbarBookmarks;
+APPKIT_EXPORT NSString *const NSTextMovementUserInfoKey;
+APPKIT_EXPORT NSString *const NSToolbarItemKey;
+APPKIT_EXPORT NSString *const NSOutlineViewShowHideButtonKey;
 
 const NSNotificationName NSApplicationShouldBeginSuppressingHighDynamicRangeContentNotification = @"NSApplicationShouldBeginSuppressingHighDynamicRangeContentNotification";
 const NSNotificationName NSApplicationShouldEndSuppressingHighDynamicRangeContentNotification = @"NSApplicationShouldEndSuppressingHighDynamicRangeContentNotification";
@@ -64,11 +68,11 @@ const NSNotificationName NSMenuDidCompleteInteractionNotification = @"NSMenuDidC
 const NSNotificationName NSControlWillBeginContinuousTrackingNotification = @"NSControlWillBeginContinuousTrackingNotification";
 const NSNotificationName NSControlDidEndContinuousTrackingNotification = @"NSControlDidEndContinuousTrackingNotification";
 const NSNotificationName NSWorkspaceAccessibilityFocusedElementDidChangeNotification = @"NSWorkspaceAccessibilityFocusedElementDidChangeNotification";
-NSString *const NSAccessibilityChildrenInNavigationOrderAttribute = @"NSAccessibilityChildrenInNavigationOrderAttribute";
+NSString *const NSAccessibilityChildrenInNavigationOrderAttribute = @"AXChildrenInNavigationOrder";
 NSString *const NSAccessibilityFocusedElementKey = @"NSAccessibilityFocusedElementKey";
-NSString *const NSAccessibilityPopoverRole = @"NSAccessibilityPopoverRole";
-NSString *const NSAccessibilityEnhancedUserInterfaceAttribute = @"NSAccessibilityEnhancedUserInterfaceAttribute";
-NSString *const NSToolbarWritingToolsItemIdentifier = @"NSToolbarWritingToolsItemIdentifier";
+NSString *const NSAccessibilityPopoverRole = @"AXPopover";
+NSString *const NSAccessibilityEnhancedUserInterfaceAttribute = @"AXEnhancedUserInterface";
+NSString *const NSToolbarWritingToolsItemIdentifier = @"NSToolbarWritingToolsItem";
 NSString *const NSTouchBarItemIdentifierCandidateList = @"NSTouchBarItemIdentifierCandidateList";
 NSString *const NSTouchBarItemIdentifierTextAlignment = @"NSTouchBarItemIdentifierTextAlignment";
 NSString *const NSTouchBarItemIdentifierTextColorPicker = @"NSTouchBarItemIdentifierTextColorPicker";
@@ -82,7 +86,11 @@ NSString *const NSInspectorBarTextAlignmentItemIdentifier = @"NSInspectorBarText
 NSString *const NSInspectorBarTextBackgroundColorItemIdentifier = @"NSInspectorBarTextBackgroundColorItemIdentifier";
 NSString *const NSInspectorBarTextForegroundColorItemIdentifier = @"NSInspectorBarTextForegroundColorItemIdentifier";
 NSString *const NSInspectorBarTextListItemIdentifier = @"NSInspectorBarTextListItemIdentifier";
-NSString *const NSAboutPanelOptionCredits = @"NSAboutPanelOptionCredits";
-NSString *const NSTextListMarkerHyphen = @"NSTextListMarkerHyphen";
-NSString *const NSFontCollectionUser = @"NSFontCollectionUser";
+NSString *const NSAboutPanelOptionCredits = @"Credits";
+NSString *const NSTextListMarkerHyphen = @"{hyphen}";
+NSString *const NSFontCollectionUser = @"com.apple.UserFonts";
 NSString *const NSFullScreenModeAllScreens = @"NSFullScreenModeAllScreens";
+NSString *const NSImageNameToolbarBookmarks = @"NSToolbarBookmarks";
+NSString *const NSTextMovementUserInfoKey = @"NSTextMovement";
+NSString *const NSToolbarItemKey = @"item";
+NSString *const NSOutlineViewShowHideButtonKey = @"NSOutlineViewShowHideButtonKey";

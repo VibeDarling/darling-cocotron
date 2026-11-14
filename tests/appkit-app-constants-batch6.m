@@ -1,8 +1,7 @@
-// String constants that stock apps bind to AppKit (Mail, Notes, TV, Freeform, Photos, Reminders, VoiceOver Utility). dyld
-// stops an app whose AppKit lacks one, so each must be an exported symbol of the process holding a non-empty string, and no
-// two may share a value. The four with a source outside this tree (the two HDR notifications from a real Mac, and
-// NSPopUpButtonCellWillPopUpNotification and NSFontCollectionUser from GNUstep) are also checked against it: each holds its
-// own name. The values of the others are a GUESS (NSAppConstantsBatch6.m).
+// String constants that stock apps bind to AppKit (Mail, Notes, TV, Freeform, Photos, Reminders, VoiceOver Utility, Journal).
+// dyld stops an app whose AppKit lacks one, so each must be an exported string symbol of the process holding the string a
+// real Mac holds (mac-probe darling_probe_a1.txt, macOS 26.1), which the test pins literally, so a name that carries its own
+// name by guess and not by observation fails it.
 #import <Foundation/Foundation.h>
 #include <dlfcn.h>
 #include <stdlib.h>
@@ -16,67 +15,54 @@ static void expect(BOOL condition, NSString *message)
     }
 }
 
-static NSString *constant(const char *name)
-{
-    NSString *const *symbol = (NSString *const *)dlsym(RTLD_DEFAULT, name);
-    expect(symbol != NULL, [NSString stringWithFormat:@"%s is exported", name]);
-    NSString *value = *symbol;
-    expect([value isKindOfClass:[NSString class]] && [value length] > 0, [NSString stringWithFormat:@"%s holds a string", name]);
-    return value;
-}
-
 int main(void)
 {
     @autoreleasepool
     {
-        static const char *const names[] = {
-            "NSApplicationShouldBeginSuppressingHighDynamicRangeContentNotification",
-            "NSApplicationShouldEndSuppressingHighDynamicRangeContentNotification",
-            "NSPopUpButtonCellWillPopUpNotification",
-            "NSMenuDidCompleteInteractionNotification",
-            "NSControlWillBeginContinuousTrackingNotification",
-            "NSControlDidEndContinuousTrackingNotification",
-            "NSWorkspaceAccessibilityFocusedElementDidChangeNotification",
-            "NSAccessibilityChildrenInNavigationOrderAttribute",
-            "NSAccessibilityFocusedElementKey",
-            "NSAccessibilityPopoverRole",
-            "NSAccessibilityEnhancedUserInterfaceAttribute",
-            "NSToolbarWritingToolsItemIdentifier",
-            "NSTouchBarItemIdentifierCandidateList",
-            "NSTouchBarItemIdentifierTextAlignment",
-            "NSTouchBarItemIdentifierTextColorPicker",
-            "NSTouchBarItemIdentifierTextList",
-            "NSTouchBarItemIdentifierTextStyle",
-            "NSInspectorBarFontFamilyItemIdentifier",
-            "NSInspectorBarFontSizeItemIdentifier",
-            "NSInspectorBarFontStyleItemIdentifier",
-            "NSInspectorBarSpaceItemIdentifier",
-            "NSInspectorBarTextAlignmentItemIdentifier",
-            "NSInspectorBarTextBackgroundColorItemIdentifier",
-            "NSInspectorBarTextForegroundColorItemIdentifier",
-            "NSInspectorBarTextListItemIdentifier",
-            "NSAboutPanelOptionCredits",
-            "NSTextListMarkerHyphen",
-            "NSFontCollectionUser",
-            "NSFullScreenModeAllScreens"
+        static const struct { const char *name; const char *value; } expected[] = {
+            { "NSApplicationShouldBeginSuppressingHighDynamicRangeContentNotification", "NSApplicationShouldBeginSuppressingHighDynamicRangeContentNotification" },
+            { "NSApplicationShouldEndSuppressingHighDynamicRangeContentNotification", "NSApplicationShouldEndSuppressingHighDynamicRangeContentNotification" },
+            { "NSPopUpButtonCellWillPopUpNotification", "NSPopUpButtonCellWillPopUpNotification" },
+            { "NSMenuDidCompleteInteractionNotification", "NSMenuDidCompleteInteractionNotification" },
+            { "NSControlWillBeginContinuousTrackingNotification", "NSControlWillBeginContinuousTrackingNotification" },
+            { "NSControlDidEndContinuousTrackingNotification", "NSControlDidEndContinuousTrackingNotification" },
+            { "NSWorkspaceAccessibilityFocusedElementDidChangeNotification", "NSWorkspaceAccessibilityFocusedElementDidChangeNotification" },
+            { "NSAccessibilityChildrenInNavigationOrderAttribute", "AXChildrenInNavigationOrder" },
+            { "NSAccessibilityFocusedElementKey", "NSAccessibilityFocusedElementKey" },
+            { "NSAccessibilityPopoverRole", "AXPopover" },
+            { "NSAccessibilityEnhancedUserInterfaceAttribute", "AXEnhancedUserInterface" },
+            { "NSToolbarWritingToolsItemIdentifier", "NSToolbarWritingToolsItem" },
+            { "NSTouchBarItemIdentifierCandidateList", "NSTouchBarItemIdentifierCandidateList" },
+            { "NSTouchBarItemIdentifierTextAlignment", "NSTouchBarItemIdentifierTextAlignment" },
+            { "NSTouchBarItemIdentifierTextColorPicker", "NSTouchBarItemIdentifierTextColorPicker" },
+            { "NSTouchBarItemIdentifierTextList", "NSTouchBarItemIdentifierTextList" },
+            { "NSTouchBarItemIdentifierTextStyle", "NSTouchBarItemIdentifierTextStyle" },
+            { "NSInspectorBarFontFamilyItemIdentifier", "NSInspectorBarFontFamilyItemIdentifier" },
+            { "NSInspectorBarFontSizeItemIdentifier", "NSInspectorBarFontSizeItemIdentifier" },
+            { "NSInspectorBarFontStyleItemIdentifier", "NSInspectorBarFontStyleItemIdentifier" },
+            { "NSInspectorBarSpaceItemIdentifier", "NSInspectorBarSpaceItemIdentifier" },
+            { "NSInspectorBarTextAlignmentItemIdentifier", "NSInspectorBarTextAlignmentItemIdentifier" },
+            { "NSInspectorBarTextBackgroundColorItemIdentifier", "NSInspectorBarTextBackgroundColorItemIdentifier" },
+            { "NSInspectorBarTextForegroundColorItemIdentifier", "NSInspectorBarTextForegroundColorItemIdentifier" },
+            { "NSInspectorBarTextListItemIdentifier", "NSInspectorBarTextListItemIdentifier" },
+            { "NSAboutPanelOptionCredits", "Credits" },
+            { "NSTextListMarkerHyphen", "{hyphen}" },
+            { "NSFontCollectionUser", "com.apple.UserFonts" },
+            { "NSFullScreenModeAllScreens", "NSFullScreenModeAllScreens" },
+            { "NSImageNameToolbarBookmarks", "NSToolbarBookmarks" },
+            { "NSTextMovementUserInfoKey", "NSTextMovement" },
+            { "NSToolbarItemKey", "item" },
+            { "NSOutlineViewShowHideButtonKey", "NSOutlineViewShowHideButtonKey" },
         };
-        static const char *const sourced[] = {
-            "NSApplicationShouldBeginSuppressingHighDynamicRangeContentNotification",
-            "NSApplicationShouldEndSuppressingHighDynamicRangeContentNotification",
-            "NSPopUpButtonCellWillPopUpNotification",
-            "NSFontCollectionUser"
-        };
-        NSMutableSet *seen = [NSMutableSet set];
-        for (unsigned i = 0; i < sizeof names / sizeof *names; i++)
+        for (unsigned i = 0; i < sizeof expected / sizeof *expected; i++)
         {
-            NSString *value = constant(names[i]);
-            expect(![seen containsObject:value], [NSString stringWithFormat:@"%s differs from the others", names[i]]);
-            [seen addObject:value];
+            NSString *const *symbol = (NSString *const *)dlsym(RTLD_DEFAULT, expected[i].name);
+            expect(symbol != NULL, [NSString stringWithFormat:@"%s is exported", expected[i].name]);
+            NSString *want = [NSString stringWithUTF8String:expected[i].value];
+            expect([*symbol isKindOfClass:[NSString class]] && [*symbol isEqualToString:want],
+                   [NSString stringWithFormat:@"%s is \"%@\", got \"%@\"", expected[i].name, want, *symbol]);
         }
-        for (unsigned i = 0; i < sizeof sourced / sizeof *sourced; i++)
-            expect([constant(sourced[i]) isEqualToString:[NSString stringWithUTF8String:sourced[i]]],
-                   [NSString stringWithFormat:@"%s holds its own name", sourced[i]]);
-        NSLog(@"appkit-app-constants-batch6: ok (%u names)", (unsigned)(sizeof names / sizeof *names));
+        NSLog(@"appkit-app-constants-batch6: ok (%u names)", (unsigned)(sizeof expected / sizeof *expected));
     }
     return 0;
 }
