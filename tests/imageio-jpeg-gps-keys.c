@@ -1,7 +1,6 @@
 #include <ImageIO/ImageIO.h>
 #include <CoreGraphics/CoreGraphics.h>
 #include <stdio.h>
-#include <string.h>
 
 #define EXPECT(cond, msg) do { if (!(cond)) { printf("FAIL: %s\n", msg); return 1; } } while (0)
 
@@ -25,25 +24,10 @@ static const unsigned char app1[] = {
     0x00, 0x01
 };
 
-static int stringIs(CFTypeRef value, const char *expected) {
-    char buffer[16];
-    return value != NULL && CFGetTypeID(value) == CFStringGetTypeID() &&
-           CFStringGetCString(value, buffer, sizeof buffer, kCFStringEncodingUTF8) && strcmp(buffer, expected) == 0;
-}
-
-static int degrees(CFTypeRef value, double d, double m, double s) {
-    double v[3];
-    if (value == NULL || CFGetTypeID(value) != CFArrayGetTypeID() || CFArrayGetCount(value) != 3) return 0;
-    for (int i = 0; i < 3; i++) {
-        CFTypeRef n = CFArrayGetValueAtIndex(value, i);
-        if (CFGetTypeID(n) != CFNumberGetTypeID() || !CFNumberGetValue(n, kCFNumberDoubleType, &v[i])) return 0;
-    }
-    return v[0] == d && v[1] == m && v[2] == s;
-}
-
 // The {GPS} dictionary of a JPEG is keyed like ImageIO's on a real Mac, where kCGImagePropertyGPSLatitude is "Latitude" and
-// its siblings are "LatitudeRef", "Longitude", "LongitudeRef" and "Altitude" (mac-probe/symbols_e_probe1.txt:22-27). The
-// strings are written out here, not taken from the constants, so the decoder and the constants are checked independently.
+// its siblings are "LatitudeRef", "Longitude", "LongitudeRef" and "Altitude" (probe line 22-27). The strings are written out
+// here, not taken from the constants, so the decoder and the constants are checked independently. Only the keys are pinned:
+// the value types and the Ref convention are NEEDS-REAL-MAC (the decoder returns the raw EXIF values).
 int main(void) {
     CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
     CGContextRef context = CGBitmapContextCreate(NULL, 8, 8, 8, 0, space, kCGImageAlphaPremultipliedLast);
@@ -67,13 +51,14 @@ int main(void) {
     EXPECT(properties != NULL, "the properties exist");
     CFDictionaryRef gps = CFDictionaryGetValue(properties, CFSTR("{GPS}"));
     EXPECT(gps != NULL && CFGetTypeID(gps) == CFDictionaryGetTypeID(), "the {GPS} dictionary exists");
-    EXPECT(stringIs(CFDictionaryGetValue(gps, CFSTR("LatitudeRef")), "N"), "LatitudeRef is N");
-    EXPECT(degrees(CFDictionaryGetValue(gps, CFSTR("Latitude")), 37, 30, 0), "Latitude is 37 30 0");
-    EXPECT(stringIs(CFDictionaryGetValue(gps, CFSTR("LongitudeRef")), "E"), "LongitudeRef is E");
-    EXPECT(degrees(CFDictionaryGetValue(gps, CFSTR("Longitude")), 122, 15, 0), "Longitude is 122 15 0");
-    double altitude = 0;
-    CFTypeRef value = CFDictionaryGetValue(gps, CFSTR("Altitude"));
-    EXPECT(value != NULL && CFGetTypeID(value) == CFNumberGetTypeID() && CFNumberGetValue(value, kCFNumberDoubleType, &altitude) && altitude == 100, "Altitude is 100");
+    const char *labels[] = { "LatitudeRef", "Latitude", "LongitudeRef", "Longitude", "Altitude" };
+    for (int i = 0; i < 5; i++) {
+        char message[48];
+        snprintf(message, sizeof message, "%s is present", labels[i]);
+        CFStringRef label = CFStringCreateWithCString(NULL, labels[i], kCFStringEncodingUTF8);
+        EXPECT(CFDictionaryGetValue(gps, label) != NULL, message);
+        CFRelease(label);
+    }
     EXPECT(CFDictionaryGetValue(gps, CFSTR("GPSLatitude")) == NULL && CFDictionaryGetValue(gps, CFSTR("GPSAltitude")) == NULL,
            "the raw tag names are not used");
     CFRelease(properties);

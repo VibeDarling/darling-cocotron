@@ -284,7 +284,9 @@ static tEXIFTagToLabel EXIFTagToLabel[] = {
         {kInterop, kInterop_RelatedImageLength, @"RelatedImageLength"},
 
         // Latitude, LatitudeRef, Longitude, LongitudeRef and Altitude are the labels ImageIO uses on a real Mac (macOS 26.1,
-        // probe output lines 23-27 in Darling's mac-probe/symbols_e_probe1.txt); the other GPS labels are not observed.
+        // probe output lines 23-27); the other GPS labels are not observed. NEEDS-REAL-MAC: the values are still the raw EXIF
+        // ones (Latitude and Longitude a 3-element array of degrees, minutes and seconds, the Ref an "N"/"S"/"E"/"W" string);
+        // a client that expects a decimal number under kCGImagePropertyGPSLatitude would not get one.
         {kGPS, kGPS_GPSVersionID, @"GPSVersionID"},
         {kGPS, kGPS_GPSLatitudeRef, @"LatitudeRef"},
         {kGPS, kGPS_GPSLatitude, @"Latitude"},
