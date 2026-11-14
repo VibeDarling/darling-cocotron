@@ -20,5 +20,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 @interface _NSKVOBinder : _NSBinder {
     BOOL _isObserving;
+    NSUInteger _sourceSuspendDepth;
 }
 @end
