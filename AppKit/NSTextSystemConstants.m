@@ -1,0 +1,81 @@
+/*
+ This file is part of Darling.
+
+ Copyright (C) 2026 Darling developers
+
+ Darling is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
+
+ Darling is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+
+ You should have received a copy of the GNU General Public License
+ along with Darling.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+// Constants that macOS defines in AppKit and that guest apps bind to AppKit. UIFoundation's own copies (it cannot import
+// AppKit) are not exported (UIFoundation/unexported-symbols.txt), so when another UIFoundation is in use these are still
+// found in AppKit. Values are the same as UIFoundation's.
+
+#import <AppKit/NSAdaptiveImageGlyph.h>
+#import <AppKit/NSAttributedString.h>
+#import <AppKit/NSFont.h>
+#import <AppKit/NSFontDescriptor.h>
+#import <AppKit/NSTextContentManager.h>
+#import <AppKit/NSTextList.h>
+#import <AppKit/NSTextTab.h>
+
+NSAttributedStringKey const NSAdaptiveImageGlyphAttributeName = @"NSAdaptiveImageGlyph";
+NSNotificationName NSAntialiasThresholdChangedNotification =
+        @"NSAntialiasThresholdChangedNotification";
+NSAttributedStringKey NSBaselineOffsetAttributeName = @"NSBaselineOffsetAttributeName";
+NSAttributedStringKey NSCursorAttributeName = @"NSCursorAttributeName";
+NSFontDescriptorSystemDesign const NSFontDescriptorSystemDesignRounded = @"NSCTFontUIFontDesignRounded";
+NSFontDescriptorAttributeName NSFontFamilyAttribute = @"NSFontFamilyAttribute";
+NSFontDescriptorAttributeName NSFontNameAttribute = @"NSFontNameAttribute";
+// GUESS (no permitted source): Apple's documentation names these constants but lists no string value. Each carries its
+// own name. Only code that compares them against these same objects works. On the cache stage the cache's UIFoundation
+// presumably can only match a text style against its own literals, so a guessed value probably does not match there and a
+// lookup by text style would miss silently (nil). The real values need a real Mac.
+NSFontTextStyle const NSFontTextStyleBody = @"NSFontTextStyleBody";
+NSFontTextStyle const NSFontTextStyleCallout = @"NSFontTextStyleCallout";
+NSFontTextStyle const NSFontTextStyleCaption1 = @"NSFontTextStyleCaption1";
+NSFontTextStyle const NSFontTextStyleCaption2 = @"NSFontTextStyleCaption2";
+NSFontTextStyle const NSFontTextStyleFootnote = @"NSFontTextStyleFootnote";
+NSFontTextStyle const NSFontTextStyleHeadline = @"NSFontTextStyleHeadline";
+NSFontTextStyle const NSFontTextStyleLargeTitle = @"NSFontTextStyleLargeTitle";
+NSFontTextStyle const NSFontTextStyleSubheadline = @"NSFontTextStyleSubheadline";
+NSFontTextStyle const NSFontTextStyleTitle1 = @"NSFontTextStyleTitle1";
+NSFontTextStyle const NSFontTextStyleTitle2 = @"NSFontTextStyleTitle2";
+NSFontTextStyle const NSFontTextStyleTitle3 = @"NSFontTextStyleTitle3";
+NSFontDescriptorAttributeName NSFontTraitsAttribute = @"NSCTFontTraitsAttribute";
+// Single-precision values widened to CGFloat, as the real Mac holds them (mac-probe darling_probe_a1.txt lines 92-100: the
+// doubles 0xbfe99999a0000000 ... 0x3fe3d70a40000000); an earlier version assigned those bit patterns as integers.
+const NSFontWeight NSFontWeightBlack = 0.62f;
+const NSFontWeight NSFontWeightBold = 0.4f;
+const NSFontWeight NSFontWeightHeavy = 0.56f;
+const NSFontWeight NSFontWeightLight = -0.4f;
+const NSFontWeight NSFontWeightMedium = 0.23f;
+const NSFontWeight NSFontWeightRegular = 0.0;
+const NSFontWeight NSFontWeightSemibold = 0.3f;
+const NSFontWeight NSFontWeightThin = -0.6f;
+NSFontDescriptorTraitKey NSFontWeightTrait = @"NSCTFontWeightTrait";
+const NSFontWeight NSFontWeightUltraLight = -0.8f;
+NSAttributedStringKey NSGlyphInfoAttributeName = @"NSGlyphInfo";
+NSAttributedStringKey NSKernAttributeName = @"NSKernAttributeName";
+NSAttributedStringKey NSLigatureAttributeName = @"NSLigatureAttributeName";
+NSAttributedStringKey NSLinkAttributeName = @"NSLinkAttributeName";
+NSAttributedStringKey NSMarkedClauseSegmentAttributeName = @"NSMarkedClauseSegment";
+NSAttributedStringKey NSShadowAttributeName = @"NSShadowAttributeName";
+NSAttributedStringKey NSStrikethroughStyleAttributeName = @"NSStrikethroughStyleAttributeName";
+NSString *const NSTextContentStorageUnsupportedAttributeAddedNotification =
+        @"NSTextContentStorageUnsupportedAttributeAddedNotification";
+NSString *const NSTextListMarkerDecimal = @"{decimal}";
+NSString *const NSTextListMarkerDisc = @"{disc}";
+NSAttributedStringKey NSToolTipAttributeName = @"NSToolTipAttributeName";
+NSAttributedStringDocumentReadingOptionKey const NSTextKit1ListMarkerFormatDocumentOption =
+        @"NSTextKit1ListMarkerFormatDocumentOption";
