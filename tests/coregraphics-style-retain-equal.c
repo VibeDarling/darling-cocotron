@@ -27,11 +27,17 @@ int main(void) {
     int failures = 0;
     void *a = create(NULL, NULL), *b = create(NULL, NULL);
     if (a == NULL || b == NULL) { printf("FAIL: styles are created\n"); return 1; }
+    // The stand-in keeps its retain count in the first word of the allocation; reading it shows that a retain adds
+    // one and a release takes one away without freeing, which a plain free-on-release would not survive.
+    volatile size_t *count = (volatile size_t *) a;
+    if (*count != 1) { printf("FAIL: a new style has one reference, not %zu\n", *count); failures++; }
     if (retain(a) != a) { printf("FAIL: retain returns its argument\n"); failures++; }
+    if (*count != 2) { printf("FAIL: a retain adds a reference, count %zu\n", *count); failures++; }
     if (!equal(a, a)) { printf("FAIL: a style equals itself\n"); failures++; }
     if (equal(a, NULL) || equal(NULL, a)) { printf("FAIL: a style does not equal NULL\n"); failures++; }
     if (!equal(NULL, NULL)) { printf("FAIL: NULL equals NULL\n"); failures++; }
     release(a);  /* back to one reference: still alive */
+    if (*count != 1) { printf("FAIL: one release takes one reference, count %zu\n", *count); failures++; }
     if (!equal(a, a)) { printf("FAIL: a style survives a retain and one release\n"); failures++; }
     release(a);
     release(NULL);
