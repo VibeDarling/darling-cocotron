@@ -183,6 +183,7 @@ static int untitled_document_number = 0;
     [_printInfo release];
     [_undoManager release];
     [_activeEditors release];
+    [_displayName release];
 
     [super dealloc];
 }
@@ -379,7 +380,19 @@ static int untitled_document_number = 0;
     [_windowControllers removeObjectIdenticalTo: controller];
 }
 
+// NSDocument.h: the name the document is given for presentation; nil goes back
+// to the name derived from the file or the "Untitled" default.
+- (void) setDisplayName: (NSString *) displayNameOrNil {
+    NSString *name = [displayNameOrNil copy];
+
+    [_displayName release];
+    _displayName = name;
+}
+
 - (NSString *) displayName {
+    if (_displayName != nil)
+        return _displayName;
+
     if (_fileURL == nil) {
         NSString *untitledName = NSLocalizedStringFromTableInBundle(
                 @"Untitled", nil, [NSBundle bundleForClass: [NSDocument class]],
