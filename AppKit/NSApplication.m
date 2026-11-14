@@ -117,16 +117,17 @@ NSApplication *NSApp = nil;
 
 /* The documents named in a process argument list (arguments[0] is the executable): every argument that is not
  * a switch. A switch other than -NSOpen takes the next argument as its value ("-NSBindingDebugLogLevel 2"), and
- * "--" ends the list. */
+ * every argument after "--" is a document, as in POSIX. Empty arguments name nothing. */
 static NSArray *NSApplicationDocumentsInArguments(NSArray *arguments) {
     NSMutableArray *documents = [NSMutableArray array];
+    BOOL onlyDocuments = NO;
     for (NSUInteger i = 1; i < [arguments count]; i++) {
         NSString *argument = [arguments objectAtIndex: i];
-        if (![argument hasPrefix: @"-"]) {
+        if (!onlyDocuments && [argument isEqualToString: @"--"]) {
+            onlyDocuments = YES;
+        } else if (onlyDocuments || ![argument hasPrefix: @"-"]) {
             if ([argument length] > 0)
                 [documents addObject: argument];
-        } else if ([argument isEqualToString: @"--"]) {
-            break;
         } else if (![argument isEqualToString: @"-NSOpen"]) {
             i++;
         }
@@ -2193,9 +2194,9 @@ int NSApplicationMain(int argc, const char *argv[]) {
     Class class = [bundle principalClass];
     NSString *nibFile = [bundle infoDictionary][@"NSMainNibFile"];
 
-    /* argc and argv are not read: Chess calls this with argv advanced to its last argument and the original argc,
-     * so argv[1] is NULL and reading it crashes (observed on Darling; why Chess does that is a GUESS). The
-     * process-wide arguments are what NSUserDefaults parses as well. */
+    /* argc and argv are not read: Apple's documentation says NSApplicationMain ignores them, and Chess calls
+     * this with argv advanced to its last argument and the original argc, so argv[1] is NULL and reading it
+     * crashes (observed on Darling). The process-wide arguments are what NSUserDefaults parses as well. */
     NSArray *documents = NSApplicationDocumentsInArguments([[NSProcessInfo processInfo] arguments]);
     if ([documents count] > 0)
         [[NSUserDefaults standardUserDefaults]
