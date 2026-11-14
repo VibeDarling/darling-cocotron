@@ -2,9 +2,12 @@
 #include <dlfcn.h>
 #include <stdio.h>
 
-// CGContextGetLineDashPattern is private (Calendar imports it). The expected values are what a real Mac wrote into
-// two scratch buffers (macOS 26.1, probe 11 section 4, darling_probe11.txt lines 56-66): the dash phase into the
-// first, the dash lengths into the second, and nothing else; a context with no dash writes phase 0 and no lengths.
+// CGContextGetLineDashPattern is private (Calendar imports it). The expected values for the first three cases are
+// what a real Mac wrote into two scratch buffers (macOS 26.1, probe 11 section 4, darling_probe11.txt lines 56-65):
+// the dash phase into the first, the dash lengths into the second, and nothing else; a context with no dash writes
+// phase 0 and no lengths. GUESS: the save, change, restore case (phase 4) was never probed on the Mac; the probe's
+// save/restore (line 66) checked only the count. Also not probed: a context with a nonzero phase and count 0
+// (Cocotron then writes that phase).
 // The return value is unknown (masked in the probe), so it is declared void and never read.
 typedef void (*PatternFn)(CGContextRef, CGFloat *, CGFloat *);
 typedef size_t (*CountFn)(CGContextRef);
