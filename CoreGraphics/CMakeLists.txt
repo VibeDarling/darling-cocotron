@@ -110,6 +110,8 @@ set(CoreGraphics_sources
 	CGSRegion.m
 	CGSScreen.m
 	CGSServerSPI.m
+	CGSSpaceSPI.c
+	CGBitmapContextSPI.c
 	CGEvent.m
 	CGEventSource.m
 	CGEventTap.m
