@@ -25,6 +25,8 @@ set(QuartzCore_sources
 	CAAnimationGroup.m
 	CAAnimation.m
 	CADisplayLink.m
+	CAFrameRateRangeMake.m
+	CAPackage.m
 	CABase.m
 	CABasicAnimation.m
 	CAContext.m

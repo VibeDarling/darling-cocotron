@@ -27,6 +27,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <CoreGraphics/CGShading.h>
 #import <CoreGraphics/CoreGraphicsPrivate.h>
 #import <Onyx2D/O2Context.h>
+#import <Onyx2D/O2GraphicsState.h>
 #import <Onyx2D/O2MutablePath.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -401,6 +402,36 @@ void CGContextSetLineDash(CGContextRef context, CGFloat phase,
                           const CGFloat *lengths, unsigned count)
 {
     O2ContextSetLineDash((O2ContextRef)context, phase, lengths, count);
+}
+
+// Private: how many dash lengths the current line dash pattern has. The prototype, size_t(CGContextRef), is the
+// one OpenJDK's CGGlyphImages.m calls it with; the meaning is by the name and by CGContextSetLineDash, whose
+// documentation says that a NULL lengths array or a zero count turns dashing off, so that is a count of 0
+// (Onyx2D keeps the caller's count in that case, which is why the lengths array is checked). The pattern is part
+// of the graphics state, so a CGContextRestoreGState brings the saved count back.
+size_t CGContextGetLineDashCount(CGContextRef context) {
+    if (context == NULL)
+        return 0;
+    O2GState *state = O2ContextCurrentGState((O2ContextRef)context);
+    return state->_dashLengths != NULL ? state->_dashLengthsCount : 0;
+}
+
+// Private (Calendar). Observed on macOS 26.1 (probe 11, section 4, darling_probe11.txt lines 58-65): the dash
+// phase is written to the first buffer and the dash lengths to the second, as many as CGContextGetLineDashCount
+// reports; a context with no dash writes phase 0 and no lengths. The probe passed (context, buffer, buffer, count, 0)
+// and the function returned a 64-bit value the Mac session masked, so the return value's meaning is UNKNOWN and this
+// returns nothing; whether the real function reads a capacity argument is also unknown, so this writes exactly the
+// count the context holds. GUESS: a NULL buffer is skipped, a NULL context writes nothing.
+void CGContextGetLineDashPattern(CGContextRef context, CGFloat *phase, CGFloat *lengths) {
+    if (context == NULL)
+        return;
+    O2GState *state = O2ContextCurrentGState((O2ContextRef)context);
+    if (phase != NULL)
+        *phase = state->_dashPhase;
+    if (lengths != NULL && state->_dashLengths != NULL) {
+        for (size_t i = 0; i < state->_dashLengthsCount; i++)
+            lengths[i] = state->_dashLengths[i];
+    }
 }
 
 void CGContextSetRenderingIntent(CGContextRef context,

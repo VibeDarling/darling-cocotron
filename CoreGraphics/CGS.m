@@ -304,6 +304,18 @@ CGError CGSSetWindowTransformAtPlacement(CGSConnectionID cid, CGSWindowID wid, i
 	return kCGSErrorSuccess;
 }
 
+// Calendar imports the placement-less form. The prototype, (connection, window, CGAffineTransform), is the one
+// sequelpro's Frameworks/PSMTabBar/PSMTabDragAssistant.h:99 declares for its own use (BSD application code). The
+// window server's behaviour is not documented: GUESS that it is the At-placement call with placement 0 and
+// reserved 0, the values applications pass to that one in practice (CoreGraphicsPrivate.h), so the transform is
+// recorded and reported back by CGSGetWindowTransformAtPlacement and not applied. The sequelpro declaration types
+// the two identifiers as NSInteger and the result as OSStatus; the low 32 bits of the identifiers and the 32-bit
+// result are the same values.
+CGError CGSSetWindowTransform(CGSConnectionID cid, CGSWindowID wid, CGAffineTransform transform)
+{
+	return CGSSetWindowTransformAtPlacement(cid, wid, 0, 0, transform);
+}
+
 CGError CGSGetWindowTransformAtPlacement(CGSConnectionID cid, CGSWindowID wid, int32_t placement, void *reserved, CGAffineTransform *outTransform)
 {
 	if (!outTransform)
