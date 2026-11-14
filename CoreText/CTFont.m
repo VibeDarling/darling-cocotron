@@ -126,6 +126,9 @@ static CGFloat scaled(CTFontRef font, CGFloat units) {
     return unitsPerEm > 0 ? units / unitsPerEm * fontSize(font) : 0;
 }
 
+// FreeType keeps the pixel size and the glyph slot on the face, and every CTFont made from a CGFont
+// shares that face. Code that sets a size or loads a glyph holds @synchronized on the CGFont,
+// the lock O2Font_freetype holds while it rasterizes, for as long as it needs the size or the slot.
 static FT_Face faceForFont(CTFontRef font) {
     return [(O2Font_freetype *) graphicsFont(font) face];
 }
@@ -536,27 +539,29 @@ CGPathRef CTFontCreatePathForGlyph(CTFontRef self, CGGlyph glyph,
 {
     FT_Face face = faceForFont(self);
 
-    // Unscaled outlines are in font units, so the shared face's size is left alone.
-    if (FT_Load_Glyph(face, glyph, FT_LOAD_NO_SCALE) != 0 ||
-        face->glyph->format != FT_GLYPH_FORMAT_OUTLINE)
-        return NULL;
+    @synchronized((id) graphicsFont(self)) {
+        // Unscaled outlines are in font units, so the shared face's size is left alone.
+        if (FT_Load_Glyph(face, glyph, FT_LOAD_NO_SCALE) != 0 ||
+            face->glyph->format != FT_GLYPH_FORMAT_OUTLINE)
+            return NULL;
 
-    CGFloat unit = scaled(self, 1);
-    CGAffineTransform matrix = CGAffineTransformMakeScale(unit, unit);
-    if (xform != NULL)
-        matrix = CGAffineTransformConcat(matrix, *xform);
+        CGFloat unit = scaled(self, 1);
+        CGAffineTransform matrix = CGAffineTransformMakeScale(unit, unit);
+        if (xform != NULL)
+            matrix = CGAffineTransformConcat(matrix, *xform);
 
-    GlyphPathBuilder builder = {CGPathCreateMutable(), &matrix, NO};
-    const FT_Outline_Funcs funcs = {glyphPathMoveTo, glyphPathLineTo, glyphPathConicTo,
-                                    glyphPathCubicTo, 0, 0};
+        GlyphPathBuilder builder = {CGPathCreateMutable(), &matrix, NO};
+        const FT_Outline_Funcs funcs = {glyphPathMoveTo, glyphPathLineTo, glyphPathConicTo,
+                                        glyphPathCubicTo, 0, 0};
 
-    if (FT_Outline_Decompose(&face->glyph->outline, &funcs, &builder) != 0) {
-        CGPathRelease(builder.path);
-        return NULL;
+        if (FT_Outline_Decompose(&face->glyph->outline, &funcs, &builder) != 0) {
+            CGPathRelease(builder.path);
+            return NULL;
+        }
+        if (builder.contourOpen)
+            CGPathCloseSubpath(builder.path);
+        return builder.path;
     }
-    if (builder.contourOpen)
-        CGPathCloseSubpath(builder.path);
-    return builder.path;
 }
 
 CFStringRef CTFontCopyNameForGlyph(CTFontRef font, CGGlyph glyph)
@@ -589,15 +594,17 @@ double CTFontGetAdvancesForGlyphs(CTFontRef font, CTFontOrientation orientation,
                                 CFIndex count)
 {
     FT_Face face = faceForFont(font);
-    FT_Set_Pixel_Sizes(face, fontSize(font), fontSize(font));
-
     double sum = 0;
-    for (CFIndex i = 0; i < count; i++) {
-        FT_Load_Glyph(face, glyphs[i], FT_LOAD_DEFAULT);
-        CGSize advance = CGSizeMake(face->glyph->advance.x / 64.0, face->glyph->advance.y / 64.0);
-        if (advances != NULL)
-            advances[i] = advance;
-        sum += advance.width;
+    @synchronized((id) graphicsFont(font)) {
+        FT_Set_Pixel_Sizes(face, fontSize(font), fontSize(font));
+
+        for (CFIndex i = 0; i < count; i++) {
+            FT_Load_Glyph(face, glyphs[i], FT_LOAD_DEFAULT);
+            CGSize advance = CGSizeMake(face->glyph->advance.x / 64.0, face->glyph->advance.y / 64.0);
+            if (advances != NULL)
+                advances[i] = advance;
+            sum += advance.width;
+        }
     }
     return sum;
 }
