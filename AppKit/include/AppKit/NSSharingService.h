@@ -34,6 +34,8 @@ APPKIT_EXPORT NSSharingServiceName const NSSharingServiceNamePostOnSinaWeibo;
 APPKIT_EXPORT NSSharingServiceName const NSSharingServiceNamePostOnTencentWeibo;
 APPKIT_EXPORT NSSharingServiceName const NSSharingServiceNamePostOnTwitter;
 
+APPKIT_EXPORT NSSharingServiceName const NSSharingServiceNameCloudSharing;
+
 @class NSImage, NSArray, NSMenu, NSView;
 @protocol NSSharingServiceDelegate, NSSharingServicePickerDelegate;
 

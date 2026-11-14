@@ -23,6 +23,10 @@
 
 APPKIT_EXPORT NSString *const NSCollectionElementKindSectionHeader;
 APPKIT_EXPORT NSString *const NSCollectionElementKindSectionFooter;
+// Private: in no public header.
+APPKIT_EXPORT NSString *const NSFlowLayoutCommonRowHorizontalAlignmentKey;
+APPKIT_EXPORT NSString *const NSFlowLayoutLastRowHorizontalAlignmentKey;
+APPKIT_EXPORT NSString *const NSFlowLayoutRowVerticalAlignmentKey;
 
 @interface NSCollectionViewFlowLayout : NSCollectionViewLayout
 {

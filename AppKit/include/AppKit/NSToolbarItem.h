@@ -33,6 +33,9 @@ enum {
 
 typedef NSString *NSToolbarItemIdentifier;
 
+// The public SDK header declares this one without const.
+APPKIT_EXPORT NSToolbarItemIdentifier
+        NSToolbarSidebarTrackingSeparatorItemIdentifier;
 APPKIT_EXPORT const NSToolbarItemIdentifier
         NSToolbarCustomizeToolbarItemIdentifier;
 APPKIT_EXPORT const NSToolbarItemIdentifier

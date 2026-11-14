@@ -31,6 +31,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSToolbarItem.h>
 #import <AppKit/NSToolbarItemView.h>
 
+// NSToolbarItem.h (macOS 11) declares this identifier without a value. GUESS:
+// the siblings' spelling, the name without "Identifier". The standard item the
+// header describes (a separator that tracks the sidebar divider) is not built.
+NSToolbarItemIdentifier NSToolbarSidebarTrackingSeparatorItemIdentifier =
+        @"NSToolbarSidebarTrackingSeparatorItem";
 const NSToolbarItemIdentifier NSToolbarCustomizeToolbarItemIdentifier =
         @"NSToolbarCustomizeToolbarItem";
 const NSToolbarItemIdentifier NSToolbarFlexibleSpaceItemIdentifier =
