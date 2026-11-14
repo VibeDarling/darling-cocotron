@@ -37,9 +37,9 @@ NSString *const kCAFilterMultiplyColor = @"multiplyColor";
 NSString *const kCAFilterVariableBlur = @"variableBlur";
 NSString *const kCAFilterVibrantColorMatrix = @"vibrantColorMatrix";
 
-// GUESS: the string values of these filter types are not in the public documentation. Each is the name without
-// the kCAFilter prefix and with a lower case first letter, the pattern of the types above. Nothing in Cocotron
-// compares them; a filter built from one stores it as its type.
+// Observed on a real Mac (macOS 26.1, probe 11 section 1, darling_probe11.txt lines 3-34): each value is the name
+// without the kCAFilter prefix and with a lower case first letter. Nothing in Cocotron compares them; a filter
+// built from one stores it as its type.
 NSString *const kCAFilterPlusD = @"plusD";
 NSString *const kCAFilterPlusL = @"plusL";
 NSString *const kCAFilterColorBlendMode = @"colorBlendMode";
