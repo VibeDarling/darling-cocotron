@@ -42,7 +42,7 @@ CA_EXPORT NSString *const kCAFilterVibrantColorMatrix;
 // blend mode names Normal, Screen, Overlay, Darken, Lighten, ColorDodge, ColorBurn, SoftLight, HardLight,
 // Difference, Exclusion, Hue, Saturation, Color and Luminosity); the other 14 have no open-source declaration. The
 // existence and the string value of every name below were observed on a real Mac (macOS 26.1, probe 11,
-// darling_probe11.txt lines 3-37), where each is an NSString constant.
+// darling_probe11.txt lines 3-34), where each is an NSString constant.
 CA_EXPORT NSString *const kCAFilterPlusD;
 CA_EXPORT NSString *const kCAFilterPlusL;
 CA_EXPORT NSString *const kCAFilterColorBlendMode;
