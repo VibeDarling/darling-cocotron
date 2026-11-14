@@ -27,6 +27,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <CoreGraphics/CGShading.h>
 #import <CoreGraphics/CoreGraphicsPrivate.h>
 #import <Onyx2D/O2Context.h>
+#import <Onyx2D/O2GraphicsState.h>
 #import <Onyx2D/O2MutablePath.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -401,6 +402,18 @@ void CGContextSetLineDash(CGContextRef context, CGFloat phase,
                           const CGFloat *lengths, unsigned count)
 {
     O2ContextSetLineDash((O2ContextRef)context, phase, lengths, count);
+}
+
+// Private: how many dash lengths the current line dash pattern has. The prototype, size_t(CGContextRef), is the
+// one OpenJDK's CGGlyphImages.m calls it with; the meaning is by the name and by CGContextSetLineDash, whose
+// documentation says that a NULL lengths array or a zero count turns dashing off, so that is a count of 0
+// (Onyx2D keeps the caller's count in that case, which is why the lengths array is checked). The pattern is part
+// of the graphics state, so a CGContextRestoreGState brings the saved count back.
+size_t CGContextGetLineDashCount(CGContextRef context) {
+    if (context == NULL)
+        return 0;
+    O2GState *state = O2ContextCurrentGState((O2ContextRef)context);
+    return state->_dashLengths != NULL ? state->_dashLengthsCount : 0;
 }
 
 void CGContextSetRenderingIntent(CGContextRef context,
