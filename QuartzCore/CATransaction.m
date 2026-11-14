@@ -124,4 +124,9 @@ static CATransactionGroup *createImplicitTransactionGroupIfNeeded() {
 + (void) unlock {
 }
 
+// Not in the public CATransaction documentation. Mac Catalyst clients send it before committing work; Darling has no
+// render server for it to hand anything to. GUESS: nothing to do, and it opens no explicit transaction.
++ (void) activate {
+}
+
 @end
