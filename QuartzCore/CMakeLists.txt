@@ -35,6 +35,7 @@ set(QuartzCore_sources
 	CALayer.m
 	CALayerHost.m
 	CATextLayer.m
+	CATiledLayer.m
 	CAMediaTimingFunction.m
 	CAPropertyAnimation.m
 	CARenderer.m
