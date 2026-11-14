@@ -1,26 +1,8 @@
-/*
- This file is part of Darling.
-
- Copyright (C) 2019 Lubos Dolezel
-
- Darling is free software: you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation, either version 3 of the License, or
- (at your option) any later version.
-
- Darling is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License
- along with Darling.  If not, see <http://www.gnu.org/licenses/>.
-*/
-
 #import <QuartzCore/CATiledLayer.h>
 
-// The defaults are the documented ones: a 256 by 256 tile, one level of detail, no bias, and a fade of a quarter
-// of a second.
+// The defaults are the ones Apple documents (CATiledLayer: tileSize (256.0, 256.0), levelsOfDetail 1,
+// levelsOfDetailBias 0, +fadeDuration 0.25 seconds; types CGSize, size_t, size_t, CFTimeInterval) and the ones a real
+// Mac printed, with the setters round-tripping (macOS 26.1, probe 11 section 2, darling_probe11.txt lines 45-46).
 static const CGFloat kDefaultTileSide = 256;
 static const CFTimeInterval kDefaultFadeDuration = 0.25;
 
@@ -61,6 +43,8 @@ static const CFTimeInterval kDefaultFadeDuration = 0.25;
     return self;
 }
 
+// The archive keys below are made up: neither the public documentation nor the probes say how a real CATiledLayer
+// archives these four properties (GUESS), so an archive made here is not claimed to match Apple's.
 - (void) encodeWithCoder: (NSCoder *) coder {
     [super encodeWithCoder: coder];
     [coder encodeInt64: (int64_t) _levelsOfDetail forKey: @"levelsOfDetail"];
