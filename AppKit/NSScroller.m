@@ -113,6 +113,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     return NSScrollerStyleLegacy;
 }
 
+// Not in the public NSScroller documentation. GUESS: the meaning (the user's setting for a click in the scroller track,
+// "jump to the next page" or "jump to the spot that's clicked"), the NSInteger return type and the value 0 are all
+// unconfirmed; 0 is the default setting, since Darling has no bridge to host appearance preferences.
++ (NSInteger) clickBehavior {
+    return 0;
+}
+
 // Cocotron draws one scroller size for every control size and style.
 + (CGFloat) scrollerWidthForControlSize: (NSControlSize) controlSize
                           scrollerStyle: (NSScrollerStyle) scrollerStyle
