@@ -5,6 +5,11 @@ NSSharingServiceName const NSSharingServiceNameAddToSafariReadingList = @"com.ap
 NSSharingServiceName const NSSharingServiceNameComposeEmail = @"com.apple.share.Mail.compose";
 NSSharingServiceName const NSSharingServiceNameComposeMessage = @"com.apple.messages.ShareExtension";
 
+// Private: AppKit exports this name but no public header declares it, so it is not in NSSharingService.h.
+// GUESS: the value follows the style of its siblings.
+extern NSSharingServiceName const NSSharingServiceNameUseAsAccountPicture;
+NSSharingServiceName const NSSharingServiceNameUseAsAccountPicture = @"com.apple.share.System.set-account-picture";
+
 NSSharingServiceName const NSSharingServiceNamePostOnFacebook = @"com.apple.share.Facebook.post";
 NSSharingServiceName const NSSharingServiceNamePostOnTwitter = @"com.apple.share.Twitter.post";
 NSSharingServiceName const NSSharingServiceNamePostOnSinaWeibo = @"com.apple.share.SinaWeibo.post";

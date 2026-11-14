@@ -27,6 +27,8 @@ NSString *const NSWorkspaceApplicationKey = @"NSWorkspaceApplicationKey";
 NSString *const NSWorkspaceWillPowerOffNotification =
         @"NSWorkspaceWillPowerOffNotification";
 
+// GUESS: the value is not in the SDK header; it follows the spelling of the Recycle and Duplicate constants.
+NSString *const NSWorkspaceMoveOperation = @"NSWorkspaceMoveOperation";
 NSString *const NSWorkspaceRecycleOperation = @"NSWorkspaceRecycleOperation";
 NSString *const NSWorkspaceDuplicateOperation = @"NSWorkspaceDuplicateOperation";
 

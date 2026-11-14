@@ -26,6 +26,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Foundation/NSKeyedArchiver.h>
 #import <AppKit/NSButtonCell.h>
 
+// Private: AppKit exports this name but no public header declares it, so it is not in NSMenuItem.h.
+// GUESS: the value is the name itself.
+extern NSString *const NSAppleMenuName;
+NSString *const NSAppleMenuName = @"NSAppleMenuName";
+
 @interface NSMenuItemCell : NSButtonCell
 @end
 
