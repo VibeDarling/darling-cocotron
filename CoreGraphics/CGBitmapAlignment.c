@@ -23,7 +23,8 @@
 // Private function that Maps imports; it has no prototype in any installed header. Its prototype and meaning
 // come from the open-source Quartz reimplementation freequartz (Apache-2.0, CGBitmapContext.c): it takes a row
 // length in bytes and returns it rounded up to a multiple of an alignment. The public CGBitmapContextCreate
-// documentation only requires bytesPerRow >= width * bytes per pixel, so any rounding up satisfies it.
+// documentation requires bytesPerRow >= width * bytes per pixel and a multiple of the bytes per pixel, so a
+// rounding up to a multiple of 32 satisfies both for every pixel size that divides 32 (1, 2, 4, 8, 16, 32).
 //
 // The alignment is 32 bytes and 0 maps to 0: observed by calling the function in a program of our own on a real
 // Mac (macOS 26.1), 36 inputs from 0 to 10000 (rung 4, mac-probe/darling_probe3.txt Part 2). Only the overflow

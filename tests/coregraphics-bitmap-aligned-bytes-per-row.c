@@ -14,7 +14,7 @@
 // launch. The pairs below were observed on a real Mac (macOS 26.1) with a program of our own that called the
 // function (mac-probe/darling_probe3.txt Part 2): a row length rounds up to a multiple of 32, and 0 stays 0.
 // Also checked from the public CGBitmapContextCreate documentation: a bitmap context accepts the result as
-// bytesPerRow (it must be at least width * bytes per pixel). The overflow abort is our own choice (no source).
+// bytesPerRow (it must be at least width * bytes per pixel). The size_t edges are our own choice (no source).
 int main(void) {
     size_t (*align)(size_t) = (size_t (*)(size_t)) dlsym(RTLD_DEFAULT, "CGBitmapGetAlignedBytesPerRow");
     EXPECT(align != NULL, "CGBitmapGetAlignedBytesPerRow is exported");
@@ -39,18 +39,25 @@ int main(void) {
     CGContextRelease(context);
     CGColorSpaceRelease(space);
 
-    // A length that cannot be rounded up without wrapping aborts instead of returning a smaller length.
-    fflush(stdout);
-    pid_t child = fork();
-    if (child == 0) {
-        setrlimit(RLIMIT_CORE, &(struct rlimit){ 0, 0 });
-        freopen("/dev/null", "w", stderr);
-        align(SIZE_MAX);
-        _exit(0);
+    // The edges of size_t are our own design (no source): the largest length that is already a multiple of 32
+    // stays, one more cannot be rounded up without wrapping and aborts, and a length above 32 bits is not
+    // truncated.
+    EXPECT(align(SIZE_MAX - 31) == SIZE_MAX - 31, "the largest multiple of 32 stays");
+    EXPECT(align(((size_t)1 << 32) + 1) == ((size_t)1 << 32) + 32, "a length above 32 bits is not truncated");
+    static const size_t unrepresentable[] = { SIZE_MAX - 30, SIZE_MAX };
+    for (size_t i = 0; i < sizeof unrepresentable / sizeof unrepresentable[0]; i++) {
+        fflush(stdout);
+        pid_t child = fork();
+        if (child == 0) {
+            setrlimit(RLIMIT_CORE, &(struct rlimit){ 0, 0 });
+            freopen("/dev/null", "w", stderr);
+            align(unrepresentable[i]);
+            _exit(0);
+        }
+        int status = 0;
+        waitpid(child, &status, 0);
+        EXPECT(WIFSIGNALED(status) && WTERMSIG(status) == SIGABRT, "an unrepresentable length aborts");
     }
-    int status = 0;
-    waitpid(child, &status, 0);
-    EXPECT(WIFSIGNALED(status) && WTERMSIG(status) == SIGABRT, "an unrepresentable length aborts");
 
     printf("PASS: CGBitmapGetAlignedBytesPerRow\n");
     return 0;
