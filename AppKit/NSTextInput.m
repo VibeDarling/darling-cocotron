@@ -11,6 +11,18 @@ NSString *const NSTextInputReplacementRangeAttributeName = @"NSTextInputReplacem
 
 @implementation NSTextInputContext
 
+// Private class methods that Mac Catalyst (UIKit-for-Mac) clients send. Both are
+// accepted and ignored (GUESS, no public header or doc names them): the first
+// says whether UIKeyCommand events are routed through the text input context,
+// the second whether the event being dispatched is a UIKeyCommand event.
+// Nothing in Cocotron consumes either value. Deliberately not declared in any
+// header. NEEDS-REAL-MAC to confirm the semantics.
++ (void)setHandleUIKeyCommandEvent:(BOOL)flag {
+}
+
++ (void)setIsUIKeyCommandEvent:(BOOL)flag {
+}
+
 + (NSTextInputContext *)currentInputContext {
     static NSTextInputContext *current = nil;
     static dispatch_once_t onceToken;
