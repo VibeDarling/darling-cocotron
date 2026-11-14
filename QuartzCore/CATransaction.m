@@ -125,6 +125,27 @@ static CATransactionGroup *createImplicitTransactionGroupIfNeeded() {
     return currentTransactionGroup();
 }
 
+// Private, sent to the class by Mac Catalyst frameworks and not documented. The
+// name asks for a handler to run when an implicit transaction begins. The
+// block's signature is not known (GUESS), and calling a block with the wrong
+// arguments could corrupt state, so the block is kept (a new one replaces the
+// old one, nil clears it) and deliberately never called, even though Cocotron
+// does have implicit transactions (createImplicitTransactionGroupIfNeeded).
+// Work that Catalyst schedules from this handler never runs. Transactions
+// behave exactly as before.
+static id implicitTransactionDidBeginHandler;
+
++ (void) setImplicitTransactionDidBeginHandler: (id) handler {
+    if (handler != nil)
+        NSLog(@"CATransaction setImplicitTransactionDidBeginHandler: handler stored, never called");
+
+    @synchronized([CATransaction class]) {
+        id previous = implicitTransactionDidBeginHandler;
+        implicitTransactionDidBeginHandler = [handler copy];
+        [previous release];
+    }
+}
+
 + (void) flush {
 }
 
