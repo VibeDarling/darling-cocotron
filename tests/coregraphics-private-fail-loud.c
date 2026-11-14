@@ -7,7 +7,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-// Private functions that stock applications import (Maps, ColorSync Utility, QuickTime Player). No permitted
+// Private functions that stock applications import (ColorSync Utility, QuickTime Player). No permitted
 // source documents their arguments or results, so a call prints the name and aborts. Each is called in a
 // child with its stderr piped; the pipe is read to EOF, so a long message cannot be cut short.
 static int check(const char *name) {
@@ -42,7 +42,7 @@ static int check(const char *name) {
 }
 
 int main(void) {
-    static const char *names[] = { "CGBitmapGetAlignedBytesPerRow", "CGBitmapContextCreateWithDictionary", "CGSCopySpaces" };
+    static const char *names[] = { "CGBitmapContextCreateWithDictionary", "CGSCopySpaces" };
     int failures = 0;
     for (size_t i = 0; i < sizeof names / sizeof names[0]; i++) failures += check(names[i]);
     if (failures == 0) printf("PASS: the private CoreGraphics names fail loudly\n");

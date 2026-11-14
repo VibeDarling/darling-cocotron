@@ -111,6 +111,7 @@ set(CoreGraphics_sources
 	CGSScreen.m
 	CGSServerSPI.m
 	CGPrivateFailLoud.c
+	CGBitmapAlignment.c
 	CGEvent.m
 	CGEventSource.m
 	CGEventTap.m

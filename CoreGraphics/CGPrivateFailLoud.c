@@ -28,6 +28,5 @@
         abort(); \
     }
 
-CG_FAIL_LOUD(CGBitmapGetAlignedBytesPerRow)        // Maps
 CG_FAIL_LOUD(CGBitmapContextCreateWithDictionary)  // ColorSync Utility
 CG_FAIL_LOUD(CGSCopySpaces)                        // QuickTime Player
