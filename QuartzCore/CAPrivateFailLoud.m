@@ -19,9 +19,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// Private functions that stock applications import (Freeform). No permitted source documents their
-// arguments or results, so a call prints the name and aborts instead of answering with an invented value. They
-// have no prototype anywhere: a caller built against the macOS SDK brings its own.
+// Private functions that stock applications import (Freeform). Their arguments and results are not in the public
+// documentation and no real-Mac observation covers them, so no signature, type or meaning is guessed: a call prints
+// the name and aborts instead of answering with an invented value. They have no prototype here: a caller built
+// against the macOS SDK brings its own.
 #define CA_FAIL_LOUD(name) \
     __attribute__((visibility("default"))) void name(void) { \
         fprintf(stderr, "QuartzCore: " #name " is not implemented\n"); \

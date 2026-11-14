@@ -41,8 +41,9 @@ NSString *const kCAPackageTypeArchive = @"com.apple.coreanimation-archive";
 NSString *const kCAContentsScalingRepeat = @"repeat";
 NSString *const kCAContentsFormatRGBA8ColorRGBA8LinearGlyphMask = @"RGBA8ColorRGBA8Mask";
 
-// Private layer class (Podcasts). It exists on the real Mac (probe 12, darling_probe12.txt line 21); its superclass
-// and interface were not observed, so GUESS: a plain CALayer subclass that adds nothing of its own.
+// Private layer class (Podcasts). It exists on the real Mac (probe 12, darling_probe12.txt line 21). GUESS, not in
+// the public documentation and not observed: the superclass is CALayer (type) and the class has no interface of
+// its own (meaning: it behaves as a plain layer).
 @interface CAPortalLayer : CALayer
 @end
 
