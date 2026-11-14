@@ -37,6 +37,11 @@ NSString *const kCATransition = @"transition";
 NSString *const kCAContentsFormatRGBA8Uint = @"RGBA8";
 NSString *const kCAContentsFormatRGBA16Float = @"RGBAh";
 NSString *const kCAContentsFormatGray8Uint = @"Gray8";
+// Private names Books imports. GUESS: type NSString, value the name without its prefix; the public documentation
+// has neither.
+NSString *const kCAContentsFormatA8 = @"A8";
+NSString *const kCALayerContentsSwizzleAAAA = @"AAAA";
+NSString *const kCALayerContentsSwizzleRGBA = @"RGBA";
 NSString *const kCAContentsFormatAutomatic = @"CocotronContentsFormatAutomatic";
 
 NSString *const CADynamicRangeAutomatic = @"automatic";
