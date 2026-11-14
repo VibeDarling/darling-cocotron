@@ -23,6 +23,17 @@ NSString *const NSCollectionElementKindSectionHeader =
         @"UICollectionElementKindSectionHeader";
 NSString *const NSCollectionElementKindSectionFooter =
         @"UICollectionElementKindSectionFooter";
+// Private, named by Notes. No public source gives the values (GUESS: the names)
+// or whether the real symbols are data (GUESS: string keys, from their "Key"
+// suffix), and nothing in this tree reads them. Notes binds all three; only the
+// first was the wall, the other two are its siblings, which the next run would
+// stop on.
+NSString *const NSFlowLayoutCommonRowHorizontalAlignmentKey =
+        @"NSFlowLayoutCommonRowHorizontalAlignmentKey";
+NSString *const NSFlowLayoutLastRowHorizontalAlignmentKey =
+        @"NSFlowLayoutLastRowHorizontalAlignmentKey";
+NSString *const NSFlowLayoutRowVerticalAlignmentKey =
+        @"NSFlowLayoutRowVerticalAlignmentKey";
 
 @implementation NSCollectionViewFlowLayout
 @synthesize itemSize = _itemSize;
