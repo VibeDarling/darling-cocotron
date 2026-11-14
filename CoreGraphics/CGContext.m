@@ -416,6 +416,24 @@ size_t CGContextGetLineDashCount(CGContextRef context) {
     return state->_dashLengths != NULL ? state->_dashLengthsCount : 0;
 }
 
+// Private (Calendar). Observed on macOS 26.1 (probe 11, section 4, darling_probe11.txt lines 58-65): the dash
+// phase is written to the first buffer and the dash lengths to the second, as many as CGContextGetLineDashCount
+// reports; a context with no dash writes phase 0 and no lengths. The probe passed (context, buffer, buffer, count, 0)
+// and the function returned a 64-bit value the Mac session masked, so the return value's meaning is UNKNOWN and this
+// returns nothing; whether the real function reads a capacity argument is also unknown, so this writes exactly the
+// count the context holds. GUESS: a NULL buffer is skipped, a NULL context writes nothing.
+void CGContextGetLineDashPattern(CGContextRef context, CGFloat *phase, CGFloat *lengths) {
+    if (context == NULL)
+        return;
+    O2GState *state = O2ContextCurrentGState((O2ContextRef)context);
+    if (phase != NULL)
+        *phase = state->_dashPhase;
+    if (lengths != NULL && state->_dashLengths != NULL) {
+        for (size_t i = 0; i < state->_dashLengthsCount; i++)
+            lengths[i] = state->_dashLengths[i];
+    }
+}
+
 void CGContextSetRenderingIntent(CGContextRef context,
                                  CGColorRenderingIntent renderingIntent)
 {

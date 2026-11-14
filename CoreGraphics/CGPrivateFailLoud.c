@@ -31,9 +31,6 @@
 CG_FAIL_LOUD(CGBitmapGetAlignedBytesPerRow)        // Maps
 CG_FAIL_LOUD(CGBitmapContextCreateWithDictionary)  // ColorSync Utility
 CG_FAIL_LOUD(CGSCopySpaces)                        // QuickTime Player
-CG_FAIL_LOUD(CGContextGetLineDashPattern)          // Calendar (the count getter is implemented)
-CG_FAIL_LOUD(CGStyleRetain)                        // Calendar
-CG_FAIL_LOUD(CGStyleEqualToStyle)                  // Calendar
 CG_FAIL_LOUD(CGSDisableUpdateToken)                // Calendar
 CG_FAIL_LOUD(CGSReenableUpdateToken)               // Calendar
 CG_FAIL_LOUD(CGFontGetParserFont)                  // Font Book

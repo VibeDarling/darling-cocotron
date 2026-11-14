@@ -44,7 +44,7 @@ static int check(const char *name) {
 int main(void) {
     static const char *names[] = {
         "CGBitmapGetAlignedBytesPerRow", "CGBitmapContextCreateWithDictionary", "CGSCopySpaces",
-        "CGContextGetLineDashPattern", "CGStyleRetain", "CGStyleEqualToStyle", "CGSDisableUpdateToken",
+        "CGSDisableUpdateToken",
         "CGSReenableUpdateToken", "CGFontGetParserFont",
     };
     int failures = 0;

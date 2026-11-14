@@ -20,7 +20,9 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreGraphics/CGDirectDisplay.h>
 #include <CoreGraphics/CGGeometry.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 typedef float CGGammaValue;
 typedef int32_t CGWindowLevel;
@@ -142,14 +144,38 @@ void CGRectDivide(CGRect rect, CGRect *slice, CGRect *remainder, CGFloat amount,
     if (remainder) *remainder = r;
 }
 
+// A style is a placeholder allocation that holds only its retain count (the shadow parameters are not kept).
+// Observed on macOS 26.1 (probe 11, section 6, darling_probe11.txt line 73): CGStyleRetain returns its argument;
+// CGStyleEqualToStyle is true for the same object and for two NULLs, false for an object and NULL, true for two
+// different shadow objects with equal parameters, false for different offsets. This stand-in cannot compare
+// parameters it does not keep, so two different objects abort loudly instead of answering.
 void *CGStyleCreateShadow(void *parameters, void *unused) {
-    return calloc(1, 8);
+    size_t *style = calloc(1, 8);
+    if (style != NULL)
+        *style = 1;
+    return style;
+}
+
+void *CGStyleRetain(void *style) {
+    // GUESS: a NULL style is returned as is; the probe did not retain NULL.
+    if (style != NULL)
+        __atomic_add_fetch((size_t *) style, 1, __ATOMIC_RELAXED);
+    return style;
+}
+
+bool CGStyleEqualToStyle(void *a, void *b) {
+    if (a == b)
+        return true;
+    if (a == NULL || b == NULL)
+        return false;
+    fprintf(stderr, "CoreGraphics: CGStyleEqualToStyle cannot compare two different styles: their parameters are not stored\n");
+    abort();
 }
 
 void CGContextSetStyle(void *context, void *style) {
 }
 
 void CGStyleRelease(void *style) {
-    if (style != NULL)
+    if (style != NULL && __atomic_sub_fetch((size_t *) style, 1, __ATOMIC_ACQ_REL) == 0)
         free(style);
 }
