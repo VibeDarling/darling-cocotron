@@ -162,6 +162,14 @@ static char swiftUIViewTestPropertiesAssociationKey;
     _anchorPoint = value;
 }
 
+- (CGFloat) zPosition {
+    return _zPosition;
+}
+
+- (void) setZPosition: (CGFloat) value {
+    _zPosition = value;
+}
+
 - (CGPoint) position {
     return _position;
 }
@@ -441,6 +449,7 @@ static char swiftUIViewTestPropertiesAssociationKey;
     _position = other->_position;
     _bounds = other->_bounds;
     _opacity = other->_opacity;
+    _zPosition = other->_zPosition;
     _opaque = other->_opaque;
     _contentsScale = other->_contentsScale;
     _contentsCenter = other->_contentsCenter;
@@ -516,6 +525,7 @@ static char swiftUIViewTestPropertiesAssociationKey;
     CAEncodePoint(coder, _position, @"position");
     CAEncodeRect(coder, _bounds, @"bounds");
     [coder encodeDouble: _opacity forKey: @"opacity"];
+    [coder encodeDouble: _zPosition forKey: @"zPosition"];
     [coder encodeBool: _opaque forKey: @"opaque"];
     CAEncodeImage(coder, (CGImageRef) _contents, @"contents");
     [coder encodeDouble: _contentsScale forKey: @"contentsScale"];
@@ -565,6 +575,7 @@ static char swiftUIViewTestPropertiesAssociationKey;
     _position = CADecodePoint(coder, @"position");
     _bounds = CADecodeRect(coder, @"bounds");
     _opacity = [coder decodeDoubleForKey: @"opacity"];
+    _zPosition = [coder decodeDoubleForKey: @"zPosition"];
     _opaque = [coder decodeBoolForKey: @"opaque"];
     _contentsScale = [coder decodeDoubleForKey: @"contentsScale"];
     _contentsCenter = CADecodeRect(coder, @"contentsCenter");
