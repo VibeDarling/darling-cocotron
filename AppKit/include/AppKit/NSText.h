@@ -105,6 +105,7 @@ APPKIT_EXPORT NSString *const NSTextDidChangeNotification;
 
 - (NSFont *) font;
 - (NSTextAlignment) alignment;
+- (NSWritingDirection) baseWritingDirection;
 
 - (NSColor *) textColor;
 
@@ -138,6 +139,7 @@ APPKIT_EXPORT NSString *const NSTextDidChangeNotification;
 - (void) setFont: (NSFont *) font;
 - (void) setFont: (NSFont *) font range: (NSRange) range;
 - (void) setAlignment: (NSTextAlignment) alignment;
+- (void) setBaseWritingDirection: (NSWritingDirection) direction;
 - (void) setBaseWritingDirection: (NSWritingDirection) direction
                            range: (NSRange) range;
 

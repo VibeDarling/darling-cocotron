@@ -114,6 +114,11 @@ NSString *const NSTextDidChangeNotification = @"NSTextDidChangeNotification";
     return 0;
 }
 
+- (NSWritingDirection) baseWritingDirection {
+    NSInvalidAbstractInvocation();
+    return 0;
+}
+
 - (NSColor *) textColor {
     NSInvalidAbstractInvocation();
     return nil;
@@ -218,6 +223,10 @@ NSString *const NSTextDidChangeNotification = @"NSTextDidChangeNotification";
 }
 
 - (void) setAlignment: (NSTextAlignment) alignment {
+    NSInvalidAbstractInvocation();
+}
+
+- (void) setBaseWritingDirection: (NSWritingDirection) direction {
     NSInvalidAbstractInvocation();
 }
 

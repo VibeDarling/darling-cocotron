@@ -4632,6 +4632,24 @@ static NSTextView *s_targetTextView = nil;
                                         : NSTextLayoutOrientationVertical];
 }
 
+// NSText.h: the base writing direction of the whole text, like -setAlignment:.
+// It lives in the paragraph styles, so the getter reads the typing attributes'
+// style (the default style before any is set), which -setBaseWritingDirection:
+// range: keeps in step with the text it changes.
+- (NSWritingDirection) baseWritingDirection {
+    NSParagraphStyle *style = [[self typingAttributes]
+            objectForKey: NSParagraphStyleAttributeName];
+
+    if (style == nil)
+        style = [NSParagraphStyle defaultParagraphStyle];
+    return [style baseWritingDirection];
+}
+
+- (void) setBaseWritingDirection: (NSWritingDirection) direction {
+    [self setBaseWritingDirection: direction
+                            range: NSMakeRange(0, [[self textStorage] length])];
+}
+
 // Sets the paragraph styles' writing direction over the range, with undo, and
 // in the typing attributes when the insertion point is in the range.
 - (void) setBaseWritingDirection: (NSWritingDirection) direction
