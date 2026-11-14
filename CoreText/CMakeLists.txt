@@ -32,6 +32,8 @@ set(CoreText_sources
 	CTTypesetter.m
 	KTFont.m
 	constants.c
+	CTSPIConstants.c
+	CTFontSPIFailLoud.c
 	stubs.c
 )
 

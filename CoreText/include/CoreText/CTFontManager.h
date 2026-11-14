@@ -24,4 +24,9 @@ CORETEXT_EXPORT CFArrayRef CTFontManagerCreateFontDescriptorsFromURL(CFURLRef fo
 
 CORETEXT_EXPORT bool CTFontManagerRegisterFontsForURL(CFURLRef fontURL, CTFontManagerScope scope, CFErrorRef * error);
 
+CORETEXT_EXPORT bool CTFontManagerIsSupportedFont(CFURLRef fontURL);
+CORETEXT_EXPORT CTFontManagerScope CTFontManagerGetScopeForURL(CFURLRef fontURL);
+CORETEXT_EXPORT void CTFontManagerEnableFontDescriptors(CFArrayRef descriptors, bool enable);
+CORETEXT_EXPORT void CTFontManagerUnregisterFontURLs(CFArrayRef fontURLs, CTFontManagerScope scope, bool (^registrationHandler)(CFArrayRef errors, bool done));
+
 CF_IMPLICIT_BRIDGING_DISABLED

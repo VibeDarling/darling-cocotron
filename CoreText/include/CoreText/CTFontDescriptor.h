@@ -30,6 +30,10 @@ CORETEXT_EXPORT const CFStringRef kCTFontFormatAttribute;
 CORETEXT_EXPORT const CFStringRef kCTFontRegistrationScopeAttribute;
 CORETEXT_EXPORT const CFStringRef kCTFontPriorityAttribute;
 CORETEXT_EXPORT const CFStringRef kCTFontDescriptorLanguageAttribute;
+CORETEXT_EXPORT const CFStringRef kCTFontDownloadableAttribute;
+CORETEXT_EXPORT const CFStringRef kCTFontDownloadedAttribute;
+CORETEXT_EXPORT const CFStringRef kCTFontOpticalSizeAttribute;
+CORETEXT_EXPORT const CFStringRef kCTFontDescriptorMatchingPercentage;
 
 CF_IMPLICIT_BRIDGING_ENABLED
 
