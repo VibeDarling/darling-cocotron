@@ -1,49 +1,45 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreGraphics/CGBase.h>
 
-// CoreText names that stock apps import and that no public header declares (Books, Font Book, App Store). The
-// types come from WebKit's open-source CoreTextSPI.h (kCTFontUIFontDesign*, kCTUIFontTextStyle*,
-// kCTFontDescriptorTextStyleAttribute: CFStringRef; kCTFontWidthExtraCompressed: CGFloat). For the rest the
-// type is assumed to be CFStringRef (GUESS: not in the public documentation).
-//
-// GUESS (NEEDS-REAL-MAC): no permitted source gives the string values, so each string constant carries its own
-// name. Code that compares against these same objects works; a table keyed with Apple's strings would miss.
+// CoreText names that stock apps import and that no public header declares (Books, Font Book, App Store).
+// Types and values: observed on a real Mac (rung 4, macOS 26.1, our own probe symbols_d_probe1: each name found with
+// dlsym, printed as a CFString), the line of the probe output is in each comment. The type of the CGFloat comes
+// from WebKit's open-source CoreTextSPI.h and is confirmed by the probe.
 
 // UI font design (trait key and the designs it takes)
-const CFStringRef kCTFontUIFontDesignDefault = CFSTR("kCTFontUIFontDesignDefault");
-const CFStringRef kCTFontUIFontDesignTrait = CFSTR("kCTFontUIFontDesignTrait");
-const CFStringRef kCTFontUIFontDesignRounded = CFSTR("kCTFontUIFontDesignRounded");
+const CFStringRef kCTFontUIFontDesignDefault = CFSTR("NSCTFontUIFontDesignDefault"); // probe1:4
+const CFStringRef kCTFontUIFontDesignTrait = CFSTR("NSCTFontUIFontDesignTrait"); // probe1:3
+const CFStringRef kCTFontUIFontDesignRounded = CFSTR("NSCTFontUIFontDesignRounded"); // probe1:6
 
 // UI font text styles
-const CFStringRef kCTUIFontTextStyleBody = CFSTR("kCTUIFontTextStyleBody");
-const CFStringRef kCTUIFontTextStyleCallout = CFSTR("kCTUIFontTextStyleCallout");
-const CFStringRef kCTUIFontTextStyleCaption1 = CFSTR("kCTUIFontTextStyleCaption1");
-const CFStringRef kCTUIFontTextStyleCaption2 = CFSTR("kCTUIFontTextStyleCaption2");
-const CFStringRef kCTUIFontTextStyleFootnote = CFSTR("kCTUIFontTextStyleFootnote");
-const CFStringRef kCTUIFontTextStyleHeadline = CFSTR("kCTUIFontTextStyleHeadline");
-const CFStringRef kCTUIFontTextStyleShortBody = CFSTR("kCTUIFontTextStyleShortBody");
-const CFStringRef kCTUIFontTextStyleShortCaption1 = CFSTR("kCTUIFontTextStyleShortCaption1");
-const CFStringRef kCTUIFontTextStyleShortFootnote = CFSTR("kCTUIFontTextStyleShortFootnote");
-const CFStringRef kCTUIFontTextStyleShortHeadline = CFSTR("kCTUIFontTextStyleShortHeadline");
-const CFStringRef kCTUIFontTextStyleShortSubhead = CFSTR("kCTUIFontTextStyleShortSubhead");
-const CFStringRef kCTUIFontTextStyleSubhead = CFSTR("kCTUIFontTextStyleSubhead");
-const CFStringRef kCTUIFontTextStyleTallBody = CFSTR("kCTUIFontTextStyleTallBody");
-const CFStringRef kCTUIFontTextStyleTitle0 = CFSTR("kCTUIFontTextStyleTitle0");
-const CFStringRef kCTUIFontTextStyleTitle1 = CFSTR("kCTUIFontTextStyleTitle1");
-const CFStringRef kCTUIFontTextStyleTitle2 = CFSTR("kCTUIFontTextStyleTitle2");
-const CFStringRef kCTUIFontTextStyleTitle3 = CFSTR("kCTUIFontTextStyleTitle3");
+const CFStringRef kCTUIFontTextStyleBody = CFSTR("UICTFontTextStyleBody"); // probe1:8
+const CFStringRef kCTUIFontTextStyleCallout = CFSTR("UICTFontTextStyleCallout"); // probe1:9
+const CFStringRef kCTUIFontTextStyleCaption1 = CFSTR("UICTFontTextStyleCaption1"); // probe1:10
+const CFStringRef kCTUIFontTextStyleCaption2 = CFSTR("UICTFontTextStyleCaption2"); // probe1:11
+const CFStringRef kCTUIFontTextStyleFootnote = CFSTR("UICTFontTextStyleFootnote"); // probe1:12
+const CFStringRef kCTUIFontTextStyleHeadline = CFSTR("UICTFontTextStyleHeadline"); // probe1:13
+const CFStringRef kCTUIFontTextStyleShortBody = CFSTR("UICTFontTextStyleShortBody"); // probe1:14
+const CFStringRef kCTUIFontTextStyleShortCaption1 = CFSTR("UICTFontTextStyleShortCaption1"); // probe1:15
+const CFStringRef kCTUIFontTextStyleShortFootnote = CFSTR("UICTFontTextStyleShortFootnote"); // probe1:16
+const CFStringRef kCTUIFontTextStyleShortHeadline = CFSTR("UICTFontTextStyleShortHeadline"); // probe1:17
+const CFStringRef kCTUIFontTextStyleShortSubhead = CFSTR("UICTFontTextStyleShortSubhead"); // probe1:18
+const CFStringRef kCTUIFontTextStyleSubhead = CFSTR("UICTFontTextStyleSubhead"); // probe1:19
+const CFStringRef kCTUIFontTextStyleTallBody = CFSTR("UICTFontTextStyleTallBody"); // probe1:20
+const CFStringRef kCTUIFontTextStyleTitle0 = CFSTR("UICTFontTextStyleTitle0"); // probe1:21
+const CFStringRef kCTUIFontTextStyleTitle1 = CFSTR("UICTFontTextStyleTitle1"); // probe1:22
+const CFStringRef kCTUIFontTextStyleTitle2 = CFSTR("UICTFontTextStyleTitle2"); // probe1:23
+const CFStringRef kCTUIFontTextStyleTitle3 = CFSTR("UICTFontTextStyleTitle3"); // probe1:24
 
 // Descriptor attributes, keys and options
-const CFStringRef kCTFontDescriptorTextStyleAttribute = CFSTR("kCTFontDescriptorTextStyleAttribute");
-const CFStringRef kCTFontDesignLanguagesAttribute = CFSTR("kCTFontDesignLanguagesAttribute");
-const CFStringRef kCTFontAssetType = CFSTR("kCTFontAssetType");
-const CFStringRef kCTFontAssetFontInfoKey = CFSTR("kCTFontAssetFontInfoKey");
-const CFStringRef kCTFontCollectionIncludeStubFontsOption = CFSTR("kCTFontCollectionIncludeStubFontsOption");
-const CFStringRef kCTFontManagerAvailableFontURLsAddedKey = CFSTR("kCTFontManagerAvailableFontURLsAddedKey");
-const CFStringRef kCTFontManagerAvailableFontURLsRemovedKey = CFSTR("kCTFontManagerAvailableFontURLsRemovedKey");
-const CFStringRef kCTFontValidationOptionRunDynamic = CFSTR("kCTFontValidationOptionRunDynamic");
-const CFStringRef kCTFontValidationResults = CFSTR("kCTFontValidationResults");
+const CFStringRef kCTFontDescriptorTextStyleAttribute = CFSTR("NSCTFontUIUsageAttribute"); // probe1:26
+const CFStringRef kCTFontDesignLanguagesAttribute = CFSTR("NSCTFontDesignLanguagesAttribute"); // probe1:41
+const CFStringRef kCTFontAssetType = CFSTR("com.apple.MobileAsset.Font8"); // probe1:45
+const CFStringRef kCTFontAssetFontInfoKey = CFSTR("FontInfo4"); // probe1:46
+const CFStringRef kCTFontCollectionIncludeStubFontsOption = CFSTR("NSCTFontCollectionIncludeStubFontsOption"); // probe1:47
+const CFStringRef kCTFontManagerAvailableFontURLsAddedKey = CFSTR("CTFontManagerAvailableFontURLsAdded"); // probe1:48
+const CFStringRef kCTFontManagerAvailableFontURLsRemovedKey = CFSTR("CTFontManagerAvailableFontURLsRemoved"); // probe1:49
+const CFStringRef kCTFontValidationOptionRunDynamic = CFSTR("dynamic"); // probe1:50
+const CFStringRef kCTFontValidationResults = CFSTR("results"); // probe1:51
 
 // A font width, a CGFloat like the other kCTFontWidth values (WebKit CoreTextSPI.h).
-// GUESS (NEEDS-REAL-MAC): the value; -0.8 is only a point inside the documented trait range of -1.0 to 1.0.
-const CGFloat kCTFontWidthExtraCompressed = -0.8;
+const CGFloat kCTFontWidthExtraCompressed = -0.4; // probe1:54 (-0.40000000000000002)

@@ -36,12 +36,13 @@ const CFStringRef kCTFontSlantTrait = CFSTR("NSCTFontSlantTrait");
 const CFStringRef kCTFontOpenTypeFeatureTag = CFSTR("CTFeatureOpenTypeTag");
 const CFStringRef kCTFontOpenTypeFeatureValue = CFSTR("CTFeatureOpenTypeValue");
 
-// Documented attribute and key names; GUESS (NEEDS-REAL-MAC): the documentation gives the names and the CFString type,
-// not the values, so each carries its own name.
-const CFStringRef kCTFontDescriptorMatchingPercentage = CFSTR("kCTFontDescriptorMatchingPercentage");
-const CFStringRef kCTFontDownloadableAttribute = CFSTR("kCTFontDownloadableAttribute");
-const CFStringRef kCTFontDownloadedAttribute = CFSTR("kCTFontDownloadedAttribute");
-const CFStringRef kCTFontOpticalSizeAttribute = CFSTR("kCTFontOpticalSizeAttribute");
+// Documented attribute and key names (the documentation gives the names and the CFString type). The values are
+// observed on a real Mac (rung 4, macOS 26.1, our own probe symbols_d_probe1); the line of the probe output is in
+// each comment.
+const CFStringRef kCTFontDescriptorMatchingPercentage = CFSTR("CTFontDescriptorMatchingPercentage"); // probe1:44
+const CFStringRef kCTFontDownloadableAttribute = CFSTR("NSCTFontDownloadableAttribute"); // probe1:42
+const CFStringRef kCTFontDownloadedAttribute = CFSTR("NSCTFontDownloadedAttribute"); // probe1:43
+const CFStringRef kCTFontOpticalSizeAttribute = CFSTR("NSCTFontOpticalSizeAttribute"); // probe1:40
 
 // Documented string attribute names (Apple's public CoreText documentation: CFString, macOS 10.5 to 10.12). The
 // documentation gives the names and the type, not the values.
