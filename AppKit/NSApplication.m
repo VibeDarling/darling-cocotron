@@ -115,6 +115,26 @@ NSApplication *NSApp = nil;
 - initWithOwner: owner;
 @end
 
+/* The documents named in a process argument list (arguments[0] is the executable): every argument that is not
+ * a switch. A switch other than -NSOpen takes the next argument as its value ("-NSBindingDebugLogLevel 2"), and
+ * every argument after "--" is a document, as in POSIX. Empty arguments name nothing. */
+static NSArray *NSApplicationDocumentsInArguments(NSArray *arguments) {
+    NSMutableArray *documents = [NSMutableArray array];
+    BOOL onlyDocuments = NO;
+    for (NSUInteger i = 1; i < [arguments count]; i++) {
+        NSString *argument = [arguments objectAtIndex: i];
+        if (!onlyDocuments && [argument isEqualToString: @"--"]) {
+            onlyDocuments = YES;
+        } else if (onlyDocuments || ![argument hasPrefix: @"-"]) {
+            if ([argument length] > 0)
+                [documents addObject: argument];
+        } else if (![argument isEqualToString: @"-NSOpen"]) {
+            i++;
+        }
+    }
+    return documents;
+}
+
 @implementation NSApplication
 
 - (NSUserInterfaceLayoutDirection) userInterfaceLayoutDirection {
@@ -885,20 +905,7 @@ static void _hookXcodeDevTools(void)
         }
 
         NSArray *procArgs = [[NSProcessInfo processInfo] arguments];
-        if ([procArgs count] > 1) {
-            for (NSUInteger i = 1; i < [procArgs count]; i++) {
-                NSString *argument = [procArgs objectAtIndex: i];
-                if ([argument length] > 0 && ![argument hasPrefix: @"-"])
-                    [openFiles addObject: argument];
-            }
-        } else {
-            // argv[0] is the executable; anything starting with "-" is a switch, not a document.
-            for (NSUInteger i = 1; i < [arguments count]; i++) {
-                NSString *argument = [arguments objectAtIndex: i];
-                if ([argument length] > 0 && ![argument hasPrefix: @"-"])
-                    [openFiles addObject: argument];
-            }
-        }
+        [openFiles addObjectsFromArray: NSApplicationDocumentsInArguments([procArgs count] > 1 ? procArgs : arguments)];
     }
 
     if ([openFiles count] == 0) {
@@ -2187,24 +2194,14 @@ int NSApplicationMain(int argc, const char *argv[]) {
     Class class = [bundle principalClass];
     NSString *nibFile = [bundle infoDictionary][@"NSMainNibFile"];
 
-if (argc > 1) {
-        NSMutableArray *arguments =
-                [NSMutableArray arrayWithCapacity: argc - 1];
-        for (int i = 1; i < argc; i++)
-            if (argv[i][0] != '-')
-                [arguments addObject: [NSString stringWithUTF8String: argv[i]]];
-            else if (argv[i][1] == '-' && argv[i][2] == '\0')
-                break;
-            else // (argv[i][0] == '-' && argv[i] != "--")
-                    if (strcmp(argv[i], "-NSOpen") != 0)
-                i++;
-
-        if ((argc = [arguments count]))
-            [[NSUserDefaults standardUserDefaults]
-                    setObject: ((argc == 1) ? [arguments lastObject]
-                                            : arguments)
-                       forKey: @"NSOpen"];
-    }
+    /* argc and argv are not read: Apple's documentation says NSApplicationMain ignores them, and Chess calls
+     * this with argv advanced to its last argument and the original argc, so argv[1] is NULL and reading it
+     * crashes (observed on Darling). The process-wide arguments are what NSUserDefaults parses as well. */
+    NSArray *documents = NSApplicationDocumentsInArguments([[NSProcessInfo processInfo] arguments]);
+    if ([documents count] > 0)
+        [[NSUserDefaults standardUserDefaults]
+                setObject: ([documents count] == 1 ? [documents lastObject] : documents)
+                   forKey: @"NSOpen"];
 
 #ifndef DARLING
     [NSClassFromString(@"Win32RunningCopyPipe")
