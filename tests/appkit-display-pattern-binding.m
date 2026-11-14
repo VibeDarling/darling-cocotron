@@ -31,6 +31,13 @@ static void expect(BOOL condition, NSString *message)
 }
 @end
 
+@interface Flags : NSObject
+@property(assign) BOOL a;
+@property(assign) BOOL b;
+@end
+@implementation Flags
+@end
+
 // A model that counts the writes it receives.
 @interface Level : NSObject
 @property(assign) double level;
@@ -68,7 +75,7 @@ static void expect(BOOL condition, NSString *message)
 }
 @end
 
-// With any argument only the slider scenarios run: `value` of an NSSlider is a read/write binding in the
+// With any argument only the hidden/hidden2 and slider scenarios run: `value` of an NSSlider is a read/write binding in the
 // Cocoa Bindings Reference ("NSSlider Bindings": the page marks hidden, enabled and toolTip "Binding is Read-Only"
 // and value is not), and they pass before and after the change.
 int main(int argc, char **argv)
@@ -106,6 +113,22 @@ int main(int argc, char **argv)
             [field unbind:@"displayPatternValue1"];
             [field unbind:@"displayPatternValue2"];
         }
+
+        // Two bindings of one source that are peers through a fake path (hidden, hidden2). hidden is read-only in the
+        // Cocoa Bindings Reference, so only the model reaching the view is checked.
+        Flags *one = [[Flags alloc] init];
+        Flags *two = [[Flags alloc] init];
+        NSTextField *box = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 0, 20, 20)];
+        [box bind:@"hidden" toObject:one withKeyPath:@"a" options:nil];
+        [box bind:@"hidden2" toObject:two withKeyPath:@"b" options:nil];
+        one.a = YES;
+        two.b = YES;
+        expect([box isHidden], @"both peers YES hide the field");
+        one.a = NO;
+        two.b = NO;
+        expect(![box isHidden], @"both peers NO show the field");
+        [box unbind:@"hidden"];
+        [box unbind:@"hidden2"];
 
         // A reversible binding: an edit of the source reaches the model once, and the model reaches the source.
         Level *edited = [[Level alloc] init];
