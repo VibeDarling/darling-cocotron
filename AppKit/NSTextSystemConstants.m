@@ -19,7 +19,8 @@
 
 // Constants that macOS defines in AppKit and that guest apps bind to AppKit. UIFoundation's own copies (it cannot import
 // AppKit) are not exported (UIFoundation/unexported-symbols.txt), so when another UIFoundation is in use these are still
-// found in AppKit. Values are the same as UIFoundation's.
+// found in AppKit. Values are the same as UIFoundation's (tests/attribute-name-source-agree.rb checks the pairs); the
+// attribute names the stand-in exports and AppKit re-exports (NSFont, NSColor, ... NSObliqueness) are defined only there.
 
 #import <AppKit/NSAdaptiveImageGlyph.h>
 #import <AppKit/NSAttributedString.h>
@@ -32,8 +33,12 @@
 NSAttributedStringKey const NSAdaptiveImageGlyphAttributeName = @"NSAdaptiveImageGlyph";
 NSNotificationName NSAntialiasThresholdChangedNotification =
         @"NSAntialiasThresholdChangedNotification";
-NSAttributedStringKey NSBaselineOffsetAttributeName = @"NSBaselineOffsetAttributeName";
-NSAttributedStringKey NSCursorAttributeName = @"NSCursorAttributeName";
+// Attribute names only AppKit defines (nothing in the UIFoundation stand-in does): Journal and TV bind them to AppKit. Values:
+// observed on a real Mac (macOS 26.1, mac-probe/darling_probe_a1.txt lines 80 and 81), rung 4.
+NSAttributedStringKey NSParagraphAttachmentAttributeName = @"NSTextParagraphAnchoredAttachment";
+NSAttributedStringKey NSTextEncapsulationAttributeName = @"NSTextEncapsulation";
+NSAttributedStringKey NSBaselineOffsetAttributeName = @"NSBaselineOffset";
+NSAttributedStringKey NSCursorAttributeName = @"NSCursor";
 NSFontDescriptorSystemDesign const NSFontDescriptorSystemDesignRounded = @"NSCTFontUIFontDesignRounded";
 NSFontDescriptorAttributeName NSFontFamilyAttribute = @"NSFontFamilyAttribute";
 NSFontDescriptorAttributeName NSFontNameAttribute = @"NSFontNameAttribute";
@@ -64,16 +69,16 @@ const NSFontWeight NSFontWeightThin = 0xbfe3333340000000;
 NSFontDescriptorTraitKey NSFontWeightTrait = @"NSCTFontWeightTrait";
 const NSFontWeight NSFontWeightUltraLight = 0xbfe99999a0000000;
 NSAttributedStringKey NSGlyphInfoAttributeName = @"NSGlyphInfo";
-NSAttributedStringKey NSKernAttributeName = @"NSKernAttributeName";
-NSAttributedStringKey NSLigatureAttributeName = @"NSLigatureAttributeName";
-NSAttributedStringKey NSLinkAttributeName = @"NSLinkAttributeName";
+NSAttributedStringKey NSKernAttributeName = @"NSKern";
+NSAttributedStringKey NSLigatureAttributeName = @"NSLigature";
+NSAttributedStringKey NSLinkAttributeName = @"NSLink";
 NSAttributedStringKey NSMarkedClauseSegmentAttributeName = @"NSMarkedClauseSegment";
-NSAttributedStringKey NSShadowAttributeName = @"NSShadowAttributeName";
-NSAttributedStringKey NSStrikethroughStyleAttributeName = @"NSStrikethroughStyleAttributeName";
+NSAttributedStringKey NSShadowAttributeName = @"NSShadow";
+NSAttributedStringKey NSStrikethroughStyleAttributeName = @"NSStrikethrough";
 NSString *const NSTextContentStorageUnsupportedAttributeAddedNotification =
         @"NSTextContentStorageUnsupportedAttributeAddedNotification";
 NSString *const NSTextListMarkerDecimal = @"{decimal}";
 NSString *const NSTextListMarkerDisc = @"{disc}";
-NSAttributedStringKey NSToolTipAttributeName = @"NSToolTipAttributeName";
+NSAttributedStringKey NSToolTipAttributeName = @"NSToolTip";
 NSAttributedStringDocumentReadingOptionKey const NSTextKit1ListMarkerFormatDocumentOption =
         @"NSTextKit1ListMarkerFormatDocumentOption";
