@@ -151,6 +151,14 @@ static NSMutableDictionary *sharedByName = nil;
     }
 }
 
++ (NSFontFamily *) fontFamilyForFontName: (NSString *) name {
+    NSFontFamily *family = [self fontFamilyWithTypefaceName: name];
+    if (family != nil)
+        return family;
+    return [self installedFontFamilyWithName:
+                         [[NSDisplay currentDisplay] substituteFamilyName: name]];
+}
+
 + (NSFontTypeface *) fontTypefaceWithName: (NSString *) name {
     NSFontFamily *family = [self fontFamilyWithTypefaceName: name];
     return [family typefaceWithName: name];

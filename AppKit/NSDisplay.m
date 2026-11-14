@@ -333,6 +333,10 @@ static void eventPosted(void *info) {}
     return nil;
 }
 
+- (NSString *) substituteFamilyName: (NSString *) familyName {
+    return nil;
+}
+
 - (NSString *) fontFamilyNameForGenericFamily: (NSString *) generic {
     NSInvalidAbstractInvocation();
     return nil;
