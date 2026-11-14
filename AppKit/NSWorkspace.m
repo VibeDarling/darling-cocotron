@@ -91,6 +91,8 @@ NSNotificationName NSWorkspaceWillUnmountNotification = @"NSWorkspaceWillUnmount
 - (BOOL) accessibilityDisplayShouldReduceTransparency { return NO; }
 - (BOOL) accessibilityDisplayShouldInvertColors { return NO; }
 - (BOOL) accessibilityDisplayShouldReduceMotion { return NO; }
+// Not in the public NSWorkspace documentation (GUESS: NO, the unmodified display mode, like its siblings); Mac Catalyst clients ask for it.
+- (BOOL) accessibilityDisplayShouldUseGrayscale { return NO; }
 
 // No assistive-technology client exists on this platform, so VoiceOver is never running.
 - (BOOL) isVoiceOverEnabled { return NO; }
