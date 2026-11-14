@@ -595,6 +595,14 @@ uint32_t CGContextGetFontSmoothingStyle(CGContextRef context) {
     return O2ContextGetFontSmoothingStyle((O2ContextRef) context);
 }
 
+// Private. Calendar imports it. Mozilla's open-source CGTextDrawing.h gives the prototype, void (CGContextRef,
+// CGColorRef), and its use: the color is the background that font smoothing assumes the text is drawn on. The
+// call is accepted and has no effect: Onyx2D has no subpixel text antialiasing that would use the color, and
+// there is no public getter that could observe it. What a NULL color means is not documented (GUESS: it is
+// accepted too).
+void CGContextSetFontSmoothingBackgroundColor(CGContextRef context, CGColorRef color) {
+}
+
 void CGContextSetAllowsFontSubpixelQuantization(
         CGContextRef context, bool allowsFontSubpixelQuantization)
 {
