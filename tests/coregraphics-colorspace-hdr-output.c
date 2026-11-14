@@ -5,7 +5,8 @@
 // CGColorSpaceIsHDR and CGColorSpaceSupportsOutput (Freeform, ColorSync Utility) are public but the
 // documentation does not give their answers. The expected values are what a real Mac returned (macOS 26.1,
 // probe 12 section 3, darling_probe12.txt lines 26-45), for every space Cocotron can create (the others are skipped).
-// Not covered: kCGColorSpaceDisplayP3_PQ and kCGColorSpaceITUR_2100_HLG, which Cocotron cannot create, and NULL.
+// Not covered: kCGColorSpaceDisplayP3_PQ and kCGColorSpaceITUR_2100_HLG, which Cocotron cannot create, and the
+// indexed space (see coregraphics-colorspace-indexed-output.m). NULL is tested but is a GUESS, not observed.
 typedef bool (*Query)(CGColorSpaceRef);
 
 static int created = 0;
