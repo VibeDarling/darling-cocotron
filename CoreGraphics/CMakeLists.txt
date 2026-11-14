@@ -110,6 +110,7 @@ set(CoreGraphics_sources
 	CGSRegion.m
 	CGSScreen.m
 	CGSServerSPI.m
+	CGPrivateFailLoud.c
 	CGEvent.m
 	CGEventSource.m
 	CGEventTap.m
