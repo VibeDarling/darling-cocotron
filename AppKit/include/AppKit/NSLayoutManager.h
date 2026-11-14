@@ -94,10 +94,6 @@ typedef NS_ENUM(NSInteger, NSTextLayoutOrientation) {
 - delegate;
 - (NSArray *) textContainers;
 
-- (NSTextView *) firstTextView;
-- (NSTextView *) textViewForBeginningOfSelection;
-- (BOOL) layoutManagerOwnsFirstResponderInWindow: (NSWindow *) window;
-
 - (void) setTextStorage: (NSTextStorage *) textStorage;
 - (void) replaceTextStorage: (NSTextStorage *) textStorage;
 - (void) setGlyphGenerator: (NSGlyphGenerator *) generator;
@@ -302,14 +298,6 @@ typedef NS_ENUM(NSInteger, NSTextLayoutOrientation) {
                          value: (id) value
              forCharacterRange: (NSRange) charRange;
 
-- (NSArray *) rulerMarkersForTextView: (NSTextView *) view
-                       paragraphStyle: (NSParagraphStyle *) style
-                                ruler: (NSRulerView *) ruler;
-- (NSView *) rulerAccessoryViewForTextView: (NSTextView *) view
-                            paragraphStyle: (NSParagraphStyle *) style
-                                     ruler: (NSRulerView *) ruler
-                                   enabled: (BOOL) isEnabled;
-
 - (void) setAllowsNonContiguousLayout: (BOOL) value;
 
 // Stored only: attachments are drawn at their own size. NSImageScaleNone
@@ -321,6 +309,20 @@ typedef NS_ENUM(NSInteger, NSTextLayoutOrientation) {
 - (float) hyphenationFactor;
 - (void) setHyphenationFactor: (float) factor;
 - (void) setUsesDefaultHyphenation: (BOOL) flag;
+@end
+
+// Implemented by AppKit (NSLayoutManager+NSTextViewSupport.m), not by the class itself: they reach NSTextView, NSWindow and the ruler.
+@interface NSLayoutManager (NSTextViewSupport)
+- (NSTextView *) firstTextView;
+- (NSTextView *) textViewForBeginningOfSelection;
+- (BOOL) layoutManagerOwnsFirstResponderInWindow: (NSWindow *) window;
+- (NSArray *) rulerMarkersForTextView: (NSTextView *) view
+                       paragraphStyle: (NSParagraphStyle *) style
+                                ruler: (NSRulerView *) ruler;
+- (NSView *) rulerAccessoryViewForTextView: (NSTextView *) view
+                            paragraphStyle: (NSParagraphStyle *) style
+                                     ruler: (NSRulerView *) ruler
+                                   enabled: (BOOL) isEnabled;
 @end
 
 @protocol NSLayoutManagerDelegate <NSObject>
