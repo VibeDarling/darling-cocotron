@@ -234,6 +234,14 @@ static void *NSBinderChangeContext;
         [_source removeObserver: self forKeyPath: _bindingPath];
 }
 
+- (void) suspendSourceObservation {
+    [self stopObservingChanges];
+}
+
+- (void) resumeSourceObservation {
+    [self startObservingChanges];
+}
+
 - (void) observeValueForKeyPath: (NSString *) kp
                        ofObject: (id) object
                          change: (NSDictionary *) change

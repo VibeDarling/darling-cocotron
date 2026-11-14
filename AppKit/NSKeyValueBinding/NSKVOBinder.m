@@ -77,12 +77,40 @@ static BOOL NSKVOBinderKeyIsScalar(id object, NSString *key) {
                               @"and %@.%@ (%@)",
                               [_source className], _binding, _bindingPath,
                               [_destination className], _keyPath, self);
-            [super stopObservingChanges];
+            if (_sourceSuspendDepth == 0)
+                [super stopObservingChanges];
+            _sourceSuspendDepth = 0;
             [_destination removeObserver: self forKeyPath: _keyPath];
             _isObserving = NO;
         }
     } @catch (id ex) {
         NSLog(@"stopObservingChanges %@", ex);
+    }
+}
+
+// Suspensions nest: the write into the source can change the destination
+// synchronously, and the binder then writes the source again inside the first
+// write. Only the outermost resume observes the source again.
+- (void) suspendSourceObservation {
+    if (!_isObserving)
+        return;
+    @try {
+        if (_sourceSuspendDepth == 0)
+            [super stopObservingChanges];
+        _sourceSuspendDepth++;
+    } @catch (id ex) {
+        NSLog(@"suspendSourceObservation %@", ex);
+    }
+}
+
+- (void) resumeSourceObservation {
+    if (_sourceSuspendDepth == 0)
+        return;
+    @try {
+        if (--_sourceSuspendDepth == 0)
+            [super startObservingChanges];
+    } @catch (id ex) {
+        NSLog(@"resumeSourceObservation %@", ex);
     }
 }
 
@@ -291,20 +319,20 @@ NSString *NSFormatDisplayPattern(NSString *pattern, id *values,
                           @"setting value: %@ on _source: %@ forKeyPath: %@",
                           value, _source, bindingPath);
         for (int i = 0; i < count; ++i) {
-            [allBinders[i] stopObservingChanges];
+            [allBinders[i] suspendSourceObservation];
         }
         @try {
             [_source setValue: value forKeyPath: bindingPath];
         } @catch (id ex) {
             if ([self raisesForNotApplicableKeys]) {
                 for (int i = 0; i < count; ++i) {
-                    [allBinders[i] startObservingChanges];
+                    [allBinders[i] resumeSourceObservation];
                 }
                 [ex raise];
             }
         }
         for (int i = 0; i < count; ++i) {
-            [allBinders[i] startObservingChanges];
+            [allBinders[i] resumeSourceObservation];
         }
 
     } else {

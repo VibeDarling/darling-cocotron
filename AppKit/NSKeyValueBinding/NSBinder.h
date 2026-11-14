@@ -60,6 +60,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 - (void) startObservingChanges;
 - (void) stopObservingChanges;
 
+// Pause and resume only the observation of the source, which a binder does
+// while it writes a value into the source so the write is not reversed back
+// into the destination. The destination stays observed: the write can run in
+// the destination's own change notification, and removing a key path
+// observer there is an error in Foundation. The default stops and starts all
+// observation.
+- (void) suspendSourceObservation;
+- (void) resumeSourceObservation;
+
 @end
 
 @interface _NSBinder (BindingOptions)
