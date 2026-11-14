@@ -184,6 +184,12 @@ CATransform3D CATransform3DMakeAffineTransform(CGAffineTransform m) {
     return t;
 }
 
+// Public. The inverse of CATransform3DMakeAffineTransform: m11, m12, m21, m22 and m41, m42 become a, b, c, d, tx,
+// ty. The documentation leaves a transform that is not affine undefined; the other components are ignored.
+CGAffineTransform CATransform3DGetAffineTransform(CATransform3D t) {
+    return CGAffineTransformMake(t.m11, t.m12, t.m21, t.m22, t.m41, t.m42);
+}
+
 @implementation NSValue (CATransform3DAdditions)
 
 + (NSValue *) valueWithCATransform3D: (CATransform3D) t {
