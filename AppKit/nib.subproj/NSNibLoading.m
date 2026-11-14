@@ -65,6 +65,9 @@ static NSMutableArray<NSString *> *_nibPaths(void) {
 
     NIBDEBUG(@"+ loadNibFile: '%@' externalNameTable: withZone:", path);
 
+    if (path == nil)
+        return NO;
+
     [NSBundle pushNibPath: path];
 
     NSAutoreleasePool *pool = [NSAutoreleasePool new];
@@ -139,6 +142,12 @@ static NSMutableArray<NSString *> *_nibPaths(void) {
         path = fileName;
     }
 
+    // A nib that cannot be found is a failed load, not a nil entry on the nib-path stack.
+    if (path == nil) {
+        [pool release];
+        return NO;
+    }
+
     [NSBundle pushNibPath: path];
     [NSBundle pushNibLoadingBundle: self];
 
@@ -158,7 +167,11 @@ static NSMutableArray<NSString *> *_nibPaths(void) {
                   owner: (id) owner
         topLevelObjects: (NSArray **) topLevelObjects
 {
-    [NSBundle pushNibPath: [self pathForResource: name ofType: @"nib"]];
+    NSString *path = [self pathForResource: name ofType: @"nib"];
+    if (path == nil)
+        return NO;
+
+    [NSBundle pushNibPath: path];
     [NSBundle pushNibLoadingBundle: self];
 
     NSNib *nib = [[NSNib alloc] initWithNibNamed: name bundle: self];
@@ -201,6 +214,9 @@ static NSMutableArray<NSString *> *_nibPaths(void) {
 }
 
 + (void) pushNibPath: (id) path {
+    if (path == nil)
+        [NSException raise: NSInvalidArgumentException
+                    format: @"+[NSBundle pushNibPath:]: nil nib path"];
     [_nibPaths() addObject: path];
 }
 
