@@ -38,6 +38,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <AppKit/NSStringDrawing.h>
 #import <AppKit/NSWindow.h>
 #import <Foundation/NSKeyedArchiver.h>
+#import "NSCoder+AppKit.h"
 
 @implementation NSButtonCell
 
@@ -257,56 +258,56 @@ static const CGFloat kImageMargin = 2.;
 
             [coder decodeValuesOfObjCTypes: "I", &keyEquivModMask];
 
-            unsigned int inFlags = [una decodeByte];
+            unsigned int inFlags = NSAppKitDecodeByte(una);
             flags = inFlags << 31;
 
-            inFlags = [una decodeByte];
+            inFlags = NSAppKitDecodeByte(una);
             flags |= (inFlags & 1) << 30;
 
-            inFlags = [una decodeByte];
+            inFlags = NSAppKitDecodeByte(una);
             flags |= (inFlags & 1) << 29;
 
-            inFlags = [una decodeByte];
+            inFlags = NSAppKitDecodeByte(una);
             flags |= (inFlags & 1) << 28;
 
-            inFlags = [una decodeByte];
+            inFlags = NSAppKitDecodeByte(una);
             flags |= (inFlags & 1) << 27;
 
-            inFlags = [una decodeByte];
+            inFlags = NSAppKitDecodeByte(una);
             flags |= (inFlags & 1) << 26;
 
-            inFlags = [una decodeByte];
+            inFlags = NSAppKitDecodeByte(una);
             flags |= (inFlags & 1) << 25;
 
-            [una decodeByte];
-            inFlags = [una decodeByte];
+            NSAppKitDecodeByte(una);
+            inFlags = NSAppKitDecodeByte(una);
             flags |= (inFlags & 1) << 23;
 
-            inFlags = [una decodeByte];
+            inFlags = NSAppKitDecodeByte(una);
             flags |= (inFlags & 1) << 22;
 
-            inFlags = [una decodeByte];
+            inFlags = NSAppKitDecodeByte(una);
             flags |= (inFlags & 1) << 21;
 
-            inFlags = [una decodeByte];
+            inFlags = NSAppKitDecodeByte(una);
             flags |= (inFlags & 1) << 20;
 
-            inFlags = [una decodeByte];
+            inFlags = NSAppKitDecodeByte(una);
             flags |= (inFlags & 1) << 19;
 
-            inFlags = [una decodeByte];
+            inFlags = NSAppKitDecodeByte(una);
             flags |= (inFlags & 1) << 18;
 
-            inFlags = [una decodeByte];
+            inFlags = NSAppKitDecodeByte(una);
             flags |= (inFlags & 1) << 17;
 
-            inFlags = [una decodeByte];
+            inFlags = NSAppKitDecodeByte(una);
             flags |= (inFlags & 1) << 15;
 
-            inFlags = [una decodeByte];
+            inFlags = NSAppKitDecodeByte(una);
             flags |= (inFlags & 3) << 13;
 
-            inFlags = [una decodeByte];
+            inFlags = NSAppKitDecodeByte(una);
             flags |= (inFlags & 1) << 12;
 
             id altContents = [coder decodeObject];
@@ -324,9 +325,9 @@ static const CGFloat kImageMargin = 2.;
             if (version > 20)
                 [coder decodeValuesOfObjCTypes: "I", &var50];
             if (version > 26)
-                [una decodeByte];
+                NSAppKitDecodeByte(una);
             if (version >= 26)
-                [una decodeByte];
+                NSAppKitDecodeByte(una);
         } else if (version <= 57) {
             short periodicDelay, periodicInterval;
             [coder decodeValuesOfObjCTypes: "ssIi@@@@@", &periodicDelay,

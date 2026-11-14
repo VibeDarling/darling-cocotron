@@ -30,6 +30,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #import <CoreText/KTFont.h>
 #import <Onyx2D/O2Font.h>
+#import "NSCoder+AppKit.h"
 
 NSNotificationName NSFontSetChangedNotification =
         @"NSFontSetChangedNotification";
@@ -421,13 +422,13 @@ static NSLock *_cacheLock = nil;
 
             float flt;
             [coder decodeValuesOfObjCTypes: "f", &flt];
-            fx = [una decodeByte] != 0;
+            fx = NSAppKitDecodeByte(una) != 0;
 
-            fFlags = [una decodeByte];
+            fFlags = NSAppKitDecodeByte(una);
             fFlags <<= 13;
 
-            f2 = [una decodeByte] != 0;
-            uint8_t f3 = [una decodeByte];
+            f2 = NSAppKitDecodeByte(una) != 0;
+            uint8_t f3 = NSAppKitDecodeByte(una);
 
             fFlags |= f3 << 1;
 

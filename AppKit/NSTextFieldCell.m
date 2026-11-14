@@ -81,7 +81,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
                     [self setTextColor: [NSColor controlTextColor]];
             }
         } else if (version > 16) {
-            _drawsBackground = [coder decodeByte] != 0;
+            _drawsBackground = NSAppKitDecodeByte(coder) != 0;
             [self setBackgroundColor: [coder decodeObject]];
             [self setTextColor: [coder decodeObject]];
         } else if (version > 1) {

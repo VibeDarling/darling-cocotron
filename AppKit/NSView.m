@@ -55,6 +55,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <objc/runtime.h>
 #include <math.h>
 #import "DarlingLayout.h"
+#import "NSCoder+AppKit.h"
 
 static char installedViewConstraintsKey;
 
@@ -398,8 +399,8 @@ typedef struct __VFlags {
                                             &frameMatrix, &_draggedTypes];
 
             uint8_t flags1, flags2;
-            flags1 = [una decodeByte];
-            flags2 = [una decodeByte];
+            flags1 = NSAppKitDecodeByte(una);
+            flags2 = NSAppKitDecodeByte(una);
 
             union {
                 _VFlags vf;
@@ -411,10 +412,10 @@ typedef struct __VFlags {
             vflags.vf.rotatedOrScaledFromBase = flags2 & 1;
 
             uint8_t flags3, flags4, flags5;
-            flags3 = [una decodeByte];
-            flags4 = [una decodeByte];
-            flags5 = [una decodeByte];
-            [una decodeByte];
+            flags3 = NSAppKitDecodeByte(una);
+            flags4 = NSAppKitDecodeByte(una);
+            flags5 = NSAppKitDecodeByte(una);
+            NSAppKitDecodeByte(una);
 
             vflags.vf.autosizing = flags3 & 0x3F;
             vflags.vf.autoresizeSubviews = flags4 & 1;
@@ -422,7 +423,7 @@ typedef struct __VFlags {
 
             if (version >= 25) {
                 [self setNextKeyView: [coder decodeObject]];
-                [una decodeByte];
+                NSAppKitDecodeByte(una);
             }
         } else {
             int flags;

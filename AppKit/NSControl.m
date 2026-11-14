@@ -32,6 +32,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 //#import <AppKit/NSObject+BindingSupport.h>
 #import <AppKit/NSKeyValueBinding.h>
 #import <objc/runtime.h>
+#import "NSCoder+AppKit.h"
 
 NSString *const NSControlTextDidBeginEditingNotification =
         @"NSControlTextDidBeginEditingNotification";
@@ -122,8 +123,8 @@ static NSMutableDictionary *cellClassDictionary = nil;
             uint8_t flags1, flags2;
 
             [coder decodeValuesOfObjCTypes: "i", &tag];
-            flags1 = [coder decodeByte];
-            flags2 = [coder decodeByte];
+            flags1 = NSAppKitDecodeByte(coder);
+            flags2 = NSAppKitDecodeByte(coder);
 
             [_aux setTag: tag];
             [self setCell: [coder decodeObject]];
