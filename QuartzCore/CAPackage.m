@@ -23,9 +23,9 @@
 @interface CAPackage : NSObject
 @end
 
-// The private package type constant FindMy imports. The public documentation has neither its type nor its value;
-// GUESS: an NSString whose value is the name without its prefix.
-NSString *const kCAPackageTypeCAMLBundle = @"CAMLBundle";
+// The private package type constant FindMy imports. Observed on a real Mac (macOS 26.1, probe 11 section 1,
+// darling_probe11.txt line 39): an NSString constant whose value is the string below.
+NSString *const kCAPackageTypeCAMLBundle = @"com.apple.coreanimation-bundle";
 
 @implementation CAPackage
 @end

@@ -6,7 +6,8 @@
 
 // CAState and CAStateController are private; FindMy imports them at launch, together with the string constant
 // kCAPackageTypeCAMLBundle. Each class must exist, and a selector nothing defines must fail loudly as an
-// unrecognized selector. The constant's value is a GUESS in the implementation, so only its type is checked.
+// unrecognized selector. The constant's value is the one a real Mac printed (macOS 26.1, probe 11 section 1,
+// darling_probe11.txt line 39). Both classes exist on the real Mac (line 42-43); their superclass was not observed.
 static int checkClass(const char *name) {
     Class cls = NSClassFromString(@(name));
     EXPECT(cls != Nil, "the class exists");
@@ -28,7 +29,7 @@ int main(void) {
     if (checkClass("CAState") || checkClass("CAStateController")) return 1;
     NSString *const *slot = (NSString *const *) dlsym(RTLD_DEFAULT, "kCAPackageTypeCAMLBundle");
     EXPECT(slot != NULL, "kCAPackageTypeCAMLBundle is exported");
-    EXPECT([*slot isKindOfClass: [NSString class]] && [*slot length] > 0, "kCAPackageTypeCAMLBundle is a non-empty string");
+    EXPECT([*slot isKindOfClass: [NSString class]] && [*slot isEqualToString: @"com.apple.coreanimation-bundle"], "kCAPackageTypeCAMLBundle has the observed value");
     [pool drain];
     printf("PASS: CAState, CAStateController, kCAPackageTypeCAMLBundle\n");
     return 0;
