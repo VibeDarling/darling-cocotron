@@ -20,7 +20,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import "NSKeyValueBinding/NSTextFieldBinder.h"
 #import <AppKit/NSApplication.h>
 #import <AppKit/NSCursor.h>
+#import <AppKit/NSAttributedString.h>
 #import <AppKit/NSDragging.h>
+#import <AppKit/NSParagraphStyle.h>
 #import <AppKit/NSPasteboard.h>
 #import <AppKit/NSTextField.h>
 #import <AppKit/NSTextFieldCell.h>
@@ -50,6 +52,29 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
     [field setBordered:NO];
     [field setDrawsBackground:NO];
     [field setLineBreakMode:NSLineBreakByClipping];
+    [field sizeToFit];
+    return field;
+}
+
+// SDK header: a non-editable, non-selectable text field that displays attributed text; its line break mode is
+// determined by the attributed string's paragraph style.
++ (instancetype)labelWithAttributedString:(NSAttributedString *)attributedStringValue {
+    NSTextField *field = [[[self alloc] initWithFrame:NSZeroRect] autorelease];
+    [field setAttributedStringValue:attributedStringValue];
+    [field setEditable:NO];
+    [field setSelectable:NO];
+    [field setBezeled:NO];
+    [field setBordered:NO];
+    [field setDrawsBackground:NO];
+    if ([attributedStringValue length] > 0) {
+        NSParagraphStyle *style = [attributedStringValue attribute:NSParagraphStyleAttributeName
+                                                           atIndex:0
+                                                    effectiveRange:NULL];
+        // GUESS: with no paragraph style the field keeps the cell's default (word wrapping, which is also the
+        // default paragraph style's mode); the header does not say.
+        if (style != nil)
+            [field setLineBreakMode:[style lineBreakMode]];
+    }
     [field sizeToFit];
     return field;
 }
