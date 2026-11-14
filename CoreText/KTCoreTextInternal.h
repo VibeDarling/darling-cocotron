@@ -8,6 +8,19 @@ CFTypeRef KTCoreTextCreateObject(CFTypeID type, CFDictionaryRef storage);
 CFTypeID KTCoreTextRunGetTypeID(void);
 CFDictionaryRef KTCoreTextObjectDictionary(CFTypeRef object);
 
+// The attributes of a font descriptor, borrowed from it (valid while the descriptor lives). Every reader of a
+// descriptor goes through this. A dictionary, or an object that answers -fontAttributes, is read as it is; a descriptor
+// made by another CoreText cannot be read here and stops by class name.
+CFDictionaryRef KTCoreTextDescriptorAttributesFrom(CTFontDescriptorRef descriptor, const char *function);
+#define KTCoreTextDescriptorAttributes(descriptor) KTCoreTextDescriptorAttributesFrom((descriptor), __func__)
+// Not in the public headers: cache frameworks import them.
+void *CTFontGetClientObject(CTFontRef font);
+void CTFontSetClientObject(CTFontRef font, void *object);
+// Makes CF treat objects of a CF type as instances of the named class, when the shared cache defines it.
+bool KTCoreTextBridgeType(CFTypeID type, const char *className);
+// True for anything that can stand for a descriptor in a cascade list or collection.
+bool KTCoreTextIsDescriptor(CFTypeRef object);
+
 extern const CFStringRef kCTFontAttributeName;
 
 extern const CFStringRef KTLineAttributedStringKey;
