@@ -35,3 +35,9 @@ const CFStringRef kCTFontWidthTrait = CFSTR("NSCTFontWidthTrait");
 const CFStringRef kCTFontSlantTrait = CFSTR("NSCTFontSlantTrait");
 const CFStringRef kCTFontOpenTypeFeatureTag = CFSTR("CTFeatureOpenTypeTag");
 const CFStringRef kCTFontOpenTypeFeatureValue = CFSTR("CTFeatureOpenTypeValue");
+
+// A system UI font design (CoreText SPI; WebKit's CoreTextSPI.h declares it as CFStringRef, and Books' BooksUI
+// imports it by name). GUESS: no permitted source gives the string value. It is the string AppKit already uses
+// for NSFontDescriptorSystemDesignSerif, so the two spellings of the design compare equal. The real value needs
+// a real Mac. Only the serif design is imported by a stock app so far; the others are not added.
+const CFStringRef kCTFontUIFontDesignSerif = CFSTR("NSCTFontUIFontDesignSerif");
