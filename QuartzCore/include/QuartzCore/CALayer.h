@@ -95,6 +95,7 @@ CA_EXPORT CAToneMapMode const CAToneMapModeIfSupported;
     id _delegate;
     CGPoint _anchorPoint;
     CGPoint _position;
+    CGFloat _zPosition;
     CGRect _bounds;
     CGFloat _opacity;
     BOOL _opaque;
@@ -151,6 +152,8 @@ CA_EXPORT CAToneMapMode const CAToneMapModeIfSupported;
 @property(retain) id<CALayoutManager> layoutManager;
 @property CGPoint anchorPoint;
 @property CGPoint position;
+// Stored and returned only: drawing order still follows the sublayers array (back to front); equal-zPosition ties keeping that order is an inference, not documented.
+@property CGFloat zPosition;
 @property CGRect bounds;
 @property CGRect frame;
 @property CGFloat opacity;
