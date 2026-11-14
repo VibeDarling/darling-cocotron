@@ -58,6 +58,7 @@ typedef enum {
     NSMutableArray *_activeEditors; // registered via NSEditorRegistration
     BOOL _autosaveScheduled;
     BOOL _draft;
+    NSString *_displayName;
 }
 
 + (NSArray *) readableTypes;
@@ -108,6 +109,7 @@ typedef enum {
 - (void) removeWindowController: (NSWindowController *) controller;
 
 - (NSString *) displayName;
+- (void) setDisplayName: (NSString *) displayNameOrNil;
 - (NSWindow *) windowForSheet;
 
 - (BOOL) isDocumentEdited;
