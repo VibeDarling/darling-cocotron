@@ -588,13 +588,20 @@ double CTFontGetAdvancesForGlyphs(CTFontRef font, CTFontOrientation orientation,
                                 const CGGlyph *glyphs, CGSize *advances,
                                 CFIndex count)
 {
+    // Vertical text reads the font's vhea/vmtx advance (FreeType synthesizes one when a font has
+    // none) and returns it in .width, with .height 0. GUESS: WebKit's Font::platformWidthForGlyph
+    // asks for kCTFontOrientationVertical and uses advance.width as the advance along the line.
+    // NEEDS-REAL-MAC: the field, and the sign (FreeType's is positive).
+    bool vertical = orientation == kCTFontOrientationVertical;
+    FT_Int32 flags = vertical ? FT_LOAD_DEFAULT | FT_LOAD_VERTICAL_LAYOUT : FT_LOAD_DEFAULT;
     FT_Face face = faceForFont(font);
     FT_Set_Pixel_Sizes(face, fontSize(font), fontSize(font));
 
     double sum = 0;
     for (CFIndex i = 0; i < count; i++) {
-        FT_Load_Glyph(face, glyphs[i], FT_LOAD_DEFAULT);
-        CGSize advance = CGSizeMake(face->glyph->advance.x / 64.0, face->glyph->advance.y / 64.0);
+        FT_Load_Glyph(face, glyphs[i], flags);
+        CGSize advance = vertical ? CGSizeMake(face->glyph->advance.y / 64.0, 0)
+                                  : CGSizeMake(face->glyph->advance.x / 64.0, face->glyph->advance.y / 64.0);
         if (advances != NULL)
             advances[i] = advance;
         sum += advance.width;
