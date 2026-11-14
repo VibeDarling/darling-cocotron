@@ -283,13 +283,18 @@ static tEXIFTagToLabel EXIFTagToLabel[] = {
         {kInterop, kInterop_RelatedImageWidth, @"RelatedImageWidth"},
         {kInterop, kInterop_RelatedImageLength, @"RelatedImageLength"},
 
+        // Latitude, LatitudeRef, Longitude, LongitudeRef and Altitude are the labels ImageIO uses on a real Mac (macOS 26.1,
+        // first probe output lines 22-27, second probe output lines 12-20 and 74-79), and so is AltitudeRef (second probe
+        // line 14); _readIFD converts their values (decimal degrees, Ref strings, an integer). The other GPS labels are not observed and keep the raw tag names and values;
+        // TimeStamp and DateStamp (tag 0x1D has no label at all) are NEEDS-REAL-MAC: the probe only shows round trips of
+        // values written through the destination.
         {kGPS, kGPS_GPSVersionID, @"GPSVersionID"},
-        {kGPS, kGPS_GPSLatitudeRef, @"GPSLatitudeRef"},
-        {kGPS, kGPS_GPSLatitude, @"GPSLatitude"},
-        {kGPS, kGPS_GPSLongitudeRef, @"GPSLongitudeRef"},
-        {kGPS, kGPS_GPSLongitude, @"GPSLongitude"},
-        {kGPS, kGPS_GPSAltitudeRef, @"GPSAltitudeRef"},
-        {kGPS, kGPS_GPSAltitude, @"GPSAltitude"},
+        {kGPS, kGPS_GPSLatitudeRef, @"LatitudeRef"},
+        {kGPS, kGPS_GPSLatitude, @"Latitude"},
+        {kGPS, kGPS_GPSLongitudeRef, @"LongitudeRef"},
+        {kGPS, kGPS_GPSLongitude, @"Longitude"},
+        {kGPS, kGPS_GPSAltitudeRef, @"AltitudeRef"},
+        {kGPS, kGPS_GPSAltitude, @"Altitude"},
         {kGPS, kGPS_GPSTimeStamp, @"GPSTimeStamp"},
         {kGPS, kGPS_GPSSatellites, @"GPSSatellites"},
         {kGPS, kGPS_GPSStatus, @"GPSStatus"},
@@ -359,6 +364,33 @@ static unsigned long _getLong(const unsigned char *data, size_t offset,
         return (((((v1 << 8) + v2) << 8) + v3) << 8) + v4;
     else
         return (((((v4 << 8) + v3) << 8) + v2) << 8) + v1;
+}
+
+// GPS Latitude and Longitude are three rationals in the file (degrees, minutes, seconds), Altitude one. ImageIO gives each as
+// one double (second probe output, macOS 26.1: lines 12-20 for values written through the destination, lines 74-79 for a file
+// whose raw tags 37/1 30/1 0/1 and 122/1 15/1 0/1 read back as 37.5 and 122.25): degrees plus minutes/60 plus seconds/3600,
+// never negative, the sign living in the Ref string (lines 37-52: 33.8 with Ref "S" stays 33.8). Returns nil for a count that is not
+// 1 to 3 or a zero denominator, so the tag is dropped instead of becoming infinity. Choices the probe does not cover: a zero
+// denominator in any component drops the whole tag (even when only the seconds are n/0), minutes or seconds of 60 or more are
+// summed unchecked, and a nonstandard SRATIONAL tag (the EXIF GPS tags are RATIONAL) still comes back as an array.
+static NSNumber *_gpsDecimal(const unsigned char *rawValue, long count,
+                             bool bigendian)
+{
+    if (count < 1 || count > 3) {
+        return nil;
+    }
+    double result = 0;
+    double divisor = 1;
+    for (long i = 0; i < count; i++) {
+        unsigned long a = _getLong(rawValue, i * 8, bigendian);
+        unsigned long b = _getLong(rawValue, i * 8 + 4, bigendian);
+        if (b == 0) {
+            return nil;
+        }
+        result += ((double) a / (double) b) / divisor;
+        divisor *= 60;
+    }
+    return [NSNumber numberWithDouble: result];
 }
 
 - (id) keyForType: (int) type {
@@ -510,7 +542,11 @@ static unsigned long _getLong(const unsigned char *data, size_t offset,
         case tByte:
         case tSByte:
         case tUndefined:
-            if (count == 1) {
+            if (mode == kGPS && tag == kGPS_GPSAltitudeRef && count == 1) {
+                // GUESS: ImageIO gives AltitudeRef as a 4-byte integer (second probe output line 14, for a value written through
+                // the destination); how the raw byte maps (0 above, 1 below sea level) was not probed.
+                val = [NSNumber numberWithInt: _getByte(rawValue, 0, bigendian)];
+            } else if (count == 1) {
                 value = _getByte(rawValue, 0, bigendian);
                 val = [NSNumber numberWithChar: value];
             } else {
@@ -552,7 +588,11 @@ static unsigned long _getLong(const unsigned char *data, size_t offset,
             }
             break;
         case tRational:
-            if (count == 1) {
+            if (mode == kGPS &&
+                (tag == kGPS_GPSLatitude || tag == kGPS_GPSLongitude ||
+                 tag == kGPS_GPSAltitude)) {
+                val = _gpsDecimal(rawValue, count, bigendian);
+            } else if (count == 1) {
                 unsigned long a = _getLong(rawValue, 0, bigendian);
                 unsigned long b = _getLong(rawValue, 4, bigendian);
                 val = [NSNumber numberWithFloat: a / (float) b];
