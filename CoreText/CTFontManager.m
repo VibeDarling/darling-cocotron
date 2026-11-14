@@ -70,3 +70,13 @@ bool CTFontManagerRegisterFontsForURL(CFURLRef fontURL, CTFontManagerScope scope
     printf("STUB %s\n", __PRETTY_FUNCTION__);
     return false;
 }
+
+// GUESS (rung 6): no public header or documentation gives the signature of CTFontManagerEnableSystemVisibleFonts, and the name
+// is all that is known (Notes imports it and calls it while launching). Cocotron CoreText has no set of installed fonts that
+// are hidden from a process, so every font is already visible and the request has nothing to do. It returns 0 (false, or NULL
+// if the real result is a pointer or error object): a caller that releases or dereferences a result stops at NULL, not at 1,
+// and Notes launches past this call with either value (tried both), so nothing needs "true".
+bool CTFontManagerEnableSystemVisibleFonts(void)
+{
+    return false;
+}
