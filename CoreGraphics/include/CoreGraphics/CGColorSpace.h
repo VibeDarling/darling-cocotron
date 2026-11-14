@@ -34,6 +34,7 @@ COREGRAPHICS_EXPORT const CFStringRef kCGColorSpaceACESCGLinear;
 COREGRAPHICS_EXPORT const CFStringRef kCGColorSpaceITUR_709;
 COREGRAPHICS_EXPORT const CFStringRef kCGColorSpaceITUR_2020;
 COREGRAPHICS_EXPORT const CFStringRef kCGColorSpaceITUR_2100_PQ;
+COREGRAPHICS_EXPORT const CFStringRef kCGColorSpaceITUR_2100_HLG;
 COREGRAPHICS_EXPORT const CFStringRef kCGColorSpaceROMMRGB;
 COREGRAPHICS_EXPORT const CFStringRef kCGColorSpaceDCIP3;
 COREGRAPHICS_EXPORT const CFStringRef kCGColorSpaceExtendedSRGB;
@@ -89,6 +90,8 @@ COREGRAPHICS_EXPORT bool CGColorSpaceIsWideGamutRGB(CGColorSpaceRef space);
 // True if the space uses an ITU-R BT.2100 transfer function (PQ or HLG).
 COREGRAPHICS_EXPORT bool CGColorSpaceUsesITUR_2100TF(CGColorSpaceRef space);
 COREGRAPHICS_EXPORT bool CGColorSpaceIsHLGBased(CGColorSpaceRef space);
+COREGRAPHICS_EXPORT bool CGColorSpaceIsHDR(CGColorSpaceRef space);
+COREGRAPHICS_EXPORT bool CGColorSpaceSupportsOutput(CGColorSpaceRef space);
 
 CF_IMPLICIT_BRIDGING_DISABLED
 

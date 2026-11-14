@@ -130,6 +130,24 @@ bool CGColorSpaceIsWideGamutRGB(CGColorSpaceRef space) {
     return primaries != NULL && gamutArea(primaries) > 0.85 * gamutArea(&kPrimariesNTSC1953);
 }
 
+// Observed on macOS 26.1 (probe 12, section 3, answers for 15 named and 5 created spaces): true for
+// kCGColorSpaceITUR_2100_PQ, kCGColorSpaceITUR_2100_HLG and kCGColorSpaceDisplayP3_PQ, false for every other space
+// probed (sRGB, linear and extended sRGB, Display P3, ITU-R 2020, gray, CMYK, Lab, XYZ, indexed, pattern). That is
+// the ITU-R 2100 transfer function test. Not observed, GUESS: a NULL space is false; kCGColorSpaceDisplayP3_PQ does
+// not exist in Cocotron yet, so that one name is not covered.
+bool CGColorSpaceIsHDR(CGColorSpaceRef space) {
+    return CGColorSpaceUsesITUR_2100TF(space);
+}
+
+// Observed on macOS 26.1 (probe 12, section 3): true for every RGB, gray, CMYK, Lab and XYZ space probed, false for
+// an indexed and a pattern space. Not observed, GUESS: a NULL space is false, and a DeviceN or unknown model is true.
+bool CGColorSpaceSupportsOutput(CGColorSpaceRef space) {
+    if (space == NULL)
+        return false;
+    CGColorSpaceModel model = CGColorSpaceGetModel(space);
+    return model != kCGColorSpaceModelIndexed && model != kCGColorSpaceModelPattern;
+}
+
 static double srgbToLinear(double v) {
     double a = fabs(v);
     double linear = a <= 0.04045 ? a / 12.92 : pow((a + 0.055) / 1.055, 2.4);

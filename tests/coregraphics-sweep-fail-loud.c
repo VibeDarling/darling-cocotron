@@ -7,8 +7,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-// Private functions (and two public ones whose answers the documentation does not give) that stock applications
-// import: window server calls for QuickTime Player, TV and ColorSync Utility, SPI for Freeform and Photos. No
+// Private functions that stock applications import: window server calls for QuickTime Player, TV and ColorSync Utility, SPI for Freeform and Photos. No
 // permitted source documents their arguments or results, so a call prints the name and aborts. Each is called in a
 // child with its stderr piped; the pipe is read to EOF, so a long message cannot be cut short.
 static int check(const char *name) {
@@ -90,8 +89,6 @@ int main(void) {
         "CGImageCreateCopyWithRenderingIntent",
         "CGEventSetWindowLocation",
         "CGPDFDocumentCopyOutputIntents",
-        "CGColorSpaceSupportsOutput",
-        "CGColorSpaceIsHDR",
     };
     int failures = 0;
     for (size_t i = 0; i < sizeof names / sizeof names[0]; i++) failures += check(names[i]);

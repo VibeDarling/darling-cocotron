@@ -81,8 +81,3 @@ CG_FAIL_LOUD(CGColorSpaceCopyICCProfileDescription)
 CG_FAIL_LOUD(CGImageCreateCopyWithRenderingIntent)
 CG_FAIL_LOUD(CGEventSetWindowLocation)
 CG_FAIL_LOUD(CGPDFDocumentCopyOutputIntents)
-
-// Public, but the documentation does not say which color spaces they answer true for (Freeform, ColorSync
-// Utility); NEEDS-REAL-MAC, see the pull request.
-CG_FAIL_LOUD(CGColorSpaceSupportsOutput)
-CG_FAIL_LOUD(CGColorSpaceIsHDR)
