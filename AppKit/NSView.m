@@ -335,9 +335,9 @@ typedef struct __VFlags {
                         [keyed decodeBoolForKey: @"NSViewCanDrawConcurrently"]];
 
         // The constraints Interface Builder archives under a view are the ones
-        // whose common ancestor it is; the view owns them. They stay inactive
-        // and out of -constraints, but outlets of the nib's objects point at
-        // them, so they must live as long as the view.
+        // whose common ancestor it is; the view owns them. They are not
+        // installed (not in -constraints), but outlets of the nib's objects
+        // point at them, so they must live as long as the view.
         if ([keyed containsValueForKey: @"NSViewConstraints"])
             objc_setAssociatedObject(self, &archivedViewConstraintsKey,
                                      [keyed decodeObjectForKey: @"NSViewConstraints"],
