@@ -3,12 +3,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #define EXPECT(cond, msg) do { if (!(cond)) { printf("FAIL: %s\n", msg); return 1; } } while (0)
 
 // CTFontManagerIsSupportedFont and CTFontManagerUnregisterFontURLs against what a real Mac answered for the same inputs
-// (macOS 26.1, our own probe symbols_d_probe1: lines 73-90 of its output). The functions are found with dlsym.
+// (macOS 26.1, our own probe symbols_d_probe1: lines 73-90 of its output). The functions are found with dlsym. Checks
+// marked GUESS pin behaviour the probe did not observe; they are there so that a change of it is a conscious one.
 typedef bool (*IsSupportedFont)(CFURLRef);
 typedef void (*UnregisterFontURLs)(CFArrayRef, uint32_t, bool (^)(CFArrayRef, bool));
 
@@ -30,11 +32,15 @@ int main(void) {
 
     char dir[] = "/tmp/coretext-font-manager-observed.XXXXXX";
     EXPECT(mkdtemp(dir) != NULL, "mkdtemp");
-    char garbageTTF[256], textTXT[256], emptyTTF[256], missingTTF[256];
+    char garbageTTF[256], textTXT[256], emptyTTF[256], missingTTF[256], upperTTF[256], dirTTF[256];
     snprintf(garbageTTF, sizeof garbageTTF, "%s/garbage.ttf", dir);
     snprintf(textTXT, sizeof textTXT, "%s/font.txt", dir);
     snprintf(emptyTTF, sizeof emptyTTF, "%s/empty.ttf", dir);
     snprintf(missingTTF, sizeof missingTTF, "%s/missing.ttf", dir);
+    snprintf(upperTTF, sizeof upperTTF, "%s/UPPER.TTF", dir);
+    snprintf(dirTTF, sizeof dirTTF, "%s/folder.ttf", dir);
+    writeFile(upperTTF, "this is not a font\n");
+    mkdir(dirTTF, 0700);
     writeFile(garbageTTF, "this is not a font\n");
     writeFile(textTXT, "this is not a font\n");
     writeFile(emptyTTF, "");
@@ -52,7 +58,17 @@ int main(void) {
     bool directory = isSupported(u); CFRelease(u);
     CFURLRef http = CFURLCreateWithString(NULL, CFSTR("http://example.invalid/a.ttf"), NULL);
     bool remote = isSupported(http); CFRelease(http);
-    unlink(garbageTTF); unlink(textTXT); unlink(emptyTTF); rmdir(dir);
+    // GUESS (not observed on the Mac): upper case extension, a directory named x.ttf, a non-file URL whose path exists
+    u = urlFor(upperTTF);
+    bool upper = isSupported(u); CFRelease(u);
+    u = urlFor(dirTTF);
+    bool folder = isSupported(u); CFRelease(u);
+    char remoteString[320];
+    snprintf(remoteString, sizeof remoteString, "http://example.invalid%s", garbageTTF);
+    CFStringRef remoteCF = CFStringCreateWithCString(NULL, remoteString, kCFStringEncodingUTF8);
+    CFURLRef remoteExisting = CFURLCreateWithString(NULL, remoteCF, NULL);
+    bool remoteHit = isSupported(remoteExisting); CFRelease(remoteExisting); CFRelease(remoteCF);
+    unlink(garbageTTF); unlink(textTXT); unlink(emptyTTF); unlink(upperTTF); rmdir(dirTTF); rmdir(dir);
     EXPECT(garbage, "a non-empty file with a font extension is supported whatever it holds (probe1:79)");
     EXPECT(!text, "the same bytes under a .txt name are not supported (probe1:77)");
     EXPECT(!empty, "an empty .ttf is not supported (probe1:81)");
@@ -60,10 +76,14 @@ int main(void) {
     EXPECT(!directory, "a directory is not supported (probe1:85)");
     EXPECT(!remote, "a non-file URL is not supported (probe1:87)");
     EXPECT(!isSupported(NULL), "NULL is not supported");
+    EXPECT(upper, "GUESS: an upper case font extension is supported");
+    EXPECT(!folder, "GUESS: a directory named x.ttf is not supported");
+    EXPECT(!remoteHit, "GUESS: a non-file URL is not supported even when its path exists");
 
     // probe1:88-90: one handler call, before the function returns, one error, done true
     CFURLRef font = urlFor("/tmp/never-registered.ttf");
-    CFArrayRef urls = CFArrayCreate(NULL, (const void **) &font, 1, &kCFTypeArrayCallBacks);
+    CFMutableArrayRef urls = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    CFArrayAppendValue(urls, font);
     __block int calls = 0, errorCount = -1, done = -1, code = -1, urlCount = -1, keyCount = -1;
     unregister(urls, 1, ^bool(CFArrayRef errors, bool isDone) {
         calls++;
@@ -73,6 +93,7 @@ int main(void) {
             CFErrorRef error = (CFErrorRef) CFArrayGetValueAtIndex(errors, 0);
             CFStringGetCString(CFErrorGetDomain(error), domain, sizeof domain, kCFStringEncodingUTF8);
             code = (int) CFErrorGetCode(error);
+            CFArrayAppendValue(urls, font); // the caller's array may change while the handler runs: the error holds a copy
             CFDictionaryRef info = CFErrorCopyUserInfo(error);
             keyCount = (int) CFDictionaryGetCount(info);
             CFStringRef d = CFDictionaryGetValue(info, CFSTR("NSLocalizedDescription"));
@@ -93,7 +114,7 @@ int main(void) {
     EXPECT(keyCount == 3, "three user-info entries (probe1:89)");
     EXPECT(strcmp(description, "The file is not registered in the specified scope.") == 0, "NSLocalizedDescription (probe1:89)");
     EXPECT(strcmp(reason, "Font unregistration was unsuccessful.") == 0, "NSLocalizedFailureReason (probe1:89)");
-    EXPECT(urlCount == 1, "CTFontManagerErrorFontURLs holds the URL (probe1:89)");
+    EXPECT(urlCount == 1, "CTFontManagerErrorFontURLs holds the URL (count 1 is probe1:89; that it is the URL is inferred)");
     CFRelease(urls);
     CFRelease(font);
     printf("PASS: CTFontManager observed behaviour\n");
