@@ -45,6 +45,9 @@ const NSToolbarItemIdentifier NSToolbarShowFontsItemIdentifier =
         @"NSToolbarShowFontsItem";
 const NSToolbarItemIdentifier NSToolbarSpaceItemIdentifier =
         @"NSToolbarSpaceItem";
+// GUESS: the SDK header declares the identifier but not its value; this follows its siblings' spelling.
+// The standard item the header describes (it sends -toggleSidebar: to the first responder) is not built for it.
+NSToolbarItemIdentifier NSToolbarToggleSidebarItemIdentifier = @"NSToolbarToggleSidebarItem";
 
 extern NSSize _NSToolbarSizeRegular;
 extern NSSize _NSToolbarSizeSmall;

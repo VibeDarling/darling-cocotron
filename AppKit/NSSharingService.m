@@ -2,6 +2,8 @@
 
 NSSharingServiceName const NSSharingServiceNameAddToIPhoto = @"com.apple.share.System.add-to-iphoto";
 NSSharingServiceName const NSSharingServiceNameAddToSafariReadingList = @"com.apple.share.System.add-to-safari-reading-list";
+// GUESS: the SDK header declares the name but not its value; this follows the style of its siblings.
+NSSharingServiceName const NSSharingServiceNameSendViaAirDrop = @"com.apple.share.AirDrop.send";
 NSSharingServiceName const NSSharingServiceNameComposeEmail = @"com.apple.share.Mail.compose";
 NSSharingServiceName const NSSharingServiceNameComposeMessage = @"com.apple.messages.ShareExtension";
 

@@ -4,6 +4,9 @@
 #import <AppKit/NSAccessibilityConstants.h>
 #import <AppKit/NSErrors.h>
 #import <AppKit/NSView.h>
+#import <AppKit/NSWindow.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 NSString *const NSAccessibilityChildrenAttribute =
         @"NSAccessibilityChildrenAttribute";
@@ -590,6 +593,35 @@ NSString *const NSAccessibilityPriorityKey = @"AXPriorityKey";
 NSRect NSAccessibilityFrameInView(NSView *parentView, NSRect frame) {
     printf("STUB %s\n", __PRETTY_FUNCTION__);
     return frame;
+}
+
+// The SDK header documents only "a point in the view's coordinates, returned in screen coordinates". It says nothing
+// about a nil view or a view that is in no window. GUESS: a nil view returns the point unchanged; a view in no window
+// is not on a screen, so the point is converted into the coordinates of the topmost view of its superview chain (a
+// conversion that needs no window) and no screen offset is added.
+NSPoint NSAccessibilityPointInView(NSView *parentView, NSPoint point) {
+    if (parentView == nil) {
+        return point;
+    }
+
+    NSWindow *window = [parentView window];
+
+    if (window == nil) {
+        NSView *root = parentView;
+
+        while ([root superview] != nil) {
+            root = [root superview];
+        }
+        return [parentView convertPoint: point toView: root];
+    }
+    return [window convertPointToScreen: [parentView convertPoint: point toView: nil]];
+}
+
+// Private: no public source says what unregistering an element's unique id does or when a caller needs it, so
+// a call fails loudly instead of pretending the id was handled.
+void NSAccessibilityUnregisterUniqueIdForUIElement(id element) {
+    fprintf(stderr, "AppKit: NSAccessibilityUnregisterUniqueIdForUIElement is not implemented\n");
+    abort();
 }
 
 void NSAccessibilityPostNotification(id element, NSString *notification) {

@@ -24,6 +24,7 @@ typedef NSString *NSSharingServiceName;
 
 APPKIT_EXPORT NSSharingServiceName const NSSharingServiceNameAddToIPhoto;
 APPKIT_EXPORT NSSharingServiceName const NSSharingServiceNameAddToSafariReadingList;
+APPKIT_EXPORT NSSharingServiceName const NSSharingServiceNameSendViaAirDrop;
 APPKIT_EXPORT NSSharingServiceName const NSSharingServiceNameComposeEmail;
 APPKIT_EXPORT NSSharingServiceName const NSSharingServiceNameComposeMessage;
 

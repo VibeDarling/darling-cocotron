@@ -33,6 +33,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 @property BOOL allowsEditingTextAttributes;
 
 + (instancetype)labelWithString:(NSString *)stringValue;
++ (instancetype)labelWithAttributedString:(NSAttributedString *)attributedStringValue;
 
 - delegate;
 - (void) setDelegate: delegate;
