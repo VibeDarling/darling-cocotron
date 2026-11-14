@@ -11,6 +11,13 @@ NSSharingServiceName const NSSharingServiceNamePostOnSinaWeibo = @"com.apple.sha
 NSSharingServiceName const NSSharingServiceNamePostOnTencentWeibo = @"com.apple.share.TencentWeibo.post";
 NSSharingServiceName const NSSharingServiceNamePostOnLinkedIn = @"com.apple.share.LinkedIn.post";
 
+// NSSharingService.h (macOS 10.12) declares this name without a value, and Apple's documentation does not give
+// one. GUESS: the name. Open-source SDK binding tables disagree (darwinkit and hsiafan/cocoa list
+// "com.apple.share.CloudSharing"; the Safari share-menu preference lists the extension
+// "com.apple.share.CloudSharing.invite"), so NEEDS-REAL-MAC. Nothing in this tree reads it, and the service it
+// names (a persistent iCloud sharing session) does not exist here.
+NSSharingServiceName const NSSharingServiceNameCloudSharing = @"NSSharingServiceNameCloudSharing";
+
 @implementation NSSharingService
 
 + (NSArray<NSSharingService *> *) sharingServicesForItems: (NSArray *) items {
