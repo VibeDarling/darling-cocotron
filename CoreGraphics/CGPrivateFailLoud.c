@@ -36,5 +36,4 @@ CG_FAIL_LOUD(CGStyleRetain)                        // Calendar
 CG_FAIL_LOUD(CGStyleEqualToStyle)                  // Calendar
 CG_FAIL_LOUD(CGSDisableUpdateToken)                // Calendar
 CG_FAIL_LOUD(CGSReenableUpdateToken)               // Calendar
-CG_FAIL_LOUD(CGSSetWindowTransform)                // Calendar
 CG_FAIL_LOUD(CGFontGetParserFont)                  // Font Book

@@ -67,6 +67,8 @@ extern CGError CGSSetWindowLevel(CGSConnectionID cid, CGSWindowID wid, CGWindowL
 // two 32-bit values (a placement selector and a reserved value; both 0 in
 // practice) come before the transform, which is passed by value.
 extern CGError CGSSetWindowTransformAtPlacement(CGSConnectionID cid, CGSWindowID wid, int32_t placement, int32_t reserved, CGAffineTransform transform);
+// Placement-less form (GUESS: placement 0, reserved 0), see CGS.m.
+extern CGError CGSSetWindowTransform(CGSConnectionID cid, CGSWindowID wid, CGAffineTransform transform);
 extern CGError CGSGetWindowTransformAtPlacement(CGSConnectionID cid, CGSWindowID wid, int32_t placement, void *reserved, CGAffineTransform *outTransform);
 
 // Queried window server state; 0 means the server is running normally.

@@ -45,7 +45,7 @@ int main(void) {
     static const char *names[] = {
         "CGBitmapGetAlignedBytesPerRow", "CGBitmapContextCreateWithDictionary", "CGSCopySpaces",
         "CGContextGetLineDashPattern", "CGStyleRetain", "CGStyleEqualToStyle", "CGSDisableUpdateToken",
-        "CGSReenableUpdateToken", "CGSSetWindowTransform", "CGFontGetParserFont",
+        "CGSReenableUpdateToken", "CGFontGetParserFont",
     };
     int failures = 0;
     for (size_t i = 0; i < sizeof names / sizeof names[0]; i++) failures += check(names[i]);
