@@ -19,24 +19,33 @@
 
 #import <AppKit/NSFontDescriptor.h>
 
-// Names Books (a UIKit-for-Mac application) binds to AppKit. UIFontDescriptorSystemDesignDefault and Monospaced complete
-// the four designs UIKit documents (Serif and Rounded are defined with the other UIFont names in darling-cocotron #529);
-// the five UIFontSystemFontDesign names are not in the public documentation. Every value is GUESS (rung 6), NEEDS-REAL-MAC
-// (mac-probe/darling_probe_a1.c): a name with an NSFontDescriptor counterpart carries its string, so a descriptor built
-// with either name is read the same way; Compact and Condensed have none and follow the same spelling.
+// Names Books, Podcasts, Journal and TV (UIKit-for-Mac applications) bind to AppKit. UIFontDescriptorSystemDesignDefault and
+// Monospaced complete the four designs UIKit documents (Serif and Rounded are defined with the other UIFont names in
+// darling-cocotron #529); the UIFontSystemFontDesign* names and NSFontSystemDesignRounded are not in the public documentation,
+// so their type is a GUESS. Every string is the value a real Mac holds (macOS 26.1, mac-probe/darling_probe_a1.txt, rung 4).
 // Declared here, in no AppKit header.
 APPKIT_EXPORT NSFontDescriptorSystemDesign const UIFontDescriptorSystemDesignDefault;
 APPKIT_EXPORT NSFontDescriptorSystemDesign const UIFontDescriptorSystemDesignMonospaced;
+APPKIT_EXPORT NSFontDescriptorAttributeName const UIFontDescriptorFamilyAttribute;
+APPKIT_EXPORT NSFontDescriptorAttributeName const UIFontDescriptorNameAttribute;
+APPKIT_EXPORT NSFontDescriptorAttributeName const UIFontDescriptorSizeAttribute;
 APPKIT_EXPORT NSString *const UIFontSystemFontDesignCompact;
 APPKIT_EXPORT NSString *const UIFontSystemFontDesignCondensed;
 APPKIT_EXPORT NSString *const UIFontSystemFontDesignDefault;
 APPKIT_EXPORT NSString *const UIFontSystemFontDesignRounded;
 APPKIT_EXPORT NSString *const UIFontSystemFontDesignSerif;
+APPKIT_EXPORT NSString *const UIFontSystemFontDesignTrait;
+APPKIT_EXPORT NSString *const NSFontSystemDesignRounded;
 
 NSFontDescriptorSystemDesign const UIFontDescriptorSystemDesignDefault = @"NSCTFontUIFontDesignDefault";
 NSFontDescriptorSystemDesign const UIFontDescriptorSystemDesignMonospaced = @"NSCTFontUIFontDesignMonospaced";
+NSFontDescriptorAttributeName const UIFontDescriptorFamilyAttribute = @"NSFontFamilyAttribute";
+NSFontDescriptorAttributeName const UIFontDescriptorNameAttribute = @"NSFontNameAttribute";
+NSFontDescriptorAttributeName const UIFontDescriptorSizeAttribute = @"NSFontSizeAttribute";
 NSString *const UIFontSystemFontDesignCompact = @"NSCTFontUIFontDesignCompact";
 NSString *const UIFontSystemFontDesignCondensed = @"NSCTFontUIFontDesignCondensed";
 NSString *const UIFontSystemFontDesignDefault = @"NSCTFontUIFontDesignDefault";
 NSString *const UIFontSystemFontDesignRounded = @"NSCTFontUIFontDesignRounded";
 NSString *const UIFontSystemFontDesignSerif = @"NSCTFontUIFontDesignSerif";
+NSString *const UIFontSystemFontDesignTrait = @"NSCTFontUIFontDesignTrait";
+NSString *const NSFontSystemDesignRounded = @"NSCTFontUIFontDesignRounded";

@@ -1,7 +1,6 @@
-// Books binds the UIFont system design names to AppKit. dyld stops an app whose AppKit lacks one, so each of the seven
-// must be an exported symbol of the process and hold a non-empty string; the ones with an NSFontDescriptor counterpart equal
-// it (a descriptor built with either name is read the same way), and the two without differ from every other design.
-// The string values themselves are a GUESS (UIFontDesignNames.m).
+// The UIFont system design names Books, Podcasts, Journal and TV bind to AppKit. dyld stops an app whose AppKit lacks one, so
+// each must be an exported string symbol of the process, and each holds the string a real Mac holds (mac-probe
+// darling_probe_a1.txt, macOS 26.1), which the test pins literally.
 #import <AppKit/AppKit.h>
 #include <dlfcn.h>
 #include <stdlib.h>
@@ -15,33 +14,32 @@ static void expect(BOOL condition, NSString *message)
     }
 }
 
-static NSString *constant(const char *name)
-{
-    NSString *const *symbol = (NSString *const *)dlsym(RTLD_DEFAULT, name);
-    expect(symbol != NULL, [NSString stringWithFormat:@"%s is exported", name]);
-    NSString *value = *symbol;
-    expect([value isKindOfClass:[NSString class]] && [value length] > 0, [NSString stringWithFormat:@"%s holds a string", name]);
-    return value;
-}
-
 int main(void)
 {
     @autoreleasepool
     {
-        expect([constant("UIFontDescriptorSystemDesignDefault") isEqual:NSFontDescriptorSystemDesignDefault], @"descriptor default");
-        expect([constant("UIFontDescriptorSystemDesignMonospaced") isEqual:NSFontDescriptorSystemDesignMonospaced], @"descriptor monospaced");
-        expect([constant("UIFontSystemFontDesignDefault") isEqual:NSFontDescriptorSystemDesignDefault], @"font default");
-        expect([constant("UIFontSystemFontDesignRounded") isEqual:NSFontDescriptorSystemDesignRounded], @"font rounded");
-        expect([constant("UIFontSystemFontDesignSerif") isEqual:NSFontDescriptorSystemDesignSerif], @"font serif");
-
-        NSArray *others = @[
-            NSFontDescriptorSystemDesignDefault, NSFontDescriptorSystemDesignSerif,
-            NSFontDescriptorSystemDesignMonospaced, NSFontDescriptorSystemDesignRounded
-        ];
-        NSString *compact = constant("UIFontSystemFontDesignCompact");
-        NSString *condensed = constant("UIFontSystemFontDesignCondensed");
-        expect(![others containsObject:compact] && ![others containsObject:condensed], @"compact and condensed are new designs");
-        expect(![compact isEqual:condensed], @"compact differs from condensed");
+        static const struct { const char *name; const char *value; } expected[] = {
+            { "UIFontDescriptorSystemDesignDefault", "NSCTFontUIFontDesignDefault" },
+            { "UIFontDescriptorSystemDesignMonospaced", "NSCTFontUIFontDesignMonospaced" },
+            { "UIFontDescriptorFamilyAttribute", "NSFontFamilyAttribute" },
+            { "UIFontDescriptorNameAttribute", "NSFontNameAttribute" },
+            { "UIFontDescriptorSizeAttribute", "NSFontSizeAttribute" },
+            { "UIFontSystemFontDesignCompact", "NSCTFontUIFontDesignCompact" },
+            { "UIFontSystemFontDesignCondensed", "NSCTFontUIFontDesignCondensed" },
+            { "UIFontSystemFontDesignDefault", "NSCTFontUIFontDesignDefault" },
+            { "UIFontSystemFontDesignRounded", "NSCTFontUIFontDesignRounded" },
+            { "UIFontSystemFontDesignSerif", "NSCTFontUIFontDesignSerif" },
+            { "UIFontSystemFontDesignTrait", "NSCTFontUIFontDesignTrait" },
+            { "NSFontSystemDesignRounded", "NSCTFontUIFontDesignRounded" },
+        };
+        for (unsigned i = 0; i < sizeof expected / sizeof *expected; i++)
+        {
+            NSString *const *symbol = (NSString *const *)dlsym(RTLD_DEFAULT, expected[i].name);
+            expect(symbol != NULL, [NSString stringWithFormat:@"%s is exported", expected[i].name]);
+            NSString *want = [NSString stringWithUTF8String:expected[i].value];
+            expect([*symbol isKindOfClass:[NSString class]] && [*symbol isEqualToString:want],
+                   [NSString stringWithFormat:@"%s is \"%@\", got \"%@\"", expected[i].name, want, *symbol]);
+        }
         NSLog(@"appkit-ui-font-system-design: ok");
     }
     return 0;
