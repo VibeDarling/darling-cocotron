@@ -38,6 +38,43 @@ CA_EXPORT NSString *const kCAFilterMultiplyColor;
 CA_EXPORT NSString *const kCAFilterVariableBlur;
 CA_EXPORT NSString *const kCAFilterVibrantColorMatrix;
 
+// Private names QuartzCore exports. WebKit's QuartzCoreSPI.h declares 17 of the names below (PlusD, PlusL and the
+// blend mode names Normal, Screen, Overlay, Darken, Lighten, ColorDodge, ColorBurn, SoftLight, HardLight,
+// Difference, Exclusion, Hue, Saturation, Color and Luminosity); the other 14 have no open-source declaration. The
+// existence and the string value of every name below were observed on a real Mac (macOS 26.1, probe 11,
+// darling_probe11.txt lines 3-34), where each is an NSString constant.
+CA_EXPORT NSString *const kCAFilterPlusD;
+CA_EXPORT NSString *const kCAFilterPlusL;
+CA_EXPORT NSString *const kCAFilterColorBlendMode;
+CA_EXPORT NSString *const kCAFilterColorBurnBlendMode;
+CA_EXPORT NSString *const kCAFilterColorDodgeBlendMode;
+CA_EXPORT NSString *const kCAFilterDarkenBlendMode;
+CA_EXPORT NSString *const kCAFilterDarkenSourceOver;
+CA_EXPORT NSString *const kCAFilterDestOut;
+CA_EXPORT NSString *const kCAFilterDifferenceBlendMode;
+CA_EXPORT NSString *const kCAFilterDivideBlendMode;
+CA_EXPORT NSString *const kCAFilterExclusionBlendMode;
+CA_EXPORT NSString *const kCAFilterHardLightBlendMode;
+CA_EXPORT NSString *const kCAFilterHueBlendMode;
+CA_EXPORT NSString *const kCAFilterLightenBlendMode;
+CA_EXPORT NSString *const kCAFilterLightenSourceOver;
+CA_EXPORT NSString *const kCAFilterLinearBurnBlendMode;
+CA_EXPORT NSString *const kCAFilterLinearDodgeBlendMode;
+CA_EXPORT NSString *const kCAFilterLinearLightBlendMode;
+CA_EXPORT NSString *const kCAFilterLuminosityBlendMode;
+CA_EXPORT NSString *const kCAFilterMaximum;
+CA_EXPORT NSString *const kCAFilterMinimum;
+CA_EXPORT NSString *const kCAFilterMultiply;
+CA_EXPORT NSString *const kCAFilterNormalBlendMode;
+CA_EXPORT NSString *const kCAFilterOverlayBlendMode;
+CA_EXPORT NSString *const kCAFilterPinLightBlendMode;
+CA_EXPORT NSString *const kCAFilterSaturationBlendMode;
+CA_EXPORT NSString *const kCAFilterScreenBlendMode;
+CA_EXPORT NSString *const kCAFilterSoftLightBlendMode;
+CA_EXPORT NSString *const kCAFilterSubtractBlendMode;
+CA_EXPORT NSString *const kCAFilterSubtractD;
+CA_EXPORT NSString *const kCAFilterSubtractS;
+
 CA_EXPORT NSString *const kCAFilterInputAlphaValues;
 CA_EXPORT NSString *const kCAFilterInputAmount;
 CA_EXPORT NSString *const kCAFilterInputAngle;

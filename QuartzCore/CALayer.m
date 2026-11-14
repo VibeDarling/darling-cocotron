@@ -37,6 +37,11 @@ NSString *const kCATransition = @"transition";
 NSString *const kCAContentsFormatRGBA8Uint = @"RGBA8";
 NSString *const kCAContentsFormatRGBA16Float = @"RGBAh";
 NSString *const kCAContentsFormatGray8Uint = @"Gray8";
+// Private names Books imports. Observed on a real Mac (macOS 26.1, probe 11 section 1, darling_probe11.txt lines
+// 35-37): NSString constants with these values.
+NSString *const kCAContentsFormatA8 = @"A8";
+NSString *const kCALayerContentsSwizzleAAAA = @"AAAA";
+NSString *const kCALayerContentsSwizzleRGBA = @"RGBA";
 NSString *const kCAContentsFormatAutomatic = @"CocotronContentsFormatAutomatic";
 
 NSString *const CADynamicRangeAutomatic = @"automatic";

@@ -37,6 +37,41 @@ NSString *const kCAFilterMultiplyColor = @"multiplyColor";
 NSString *const kCAFilterVariableBlur = @"variableBlur";
 NSString *const kCAFilterVibrantColorMatrix = @"vibrantColorMatrix";
 
+// Observed on a real Mac (macOS 26.1, probe 11 section 1, darling_probe11.txt lines 3-34): each value is the name
+// without the kCAFilter prefix and with a lower case first letter. Nothing in Cocotron compares them; a filter
+// built from one stores it as its type.
+NSString *const kCAFilterPlusD = @"plusD";
+NSString *const kCAFilterPlusL = @"plusL";
+NSString *const kCAFilterColorBlendMode = @"colorBlendMode";
+NSString *const kCAFilterColorBurnBlendMode = @"colorBurnBlendMode";
+NSString *const kCAFilterColorDodgeBlendMode = @"colorDodgeBlendMode";
+NSString *const kCAFilterDarkenBlendMode = @"darkenBlendMode";
+NSString *const kCAFilterDarkenSourceOver = @"darkenSourceOver";
+NSString *const kCAFilterDestOut = @"destOut";
+NSString *const kCAFilterDifferenceBlendMode = @"differenceBlendMode";
+NSString *const kCAFilterDivideBlendMode = @"divideBlendMode";
+NSString *const kCAFilterExclusionBlendMode = @"exclusionBlendMode";
+NSString *const kCAFilterHardLightBlendMode = @"hardLightBlendMode";
+NSString *const kCAFilterHueBlendMode = @"hueBlendMode";
+NSString *const kCAFilterLightenBlendMode = @"lightenBlendMode";
+NSString *const kCAFilterLightenSourceOver = @"lightenSourceOver";
+NSString *const kCAFilterLinearBurnBlendMode = @"linearBurnBlendMode";
+NSString *const kCAFilterLinearDodgeBlendMode = @"linearDodgeBlendMode";
+NSString *const kCAFilterLinearLightBlendMode = @"linearLightBlendMode";
+NSString *const kCAFilterLuminosityBlendMode = @"luminosityBlendMode";
+NSString *const kCAFilterMaximum = @"maximum";
+NSString *const kCAFilterMinimum = @"minimum";
+NSString *const kCAFilterMultiply = @"multiply";
+NSString *const kCAFilterNormalBlendMode = @"normalBlendMode";
+NSString *const kCAFilterOverlayBlendMode = @"overlayBlendMode";
+NSString *const kCAFilterPinLightBlendMode = @"pinLightBlendMode";
+NSString *const kCAFilterSaturationBlendMode = @"saturationBlendMode";
+NSString *const kCAFilterScreenBlendMode = @"screenBlendMode";
+NSString *const kCAFilterSoftLightBlendMode = @"softLightBlendMode";
+NSString *const kCAFilterSubtractBlendMode = @"subtractBlendMode";
+NSString *const kCAFilterSubtractD = @"subtractD";
+NSString *const kCAFilterSubtractS = @"subtractS";
+
 NSString *const kCAFilterInputAlphaValues = @"inputAlphaValues";
 NSString *const kCAFilterInputAmount = @"inputAmount";
 NSString *const kCAFilterInputAngle = @"inputAngle";
