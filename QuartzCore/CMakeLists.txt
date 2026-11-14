@@ -59,6 +59,7 @@ set(QuartzCore_sources
 	CAConstraintLayoutManager.m
 	CAFilter.m
 	CAPrivateNames.m
+	CAPrivateFailLoud.m
 	CAGradientLayer.m
 	CAShapeLayer.m
 	CAMediaTiming.m
