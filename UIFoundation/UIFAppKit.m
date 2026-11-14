@@ -43,13 +43,12 @@ void *UIFRequireAppKitSymbol(const char *name) {
     return symbol;
 }
 
+// Layout needs AppKit at run time anyway (UIFAppKitClass above), and AppKit's helper is the one owner of the rule
+// for what a font attribute is: it unwraps a UIFont (a wrapper that only forwards NSFont messages) to its NSFont,
+// which layout needs because it caches IMPs of NSFont methods and hands the font to CoreText, and it supplies the
+// default font.
 NSFont *UIFFontAttributeInDictionary(NSDictionary *attributes) {
-    NSFont *font = [attributes objectForKey: NSFontAttributeName];
-
-    if (font == nil)
-        font = [NSFont fontWithName: @"Arial" size: 12.0];
-
-    return font;
+    return ((NSFont * (*)(NSDictionary *)) UIFAppKitSymbol(NSFontAttributeInDictionary))(attributes);
 }
 
 NSColor *UIFForegroundColorAttributeInDictionary(NSDictionary *attributes) {
