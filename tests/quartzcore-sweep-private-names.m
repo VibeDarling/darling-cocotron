@@ -3,44 +3,41 @@
 #include <stdio.h>
 #include <string.h>
 
-// Private QuartzCore names that Freeform, Photos, Podcasts, Journal, Mail and FindMy import. Each string value is
-// a GUESS in the implementation, so the test pins none: every constant must be exported, be a non-empty
-// NSString, and differ from every other. CAPortalLayer must exist, be a CALayer and work as one.
+// Private QuartzCore names that Freeform, Photos, Podcasts, Journal, Mail and FindMy import. The expected values are
+// what a real Mac printed (macOS 26.1, probe 12 section 1, darling_probe12.txt lines 3-18); kCASnapshotDisplayName
+// and kCAContextDisplayName legitimately share a value. CAPortalLayer must exist, be a CALayer and work as one; its
+// superclass was not observed (GUESS).
 int main(void) {
-    static const char *names[] = {
-        "kCAAnimationAbsolute",
-        "kCASnapshotBottomLeftOrigin",
-        "kCASnapshotContextId",
-        "kCASnapshotDestination",
-        "kCASnapshotDisplayName",
-        "kCASnapshotIgnoreRootAccessibilityFilters",
-        "kCASnapshotLayerId",
-        "kCASnapshotMode",
-        "kCASnapshotModeLayer",
-        "kCASnapshotReuseBackdropContents",
-        "kCASnapshotTransform",
-        "kCAContextIgnoresHitTest",
-        "kCAContextDisplayName",
-        "kCAPackageTypeArchive",
-        "kCAContentsScalingRepeat",
-        "kCAContentsFormatRGBA8ColorRGBA8LinearGlyphMask",
-        // Existing names the new ones must differ from.
-        "kCAAnimationLinear", "kCAFilterGaussianBlur",
+    static const struct { const char *name; const char *value; } expected[] = {
+        {"kCAAnimationAbsolute", "absolute"},
+        {"kCASnapshotBottomLeftOrigin", "bottomLeftOrigin"},
+        {"kCASnapshotContextId", "contextId"},
+        {"kCASnapshotDestination", "destination"},
+        {"kCASnapshotDisplayName", "displayName"},
+        {"kCASnapshotIgnoreRootAccessibilityFilters", "ignoreAccessibility"},
+        {"kCASnapshotLayerId", "layerId"},
+        {"kCASnapshotMode", "mode"},
+        {"kCASnapshotModeLayer", "modeLayer"},
+        {"kCASnapshotReuseBackdropContents", "reuseBackdrops"},
+        {"kCASnapshotTransform", "transform"},
+        {"kCAContextIgnoresHitTest", "ignoresHitTest"},
+        {"kCAContextDisplayName", "displayName"},
+        {"kCAPackageTypeArchive", "com.apple.coreanimation-archive"},
+        {"kCAContentsScalingRepeat", "repeat"},
+        {"kCAContentsFormatRGBA8ColorRGBA8LinearGlyphMask", "RGBA8ColorRGBA8Mask"},
     };
-    int count = (int)(sizeof names / sizeof names[0]);
+    int count = (int)(sizeof expected / sizeof expected[0]);
     int failures = 0;
     @autoreleasepool {
-        NSMutableDictionary *seen = [NSMutableDictionary dictionary];
         for (int i = 0; i < count; i++) {
-            NSString *const *slot = (NSString *const *)dlsym(RTLD_DEFAULT, names[i]);
-            if (slot == NULL) { printf("FAIL: %s is not exported\n", names[i]); failures++; continue; }
+            NSString *const *slot = (NSString *const *)dlsym(RTLD_DEFAULT, expected[i].name);
+            if (slot == NULL) { printf("FAIL: %s is not exported\n", expected[i].name); failures++; continue; }
             NSString *value = *slot;
-            if (![value isKindOfClass:[NSString class]] || [value length] == 0) {
-                printf("FAIL: %s is not a non-empty string\n", names[i]); failures++; continue;
+            if (![value isKindOfClass:[NSString class]] || strcmp([value UTF8String], expected[i].value) != 0) {
+                printf("FAIL: %s is \"%s\", expected \"%s\"\n", expected[i].name,
+                       [value isKindOfClass:[NSString class]] ? [value UTF8String] : "(not a string)", expected[i].value);
+                failures++;
             }
-            NSString *other = seen[value];
-            if (other != nil) { printf("FAIL: %s and %s share a value\n", names[i], [other UTF8String]); failures++; }
-            seen[value] = [NSString stringWithUTF8String:names[i]];
         }
         Class portal = NSClassFromString(@"CAPortalLayer");
         if (portal == Nil || ![portal isSubclassOfClass:[CALayer class]]) {
@@ -51,6 +48,6 @@ int main(void) {
             if (layer == nil || layer.opacity != 0.5) { printf("FAIL: CAPortalLayer works as a layer\n"); failures++; }
         }
     }
-    if (failures == 0) printf("PASS: %d private QuartzCore names\n", count);
+    if (failures == 0) printf("PASS: %d private QuartzCore names with the observed values\n", count);
     return failures ? 1 : 0;
 }

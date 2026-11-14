@@ -21,29 +21,30 @@
 #import <QuartzCore/CALayer.h>
 
 // Private QuartzCore names that stock applications import at launch (Freeform, Photos, Podcasts, Journal, Mail,
-// FindMy). The public documentation has neither their types nor their values. GUESS for every one: an NSString
-// constant, whose value is the name without its kCA prefix (kCAContentsFormat... follows the neighbouring
-// contents formats and drops the whole prefix), with a lower case first letter except for the contents format.
-// Nothing in Cocotron reads them.
+// FindMy). Each is an NSString constant with the value a real Mac printed (macOS 26.1, probe 12 section 1,
+// darling_probe12.txt lines 3-18). The values are not derived from the names: kCASnapshotMode is "mode",
+// kCASnapshotIgnoreRootAccessibilityFilters is "ignoreAccessibility", kCAPackageTypeArchive is
+// "com.apple.coreanimation-archive". Nothing in Cocotron reads them.
 
 NSString *const kCAAnimationAbsolute = @"absolute";
-NSString *const kCASnapshotBottomLeftOrigin = @"snapshotBottomLeftOrigin";
-NSString *const kCASnapshotContextId = @"snapshotContextId";
-NSString *const kCASnapshotDestination = @"snapshotDestination";
-NSString *const kCASnapshotDisplayName = @"snapshotDisplayName";
-NSString *const kCASnapshotIgnoreRootAccessibilityFilters = @"snapshotIgnoreRootAccessibilityFilters";
-NSString *const kCASnapshotLayerId = @"snapshotLayerId";
-NSString *const kCASnapshotMode = @"snapshotMode";
-NSString *const kCASnapshotModeLayer = @"snapshotModeLayer";
-NSString *const kCASnapshotReuseBackdropContents = @"snapshotReuseBackdropContents";
-NSString *const kCASnapshotTransform = @"snapshotTransform";
-NSString *const kCAContextIgnoresHitTest = @"contextIgnoresHitTest";
-NSString *const kCAContextDisplayName = @"contextDisplayName";
-NSString *const kCAPackageTypeArchive = @"archive";
+NSString *const kCASnapshotBottomLeftOrigin = @"bottomLeftOrigin";
+NSString *const kCASnapshotContextId = @"contextId";
+NSString *const kCASnapshotDestination = @"destination";
+NSString *const kCASnapshotDisplayName = @"displayName";
+NSString *const kCASnapshotIgnoreRootAccessibilityFilters = @"ignoreAccessibility";
+NSString *const kCASnapshotLayerId = @"layerId";
+NSString *const kCASnapshotMode = @"mode";
+NSString *const kCASnapshotModeLayer = @"modeLayer";
+NSString *const kCASnapshotReuseBackdropContents = @"reuseBackdrops";
+NSString *const kCASnapshotTransform = @"transform";
+NSString *const kCAContextIgnoresHitTest = @"ignoresHitTest";
+NSString *const kCAContextDisplayName = @"displayName";
+NSString *const kCAPackageTypeArchive = @"com.apple.coreanimation-archive";
 NSString *const kCAContentsScalingRepeat = @"repeat";
-NSString *const kCAContentsFormatRGBA8ColorRGBA8LinearGlyphMask = @"RGBA8ColorRGBA8LinearGlyphMask";
+NSString *const kCAContentsFormatRGBA8ColorRGBA8LinearGlyphMask = @"RGBA8ColorRGBA8Mask";
 
-// Private layer class (Podcasts). GUESS: a plain CALayer subclass that adds nothing of its own.
+// Private layer class (Podcasts). It exists on the real Mac (probe 12, darling_probe12.txt line 21); its superclass
+// and interface were not observed, so GUESS: a plain CALayer subclass that adds nothing of its own.
 @interface CAPortalLayer : CALayer
 @end
 
