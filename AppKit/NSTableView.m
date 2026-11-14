@@ -38,6 +38,11 @@ NSString *const NSTableViewColumnDidResizeNotification =
 
 NSString *const NSTableViewRowViewKey = @"NSTableViewRowViewKey";
 
+// Private: AppKit exports this name but no public header declares it. GUESS: a notification name, with the
+// value following the public notifications above (the name itself).
+extern NSString *const NSTableViewCurrentRowSizeStyleDidChange;
+NSString *const NSTableViewCurrentRowSizeStyleDidChange = @"NSTableViewCurrentRowSizeStyleDidChange";
+
 const CGFloat NSTableViewDefaultRowHeight = 16.0f;
 
 @interface NSTableView (NSTableView_notifications)
