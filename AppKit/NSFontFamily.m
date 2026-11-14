@@ -80,7 +80,7 @@ static NSMutableDictionary *sharedByName = nil;
 + (void) buildFontFamilies {
     NSSet *initialFamilyNames = [[NSDisplay currentDisplay] allFontFamilyNames];
     for (NSString *familyName in initialFamilyNames) {
-        [self addFontFamilyWithName: familyName];
+        [self addFontFamilyWithName: familyName]->_installed = YES;
     }
 }
 
@@ -95,6 +95,16 @@ static NSMutableDictionary *sharedByName = nil;
 
         // Pretend to have this family.
         return [self addFontFamilyWithName: name];
+    }
+}
+
++ (NSFontFamily *) installedFontFamilyWithName: (NSString *) name {
+    if (name == nil)
+        return nil;
+    @synchronized([NSFontFamily class]) {
+        [self fontFamilies];
+        NSFontFamily *family = [sharedByName objectForKey: name];
+        return family != nil && family->_installed ? family : nil;
     }
 }
 

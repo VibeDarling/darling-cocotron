@@ -669,7 +669,7 @@ static NSLock *_cacheLock = nil;
         while ([nameComponents count] > 1 && familyName == nil) {
             [nameComponents removeLastObject];
             familyName = [[UIFAppKitClass(NSFontFamily)
-                    fontFamilyWithName:
+                    installedFontFamilyWithName:
                             [nameComponents componentsJoinedByString: blank]]
                     name];
         }
@@ -684,7 +684,8 @@ static NSLock *_cacheLock = nil;
 
 - (NSString *) displayName {
     NSFontTypeface *typeFace = [UIFAppKitClass(NSFontFamily) fontTypefaceWithName: _name];
-    return [typeFace displayName];
+    // A name no family lists (the system font is "San Francisco") has no typeface; nil is not an option for callers.
+    return [typeFace displayName] ?: _name;
 }
 
 - (NSDictionary *) _fontTraitsAsDictionary {
