@@ -45,6 +45,9 @@ CA_EXPORT CATransform3D CATransform3DRotate(CATransform3D t, CGFloat angle, CGFl
 // m11, m12, m21, m22 and the translation to m41, m42, leaving z untouched.
 CA_EXPORT CATransform3D CATransform3DMakeAffineTransform(CGAffineTransform m);
 
+// The 2D part of t: m11, m12, m21, m22 and m41, m42. Components that have no 2D equivalent are ignored.
+CA_EXPORT CGAffineTransform CATransform3DGetAffineTransform(CATransform3D t);
+
 #ifdef __OBJC__
 #import <Foundation/NSValue.h>
 
