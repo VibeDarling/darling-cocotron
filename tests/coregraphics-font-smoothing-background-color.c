@@ -3,7 +3,9 @@
 #include <stdio.h>
 
 // CGContextSetFontSmoothingBackgroundColor is private (Calendar imports it). The prototype is the one Mozilla's
-// open-source CGTextDrawing.h calls through dlsym. The call is accepted and changes nothing the public API can
+// gfx/2d/CGTextDrawing.h:21 (gecko-dev revision 137940f2af78) calls through dlsym; a real Mac returns for a color and
+// for NULL (probe 11 section 5, darling_probe11.txt lines 68-70). A NULL context is not observed on the Mac and is
+// tolerated here (GUESS); it is tested so a body that reads the context fails. The call is accepted and changes nothing the public API can
 // observe, so the test checks that it is exported, that it returns for a color and for NULL, and that the font
 // state a public getter reports is the same before and after.
 int main(void) {
@@ -22,6 +24,10 @@ int main(void) {
     setBackground(context, red);
     setBackground(context, NULL);
     CGColorRelease(red);
+    setBackground(NULL, NULL);
+    CGColorRef blue = CGColorCreateGenericRGB(0, 0, 1, 1);
+    setBackground(NULL, blue);
+    CGColorRelease(blue);
 
     int failures = 0;
     if (!CGContextGetShouldSmoothFonts(context)) { printf("FAIL: should-smooth-fonts changed\n"); failures++; }
