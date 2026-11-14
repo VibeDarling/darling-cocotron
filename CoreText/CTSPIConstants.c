@@ -43,3 +43,11 @@ const CFStringRef kCTFontValidationResults = CFSTR("results"); // probe1:51
 
 // A font width, a CGFloat like the other kCTFontWidth values (WebKit CoreTextSPI.h).
 const CGFloat kCTFontWidthExtraCompressed = -0.4; // probe1:54 (-0.40000000000000002)
+
+// The font collection names Font Book imports from CoreText. Cocotron declares them nowhere (its AppKit has only a
+// stub NSFontCollection class), so they live here, where the import binds. Observed on a real Mac (probe1:64-68).
+const CFStringRef NSFontCollectionAllFonts = CFSTR("com.apple.AllFonts");
+const CFStringRef NSFontCollectionUser = CFSTR("com.apple.UserFonts");
+const CFStringRef NSFontCollectionFavorites = CFSTR("com.apple.Favorites");
+const CFStringRef NSFontCollectionRecentlyUsed = CFSTR("com.apple.Recents");
+const CFStringRef NSFontCollectionDidChangeNotification = CFSTR("NSFontCollectionDidChange");
