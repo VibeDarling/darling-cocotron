@@ -112,6 +112,7 @@ set(CoreGraphics_sources
 	CGSServerSPI.m
 	CGPrivateFailLoud.c
 	CGBitmapAlignment.c
+	CGContextCompositeOperation.m
 	CGEvent.m
 	CGEventSource.m
 	CGEventTap.m
