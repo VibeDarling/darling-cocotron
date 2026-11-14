@@ -69,6 +69,9 @@ extern CGError CGSSetWindowLevel(CGSConnectionID cid, CGSWindowID wid, CGWindowL
 extern CGError CGSSetWindowTransformAtPlacement(CGSConnectionID cid, CGSWindowID wid, int32_t placement, int32_t reserved, CGAffineTransform transform);
 extern CGError CGSGetWindowTransformAtPlacement(CGSConnectionID cid, CGSWindowID wid, int32_t placement, void *reserved, CGAffineTransform *outTransform);
 
+// Private; accepted and not applied, see CGContext.m.
+extern void CGContextSetFontSmoothingBackgroundColor(CGContextRef context, CGColorRef color);
+
 // Queried window server state; 0 means the server is running normally.
 extern int CGSServerOperationState(int state);
 
