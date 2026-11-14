@@ -904,20 +904,7 @@ static void _hookXcodeDevTools(void)
         }
 
         NSArray *procArgs = [[NSProcessInfo processInfo] arguments];
-        if ([procArgs count] > 1) {
-            for (NSUInteger i = 1; i < [procArgs count]; i++) {
-                NSString *argument = [procArgs objectAtIndex: i];
-                if ([argument length] > 0 && ![argument hasPrefix: @"-"])
-                    [openFiles addObject: argument];
-            }
-        } else {
-            // argv[0] is the executable; anything starting with "-" is a switch, not a document.
-            for (NSUInteger i = 1; i < [arguments count]; i++) {
-                NSString *argument = [arguments objectAtIndex: i];
-                if ([argument length] > 0 && ![argument hasPrefix: @"-"])
-                    [openFiles addObject: argument];
-            }
-        }
+        [openFiles addObjectsFromArray: NSApplicationDocumentsInArguments([procArgs count] > 1 ? procArgs : arguments)];
     }
 
     if ([openFiles count] == 0) {

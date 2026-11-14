@@ -2,7 +2,8 @@
 // handed. Chess hands over an argv advanced to its last argument together with the original argc, so argv[1]
 // is NULL; reading it crashed the app on launch whenever it was started with any argument.
 // The test re-runs itself with arguments, hands NSApplicationMain that same kind of argv and checks the
-// NSOpen default it leaves behind. Needs a display, like the other AppKit tests.
+// NSOpen default it leaves behind, then clears NSOpen and checks the fallback in -openFiles the same way: the
+// value of -NSBindingDebugLogLevel ("2") is not a document. Needs a display, like the other AppKit tests.
 #import <AppKit/AppKit.h>
 #import <objc/runtime.h>
 #include <spawn.h>
@@ -22,6 +23,23 @@ static void expect(BOOL condition, NSString *message)
     }
 }
 
+static NSMutableArray *openedFiles;
+
+@interface Recorder : NSObject
+@end
+
+@implementation Recorder
+- (BOOL) application: (NSApplication *) sender openFile: (NSString *) filename
+{
+    [openedFiles addObject: filename];
+    return YES;
+}
+- (void) application: (NSApplication *) sender openFiles: (NSArray *) filenames
+{
+    [openedFiles addObjectsFromArray: filenames];
+}
+@end
+
 static BOOL loadNibStub(id self, SEL _cmd, NSString *name, id owner)
 {
     return YES;
@@ -33,6 +51,13 @@ static void runStub(id self, SEL _cmd)
     id nsOpen = [[NSUserDefaults standardUserDefaults] objectForKey: @"NSOpen"];
     expect([nsOpen isEqual: @"/tmp/segv-tc-document.txt"],
            [NSString stringWithFormat: @"NSOpen is %@, expected the one document argument", nsOpen]);
+
+    openedFiles = [NSMutableArray array];
+    [[NSUserDefaults standardUserDefaults] removeObjectForKey: @"NSOpen"];
+    [NSApp setDelegate: [[Recorder alloc] init]];
+    [NSApp performSelector: NSSelectorFromString(@"openFiles")];
+    expect([openedFiles isEqual: @[@"/tmp/segv-tc-document.txt"]],
+           [NSString stringWithFormat: @"-openFiles opened %@, expected the one document argument", openedFiles]);
     printf("PASS\n");
     exit(0);
 }
