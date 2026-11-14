@@ -454,7 +454,7 @@ static Class _fontPanelFactory;
              toHaveTrait: (NSFontTraitMask) addTraits
 {
     NSFontFamily *family =
-            [NSFontFamily fontFamilyWithTypefaceName: [font fontName]];
+            [NSFontFamily fontFamilyForFontName: [font fontName]];
     NSFontTypeface *typeface = [family typefaceWithName: [font fontName]];
     NSFontTraitMask traits = [typeface traits];
 
@@ -486,7 +486,7 @@ static Class _fontPanelFactory;
     }
 
     NSFontFamily *family =
-            [NSFontFamily fontFamilyWithTypefaceName: [font fontName]];
+            [NSFontFamily fontFamilyForFontName: [font fontName]];
     NSFontTypeface *typeface = [family typefaceWithName: [font fontName]];
     NSFontTraitMask traits = [typeface traits];
     NSFontTypeface *newface;
