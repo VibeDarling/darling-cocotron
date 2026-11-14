@@ -111,6 +111,7 @@ set(CoreGraphics_sources
 	CGSScreen.m
 	CGSServerSPI.m
 	CGSSpaceSPI.c
+	CGBitmapContextSPI.c
 	CGEvent.m
 	CGEventSource.m
 	CGEventTap.m
