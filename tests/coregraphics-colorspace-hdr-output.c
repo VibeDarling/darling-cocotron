@@ -55,6 +55,8 @@ int main(void) {
     if (hlg == NULL || *hlg == NULL || CFEqual(*hlg, CFSTR("kCGColorSpaceITUR_2100_HLG")) == 0) {
         printf("FAIL: kCGColorSpaceITUR_2100_HLG is exported with the observed value\n"); failures++;
     }
+    // GUESS, not observed on the Mac: a NULL space answers false for both and does not crash.
+    if (isHDR(NULL) || supports(NULL)) { printf("FAIL: a NULL space answers false for both (GUESS)\n"); failures++; }
     if (created < 10) { printf("FAIL: only %d spaces could be created\n", created); failures++; }
     if (failures == 0) printf("PASS: CGColorSpaceIsHDR, CGColorSpaceSupportsOutput, kCGColorSpaceITUR_2100_HLG\n");
     return failures ? 1 : 0;
