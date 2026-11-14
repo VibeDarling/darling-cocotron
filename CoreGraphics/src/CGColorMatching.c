@@ -82,6 +82,54 @@ bool CGColorSpaceIsHLGBased(CGColorSpaceRef space) {
     return describeRGBSpace(space, &rgb) && rgb.transfer == TransferHLG;
 }
 
+// Gamut-only primaries of named RGB spaces that Onyx2D can create but whose transfer functions the conversion
+// code above does not model. They come from the published definitions: Adobe RGB (1998), DCI-P3 (the same
+// primaries as Display P3), ITU-R BT.709 (the sRGB primaries), ITU-R BT.2020 and ROMM RGB (ISO 22028-2).
+static const Primaries kPrimariesAdobeRGB = {{0.640, 0.330}, {0.210, 0.710}, {0.150, 0.060}};
+static const Primaries kPrimariesROMMRGB = {{0.7347, 0.2653}, {0.1596, 0.8404}, {0.0366, 0.0001}};
+// The 1953 NTSC primaries, the reference gamut of CGColorSpaceIsWideGamutRGB.
+static const Primaries kPrimariesNTSC1953 = {{0.670, 0.330}, {0.210, 0.710}, {0.140, 0.080}};
+
+static const Primaries *gamutOnlyPrimaries(CFStringRef name) {
+    static const struct {
+        const CFStringRef *name;
+        const Primaries *primaries;
+    } table[] = {
+        {&kCGColorSpaceAdobeRGB1998, &kPrimariesAdobeRGB},
+        {&kCGColorSpaceDCIP3, &kPrimariesDisplayP3},
+        {&kCGColorSpaceITUR_709, &kPrimariesSRGB},
+        {&kCGColorSpaceITUR_2020, &kPrimariesBT2020},
+        {&kCGColorSpaceExtendedLinearITUR_2020, &kPrimariesBT2020},
+        {&kCGColorSpaceROMMRGB, &kPrimariesROMMRGB},
+    };
+    for (size_t i = 0; i < sizeof(table) / sizeof(table[0]); i++) {
+        if (CFEqual(name, *table[i].name))
+            return table[i].primaries;
+    }
+    return NULL;
+}
+
+static double gamutArea(const Primaries *p) {
+    return fabs(p->red.x * (p->green.y - p->blue.y) + p->green.x * (p->blue.y - p->red.y) +
+                p->blue.x * (p->red.y - p->green.y)) / 2;
+}
+
+// Public (macOS 10.12): "true if the color space is greater than 85% of the NTSC gamut". GUESS: the size of a
+// gamut is read as the area of its primaries' triangle in CIE 1931 xy, relative to the NTSC 1953 triangle (the
+// usual "percent of NTSC" figure; sRGB is 71%, Display P3 96%, Adobe RGB 95%). A space whose primaries are
+// not known here (generic RGB, non-RGB models, NULL) is not wide gamut. NEEDS-REAL-MAC for spaces near 85%.
+bool CGColorSpaceIsWideGamutRGB(CGColorSpaceRef space) {
+    RGBSpace rgb;
+    const Primaries *primaries = NULL;
+    if (describeRGBSpace(space, &rgb)) {
+        primaries = rgb.primaries;
+    } else if (space != NULL && CGColorSpaceGetModel(space) == kCGColorSpaceModelRGB) {
+        CFStringRef name = CGColorSpaceGetName(space);
+        primaries = name != NULL ? gamutOnlyPrimaries(name) : NULL;
+    }
+    return primaries != NULL && gamutArea(primaries) > 0.85 * gamutArea(&kPrimariesNTSC1953);
+}
+
 static double srgbToLinear(double v) {
     double a = fabs(v);
     double linear = a <= 0.04045 ? a / 12.92 : pow((a + 0.055) / 1.055, 2.4);
