@@ -701,6 +701,15 @@ static NSColor *systemCatalogColor(NSColorName name, NSColor *fallback) {
                                colorName: @"selectedContentBackgroundColor"];
 }
 
+/* GUESS / NEEDS-REAL-MAC: private class method sent by Mac Catalyst clients
+   (Stocks). No public header or documentation describes it, so the meaning
+   and the exact color are unknown. Answered with the public color whose
+   documented role is closest to a tint for selected content: the background
+   of selected content in a key view. Not declared in any installed header. */
++ (NSColor *) _selectionMaterialTintColor {
+    return [NSColor selectedContentBackgroundColor];
+}
+
 + (NSColor *) unemphasizedSelectedContentBackgroundColor {
     return [NSColor colorWithCatalogName: @"System"
                                colorName: @"unemphasizedSelectedContentBackgroundColor"];
