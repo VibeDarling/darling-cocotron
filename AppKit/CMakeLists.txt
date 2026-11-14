@@ -253,6 +253,7 @@ set(AppKit_sources
 	NSTextView.subproj/NSSubTextStorage.m
 	NSTextView.subproj/NSLayoutManager+NSTextViewSupport.m
 	NSTextSystemConstants.m
+	NSAppConstantsBatch6.m
 	NSTextView.subproj/NSSecureTextView.m
 
 	NSTableColumn.m
