@@ -154,6 +154,13 @@ static id implicitTransactionDidBeginHandler;
 + (void) setDisableRunLoopObserverCommits: (BOOL) value {
 }
 
+// Private, sent to the class by Mac Catalyst frameworks and not documented. The
+// name asks for the default of the flag above for transactions to come (GUESS:
+// the argument is a BOOL). That flag has no effect here, so neither does its
+// default: the value is accepted and ignored.
++ (void) setDefaultDisableRunLoopObserverCommits: (BOOL) value {
+}
+
 + (void) flush {
 }
 
