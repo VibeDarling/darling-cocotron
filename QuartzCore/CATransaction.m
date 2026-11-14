@@ -115,6 +115,52 @@ static CATransactionGroup *createImplicitTransactionGroupIfNeeded() {
     [transactionStack() removeLastObject];
 }
 
+// Private, required by Mac Catalyst frameworks and not documented. The name
+// asks for the state of the current transaction. Cocotron's transaction state
+// is its CATransactionGroup, so this answers the innermost open group, or nil
+// when no transaction is open. It never opens an implicit transaction, unlike
+// reading a transaction property. The result is not retained: a caller that
+// keeps it past +commit holds a freed object.
++ (id) currentState {
+    return currentTransactionGroup();
+}
+
+// Private, sent to the class by Mac Catalyst frameworks and not documented. The
+// name asks for a handler to run when an implicit transaction begins. The
+// block's signature is not known (GUESS), and calling a block with the wrong
+// arguments could corrupt state, so the block is kept (a new one replaces the
+// old one, nil clears it) and deliberately never called, even though Cocotron
+// does have implicit transactions (createImplicitTransactionGroupIfNeeded).
+// Work that Catalyst schedules from this handler never runs. Transactions
+// behave exactly as before.
+static id implicitTransactionDidBeginHandler;
+
++ (void) setImplicitTransactionDidBeginHandler: (id) handler {
+    if (handler != nil)
+        NSLog(@"CATransaction setImplicitTransactionDidBeginHandler: handler stored, never called");
+
+    @synchronized([CATransaction class]) {
+        id previous = implicitTransactionDidBeginHandler;
+        implicitTransactionDidBeginHandler = [handler copy];
+        [previous release];
+    }
+}
+
+// Private, sent to the class by Mac Catalyst frameworks and not documented. The
+// name asks to stop a run loop observer from committing transactions (GUESS: the
+// argument is a BOOL, YES disables). Nothing in Cocotron has run loop observer
+// commits (an implicit transaction is committed from a run loop perform), so the
+// value is accepted and ignored.
++ (void) setDisableRunLoopObserverCommits: (BOOL) value {
+}
+
+// Private, sent to the class by Mac Catalyst frameworks and not documented. The
+// name asks for the default of the flag above for transactions to come (GUESS:
+// the argument is a BOOL). That flag has no effect here, so neither does its
+// default: the value is accepted and ignored.
++ (void) setDefaultDisableRunLoopObserverCommits: (BOOL) value {
+}
+
 + (void) flush {
 }
 
