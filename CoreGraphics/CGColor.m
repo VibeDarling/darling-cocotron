@@ -21,6 +21,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 #import <Onyx2D/O2Color.h>
 #import <Onyx2D/O2ColorSpace.h>
 
+// Public. As for CGFont, the type ID is the Onyx2D class. CoreFoundation asks an Objective-C object for its type
+// through -_cfTypeID (as CGEventObjC.m and CTGlyphInfo.m do), so the instances answer with the same ID.
+CFTypeID CGColorGetTypeID(void) {
+    return (CFTypeID)[O2Color self];
+}
+
+@implementation O2Color (CFTypeID)
+- (CFTypeID) _cfTypeID {
+    return CGColorGetTypeID();
+}
+@end
+
 CGColorRef CGColorRetain(CGColorRef self) {
     return (CGColorRef)O2ColorRetain((O2ColorRef)self);
 }
