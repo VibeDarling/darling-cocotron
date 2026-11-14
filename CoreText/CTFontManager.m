@@ -3,6 +3,8 @@
 #import <Foundation/NSArray.h>
 #import <Foundation/NSData.h>
 #import <Foundation/NSURL.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 const CFStringRef kCTFontManagerRegisteredFontsChangedNotification = CFSTR("CTFontManagerFontChangedNotification");
 
@@ -69,4 +71,36 @@ bool CTFontManagerRegisterFontsForURL(CFURLRef fontURL, CTFontManagerScope scope
 {
     printf("STUB %s\n", __PRETTY_FUNCTION__);
     return false;
+}
+
+// Four documented functions (Apple's CoreText documentation gives the prototypes and the meaning, macOS 10.6 and
+// 10.15) that Font Book imports. Cocotron has no font registry of its own to answer them from: registration here
+// is a stub, so an answer would be invented and would turn wrong the day registration is real. Each prints its
+// name and aborts until a registry exists.
+static void notImplemented(const char *name)
+{
+    fprintf(stderr, "CoreText: %s is not implemented\n", name);
+    abort();
+}
+
+bool CTFontManagerIsSupportedFont(CFURLRef fontURL)
+{
+    notImplemented(__func__);
+    return false;
+}
+
+CTFontManagerScope CTFontManagerGetScopeForURL(CFURLRef fontURL)
+{
+    notImplemented(__func__);
+    return kCTFontManagerScopeNone;
+}
+
+void CTFontManagerEnableFontDescriptors(CFArrayRef descriptors, bool enable)
+{
+    notImplemented(__func__);
+}
+
+void CTFontManagerUnregisterFontURLs(CFArrayRef fontURLs, CTFontManagerScope scope, bool (^registrationHandler)(CFArrayRef errors, bool done))
+{
+    notImplemented(__func__);
 }
