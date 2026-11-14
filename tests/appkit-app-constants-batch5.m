@@ -1,8 +1,8 @@
 // Names the dyld collect-missing sweep found Mac Catalyst apps binding to AppKit: NSAccessibilityOpenAction and
 // NSAccessibilityDateTimeComponentsAttribute (Calendar), NSApplicationDidChangeOcclusionStateNotification and
 // NSImageHintSymbolFont (App Store), NSSharingServiceParametersDefaultRecipientsKey (Calendar). dyld stops an app whose
-// AppKit lacks one, so each must be an exported symbol of the process holding a non-empty string, and they must differ from
-// each other and from the constants next to them. The string values are a GUESS (the names themselves).
+// AppKit lacks one, so each must be an exported string symbol of the process holding the string a real Mac holds
+// (mac-probe darling_probe_a1.txt, macOS 26.1), which the test pins literally.
 #import <AppKit/AppKit.h>
 #include <dlfcn.h>
 #include <stdlib.h>
@@ -16,35 +16,29 @@ static void expect(BOOL condition, NSString *message)
     }
 }
 
-static NSString *constant(const char *name)
-{
-    NSString *const *symbol = (NSString *const *)dlsym(RTLD_DEFAULT, name);
-    expect(symbol != NULL, [NSString stringWithFormat:@"%s is exported", name]);
-    NSString *value = *symbol;
-    expect([value isKindOfClass:[NSString class]] && [value length] > 0, [NSString stringWithFormat:@"%s holds a string", name]);
-    return value;
-}
-
 int main(void)
 {
     @autoreleasepool
     {
-        NSString *open = constant("NSAccessibilityOpenAction");
-        NSString *dateTime = constant("NSAccessibilityDateTimeComponentsAttribute");
-        NSString *occlusion = constant("NSApplicationDidChangeOcclusionStateNotification");
-        NSString *symbolFont = constant("NSImageHintSymbolFont");
-        NSString *recipients = constant("NSSharingServiceParametersDefaultRecipientsKey");
-
-        NSSet *all = [NSSet setWithObjects:open, dateTime, occlusion, symbolFont, recipients, nil];
-        expect([all count] == 5, @"the five names are distinct");
-        expect(![open isEqual:NSAccessibilityPressAction] && ![open isEqual:NSAccessibilityShowMenuAction], @"open differs from the other actions");
-        expect(![occlusion isEqual:NSApplicationDidBecomeActiveNotification] &&
-               ![occlusion isEqual:NSWindowDidChangeOcclusionStateNotification], @"the application occlusion notification differs from its siblings");
-        expect(![symbolFont isEqual:NSImageHintSymbolScale], @"symbol font differs from symbol scale");
-
+        static const struct { const char *name; const char *value; } expected[] = {
+            { "NSAccessibilityOpenAction", "AXOpen" },
+            { "NSAccessibilityDateTimeComponentsAttribute", "AXDateTimeComponents" },
+            { "NSApplicationDidChangeOcclusionStateNotification", "NSApplicationDidChangeOcclusionStateNotification" },
+            { "NSImageHintSymbolFont", "NSImageHintSymbolFont" },
+            { "NSSharingServiceParametersDefaultRecipientsKey", "NSSharingServiceParametersDefaultRecipientsKey" },
+        };
+        for (unsigned i = 0; i < sizeof expected / sizeof *expected; i++)
+        {
+            NSString *const *symbol = (NSString *const *)dlsym(RTLD_DEFAULT, expected[i].name);
+            expect(symbol != NULL, [NSString stringWithFormat:@"%s is exported", expected[i].name]);
+            NSString *want = [NSString stringWithUTF8String:expected[i].value];
+            expect([*symbol isKindOfClass:[NSString class]] && [*symbol isEqualToString:want],
+                   [NSString stringWithFormat:@"%s is \"%@\", got \"%@\"", expected[i].name, want, *symbol]);
+        }
         // the header declarations are the exported objects
-        expect([NSApplicationDidChangeOcclusionStateNotification isEqual:occlusion], @"notification header declaration");
-        expect([NSAccessibilityOpenAction isEqual:open], @"open action header declaration");
+        expect([NSApplicationDidChangeOcclusionStateNotification isEqualToString:@"NSApplicationDidChangeOcclusionStateNotification"],
+               @"notification header declaration");
+        expect([NSAccessibilityOpenAction isEqualToString:@"AXOpen"], @"open action header declaration");
         NSLog(@"appkit-app-constants-batch5: ok");
     }
     return 0;

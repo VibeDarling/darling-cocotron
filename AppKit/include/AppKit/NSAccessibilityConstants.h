@@ -301,7 +301,7 @@ APPKIT_EXPORT NSString *const NSAccessibilityRaiseAction;
 APPKIT_EXPORT NSAccessibilityActionName const NSAccessibilityShowAlternateUIAction;
 APPKIT_EXPORT NSAccessibilityActionName const NSAccessibilityShowDefaultUIAction;
 APPKIT_EXPORT NSString *const NSAccessibilityShowMenuAction;
-// Private: not in the public documentation (Calendar binds both; type and values are GUESS).
+// Private: not in the public documentation (Calendar binds both; the type is a GUESS, the values are observed).
 APPKIT_EXPORT NSString *const NSAccessibilityOpenAction;
 APPKIT_EXPORT NSString *const NSAccessibilityDateTimeComponentsAttribute;
 

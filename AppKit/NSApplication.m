@@ -69,7 +69,7 @@ const NSNotificationName NSApplicationWillBecomeActiveNotification =
         @"NSApplicationWillBecomeActiveNotification";
 const NSNotificationName NSApplicationDidBecomeActiveNotification =
         @"NSApplicationDidBecomeActiveNotification";
-// Public (NSApplication.h, macOS 10.9, documented without a value); value GUESS: the name, as its siblings.
+// Public (NSApplication.h, macOS 10.9). Value observed on a real Mac (probe a1 line 30): the name, as its siblings.
 const NSNotificationName NSApplicationDidChangeOcclusionStateNotification =
         @"NSApplicationDidChangeOcclusionStateNotification";
 const NSNotificationName NSApplicationWillResignActiveNotification =
