@@ -13,6 +13,8 @@ typedef struct {
     const char *latRef; unsigned lat[3];
     const char *lonRef; unsigned lon[3];
     unsigned altitude;
+    int latCount;          // rationals in the Latitude tag, 0 for the usual 3 (a fourth one is 0/1)
+    int zeroSecondsDenominator; // the third Latitude rational is n/0
 } Sample;
 
 static size_t put(unsigned char *out, size_t at, unsigned long value, int bytes) {
@@ -26,8 +28,11 @@ static size_t entry(unsigned char *out, size_t at, int tag, int type, int count,
     return put(out, at, value, 4);
 }
 
-static size_t rationals(unsigned char *out, size_t at, const unsigned v[3]) {
-    for (int i = 0; i < 3; i++) { at = put(out, at, v[i], 4); at = put(out, at, 1, 4); }
+static size_t rationals(unsigned char *out, size_t at, const unsigned v[3], int count, int zeroThird) {
+    for (int i = 0; i < count; i++) {
+        at = put(out, at, i < 3 ? v[i] : 0, 4);
+        at = put(out, at, (zeroThird && i == 2) ? 0 : 1, 4);
+    }
     return at;
 }
 
@@ -36,19 +41,20 @@ static size_t rationals(unsigned char *out, size_t at, const unsigned v[3]) {
 // (Altitude, one rational). Returns its length.
 static size_t makeApp1(const Sample *s, unsigned char *out) {
     unsigned char *tiff = out + 10;
+    int latCount = s->latCount ? s->latCount : 3;
     size_t at = 0;
     at = put(tiff, at, 0x4d4d, 2); at = put(tiff, at, 42, 2); at = put(tiff, at, 8, 4);
     at = put(tiff, at, 1, 2); at = entry(tiff, at, 0x8825, 4, 1, 26); at = put(tiff, at, 0, 4);
     at = put(tiff, at, 6, 2);
     at = entry(tiff, at, 1, 2, 2, (unsigned long)s->latRef[0] << 24);
-    at = entry(tiff, at, 2, 5, 3, 104);
+    at = entry(tiff, at, 2, 5, latCount, 104);
     at = entry(tiff, at, 3, 2, 2, (unsigned long)s->lonRef[0] << 24);
-    at = entry(tiff, at, 4, 5, 3, 128);
+    at = entry(tiff, at, 4, 5, 3, 104 + 8 * latCount);
     at = entry(tiff, at, 5, 1, 1, 0);
-    at = entry(tiff, at, 6, 5, 1, 152);
+    at = entry(tiff, at, 6, 5, 1, 104 + 8 * latCount + 24);
     at = put(tiff, at, 0, 4);
-    at = rationals(tiff, at, s->lat);
-    at = rationals(tiff, at, s->lon);
+    at = rationals(tiff, at, s->lat, latCount, s->zeroSecondsDenominator);
+    at = rationals(tiff, at, s->lon, 3, 0);
     at = put(tiff, at, s->altitude, 4); at = put(tiff, at, 1, 4);
     size_t length = 2 + 6 + at;
     put(out, 0, 0xffe1, 2); put(out, 2, length, 2);
@@ -135,6 +141,22 @@ int main(void) {
     EXPECT(isDoubleNear(at(gps, "Longitude"), 122.26), "Longitude is 122.26, not negative");
     EXPECT(isString(at(gps, "LongitudeRef"), "W"), "LongitudeRef is W");
     EXPECT(isDoubleNear(at(gps, "Altitude"), 3), "Altitude is 3");
+    CFRelease(properties);
+
+    // A tag the decoder cannot turn into a number is dropped, not given as infinity or a guess: a zero denominator (here in
+    // the seconds, which drops the whole Latitude; Longitude and Altitude stay) and more than three rationals. Not a probe
+    // result: the choice is ours (the Mac's behaviour for such a file was not probed).
+    Sample zero = { "N", { 37, 30, 0 }, "E", { 122, 15, 0 }, 100, 0, 1 };
+    gps = gpsOf(plain, &zero, &properties);
+    EXPECT(gps != NULL, "the {GPS} dictionary of the zero denominator file exists");
+    EXPECT(at(gps, "Latitude") == NULL, "a zero denominator drops Latitude");
+    EXPECT(isDoubleNear(at(gps, "Longitude"), 122.25) && isDoubleNear(at(gps, "Altitude"), 100), "the other tags stay");
+    CFRelease(properties);
+    Sample four = { "N", { 37, 30, 0 }, "E", { 122, 15, 0 }, 100, 4, 0 };
+    gps = gpsOf(plain, &four, &properties);
+    EXPECT(gps != NULL, "the {GPS} dictionary of the four-rational file exists");
+    EXPECT(at(gps, "Latitude") == NULL, "four rationals drop Latitude");
+    EXPECT(isDoubleNear(at(gps, "Longitude"), 122.25) && isDoubleNear(at(gps, "Altitude"), 100), "the other tags stay with four latitude rationals");
     CFRelease(properties);
     printf("PASS: JPEG GPS dictionary keys and values\n");
     return 0;

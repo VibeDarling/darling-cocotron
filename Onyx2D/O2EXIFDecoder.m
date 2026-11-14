@@ -370,7 +370,9 @@ static unsigned long _getLong(const unsigned char *data, size_t offset,
 // one double (second probe output, macOS 26.1: lines 12-20 for values written through the destination, lines 74-79 for a file
 // whose raw tags 37/1 30/1 0/1 and 122/1 15/1 0/1 read back as 37.5 and 122.25): degrees plus minutes/60 plus seconds/3600,
 // never negative, the sign living in the Ref string (lines 37-52: 33.8 with Ref "S" stays 33.8). Returns nil for a count that is not
-// 1 to 3 or a zero denominator, so the tag is dropped instead of becoming infinity.
+// 1 to 3 or a zero denominator, so the tag is dropped instead of becoming infinity. Choices the probe does not cover: a zero
+// denominator in any component drops the whole tag (even when only the seconds are n/0), minutes or seconds of 60 or more are
+// summed unchecked, and a nonstandard SRATIONAL tag (the EXIF GPS tags are RATIONAL) still comes back as an array.
 static NSNumber *_gpsDecimal(const unsigned char *rawValue, long count,
                              bool bigendian)
 {
