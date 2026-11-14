@@ -120,7 +120,6 @@ set(AppKit_sources
 	NSSecureTextField.m
 	NSScreen.m
 	NSPrintOperation.m
-	NSTextList.m
 	NSComboBoxWindow.m
 	NSSlider.m
 	NSTableHeaderView.m
@@ -160,14 +159,11 @@ set(AppKit_sources
 	nib.subproj/NSNibAuxiliaryActionConnector.m
 	nib.subproj/NSNibExternalObjectPlaceholder.m
 	nib.subproj/NSIBHelpConnector.m
-	nib.subproj/UINibCoding.m
 
 	NSTextFieldCell.m
 	NSFormCell.m
 	NSStepperCell.m
-	NSParagraphStyle.m
 	NSDatePicker.m
-	NSGlyphGenerator.m
 
 	CoreData_/_NSManagedProxy.m
 	CoreData_/NSPersistentDocument.m
@@ -184,16 +180,13 @@ set(AppKit_sources
 	NSForm.m
 	NSSheetContext.m
 
-	NSTextTable/NSTextTableBlock.m
-	NSTextTable/NSTextTable.m
-	NSTextTable/NSTextBlock.m
 
-	NSMutableParagraphStyle.m
 	NSBrowser.m
 	NSToolTipWindow.m
 	NSTitlebarAccessoryViewController.m
 	NSScrollEdgeEffectStyle.m
 	NSImageHintSymbolScale.m
+	NSAppConstantsBatch6.m
 	NSPasteboard.m
 	NSSearchFieldCell.m
 	NSOutlineView.m
@@ -253,22 +246,15 @@ set(AppKit_sources
 	NSViewController.m
 
 	NSTextView.subproj/NSTextView.m
-	NSTextView.subproj/NSBidiHelper.m
-	NSTextView.subproj/NSLayoutManager.m
 	NSTextView.subproj/NSTextViewSharedData.m
-	NSTextView.subproj/NSTextStorage.m
-	NSTextView.subproj/NSTextKit2.m
-	NSTextView.subproj/NSTypesetter_concrete.m
-	NSTextView.subproj/NSTextStorage_concrete.m
-	NSTextView.subproj/NSSubTextStorage.m
-	NSTextView.subproj/NSTypesetter.m
+	NSTextView.subproj/NSTextView+NSTextKit2.m
 	NSTextView.subproj/NSRulerMarker+NSTextExtensions.m
-	NSTextView.subproj/NSRangeArray.m
-	NSTextView.subproj/NSTextContainer.m
 	NSTextView.subproj/NSSecureLayoutManager.m
 	NSTextView.subproj/NSUndoTextOperation.m
+	NSTextView.subproj/NSSubTextStorage.m
+	NSTextView.subproj/NSLayoutManager+NSTextViewSupport.m
+	NSTextSystemConstants.m
 	NSTextView.subproj/NSSecureTextView.m
-	NSTextView.subproj/NSTextTab.m
 
 	NSTableColumn.m
 	NSTextField.m
@@ -283,7 +269,6 @@ set(AppKit_sources
 
 	NSButton.m
 	NSPrintPanel.m
-	NSGlyphInfo.m
 	NSWindowController.m
 	NSColorSpace.m
 	DarlingLayout.mm
@@ -295,7 +280,6 @@ set(AppKit_sources
 
 	NSDocumentController.m
 	NSStatusItem.m
-	NSShadow.m
 	NSPathComponentCell.m
 	NSCachedImageRep.m
 	NSWindow-Drag.m
@@ -304,7 +288,6 @@ set(AppKit_sources
 	NSHelpManager.m
 	NSProgressIndicator.m
 	NSFontCollection.m
-	NSFontDescriptor.m
 	NSDisplay.m
 
 	NSOpenGL/NSOpenGLView.m
@@ -316,7 +299,6 @@ set(AppKit_sources
 	NSMenuItemCell.m
 	NSPopUpButtonCell.m
 	NSPredicateEditor.m
-	NSFont.m
 	NSStringDrawing.m
 	NSTokenField.m
 
@@ -402,8 +384,6 @@ set(AppKit_sources
 	NSKeyboardBinding/NSKeyboardBindingManager.m
 	NSKeyboardBinding/NSKeyboardBinding.m
 
-	NSAdaptiveImageGlyph.m
-	NSTextAttachment.m
 
 	NSCollectionView/NSCollectionViewItem.m
 	NSCollectionView/NSCollectionView.m
@@ -434,7 +414,6 @@ set(AppKit_sources
 	NSTouchBar.m
 	NSTreeNode.m
 	NSVisualEffectView.m
-	NSATSTypesetter.m
 	NSOpenGLLayer.m
 	NSCollectionViewLayout.m
 
@@ -466,7 +445,6 @@ set(AppKit_sources
 	NSPressGestureRecognizer.m
 	NSGridView.m
 	NSHaptics.m
-	NSDataAsset.m
 	NSSwitch.m
 	NSTextFinder.m
 	NSScrubber.m
@@ -589,6 +567,10 @@ add_framework(AppKit
 		UniformTypeIdentifiers
 )
 
+# The text classes (NSFont, NSTextStorage, NSLayoutManager and the rest) live in UIFoundation, as on macOS; AppKit
+# re-exports them so clients keep binding them to AppKit. The UIFoundation target is defined in
+# src/private-frameworks/UIFoundation, from the sources in ../UIFoundation.
+reexport(AppKit UIFoundation ${CMAKE_BINARY_DIR}/src/private-frameworks/UIFoundation/UIFoundation)
 reexport(AppKit Foundation ${CMAKE_BINARY_DIR}/src/external/foundation/Foundation)
 reexport(AppKit ApplicationServices ${CMAKE_BINARY_DIR}/src/frameworks/ApplicationServices/ApplicationServices)
 
