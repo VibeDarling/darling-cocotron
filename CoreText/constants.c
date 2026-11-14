@@ -42,3 +42,11 @@ const CFStringRef kCTFontDescriptorMatchingPercentage = CFSTR("kCTFontDescriptor
 const CFStringRef kCTFontDownloadableAttribute = CFSTR("kCTFontDownloadableAttribute");
 const CFStringRef kCTFontDownloadedAttribute = CFSTR("kCTFontDownloadedAttribute");
 const CFStringRef kCTFontOpticalSizeAttribute = CFSTR("kCTFontOpticalSizeAttribute");
+
+// Documented string attribute names (Apple's public CoreText documentation: CFString, macOS 10.5 to 10.12). The
+// documentation gives the names and the type, not the values.
+// GUESS (NEEDS-REAL-MAC): each carries its own name.
+const CFStringRef kCTHorizontalInVerticalFormsAttributeName = CFSTR("kCTHorizontalInVerticalFormsAttributeName");
+const CFStringRef kCTStrokeColorAttributeName = CFSTR("kCTStrokeColorAttributeName");
+const CFStringRef kCTTabColumnTerminatorsAttributeName = CFSTR("kCTTabColumnTerminatorsAttributeName");
+const CFStringRef kCTWritingDirectionAttributeName = CFSTR("kCTWritingDirectionAttributeName");
